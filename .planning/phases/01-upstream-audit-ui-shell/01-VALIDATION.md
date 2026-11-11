@@ -1,9 +1,9 @@
 ---
 phase: "01"
 slug: "upstream-audit-ui-shell"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-12"
 ---
 
@@ -25,28 +25,30 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 - 上游审计任务先核对固定提交、SwiftPM 清单和许可证。工程任务建立共享 scheme 后，代码任务运行相应的 Debug 构建或测试。
 - 01-01-01 的 Empty 主窗重开、01-02-01 的设置与关于入口由执行者在各自首个切片当场实测。进入扩展任务前须有实际窗口结果。
 - 在 G1 最终验收前运行 Debug 测试和 Release 构建。保存退出状态、实际构建设置、产物最低版本、工具链及运行系统版本。
-- 构建及测试耗时由首次执行记录。
+- 本轮清理 1 秒、Debug 构建与 XCTest 6 秒、Release 构建 14 秒。三个命令均退出 0。 [G1 构建记录](01-G1-ACCEPTANCE.md#a31--macos-15-部署目标与-api)
 
 ## Per-Task Verification Map
 
 | 任务 | 计划 | Wave | 需求 | 威胁 | 自动证据 | 人工证据 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 01-01-01 | 01-01 | 1 | BASE-01、BASE-02、BASE-03 | T-01-01 | `git -C .build/phase-01/upstream cat-file -e` 验证固定对象，检查审计 SHA、忽略规则、Debug 产物和原生冒烟记录 | 当场验证 Empty、关闭后同一进程存活、菜单栏重开及唯一主窗 | 待执行 |
-| 01-01-02 | 01-01 | 1 | BASE-02 | T-01-02 | Debug XCTest 并检查日志中三个用例无失败 | 带参数启动，核对两处 Ready 固定数据 | 待执行 |
-| 01-01-03 | 01-01 | 1 | BASE-02 | T-01-02 | Debug 构建和 App 可执行文件检查 | 两处 Ready Run 提示、状态保持、主窗重开和四按钮同排 | 待执行 |
-| 01-02-01 | 01-02 | 2 | BASE-02 | T-01-05 | Debug 构建，核对 App、`PlistBuddy` 读出的版本和构建号、冒烟记录 | 当场验证两个设置入口、导航和独立关于窗口 | 待执行 |
-| 01-02-02 | 01-02 | 2 | BASE-02 | T-01-06 | Debug 构建和 App 可执行文件检查 | 两个 Debug 交互预览的三处长字段省略与全文提示 | 待执行 |
-| 01-03-01 | 01-03 | 3 | BASE-02、BASE-03 | T-01-02、T-01-03、T-01-04 | Debug 测试、Release 构建、两种配置的 `-showBuildSettings -json`、产物的 `xcrun vtool -show-build`、两张主窗 PNG 可读取 | 三种启动、A01 原生几何、主窗浅深图、API 与环境证据 | 待执行 |
-| 01-03-02 | 01-03 | 3 | BASE-01、BASE-02、BASE-03 | T-01-04、T-01-05、T-01-06 | 验收记录非空及六张 PNG 可读取 | 四个界面、菜单栏几何、长字段结果、六图与上游清单复核 | 待执行 |
+| 01-01-01 | 01-01 | 1 | BASE-01、BASE-02、BASE-03 | T-01-01 | `git -C .build/phase-01/upstream cat-file -e` 验证固定对象，检查审计 SHA、忽略规则、Debug 产物和原生冒烟记录 | 当场验证 Empty、关闭后同一进程存活、菜单栏重开及唯一主窗 | 通过 |
+| 01-01-02 | 01-01 | 1 | BASE-02 | T-01-02 | Debug XCTest 并检查日志中三个用例无失败 | 带参数启动，核对两处 Ready 固定数据 | 通过 |
+| 01-01-03 | 01-01 | 1 | BASE-02 | T-01-02 | Debug 构建和 App 可执行文件检查 | 两处 Ready Run 提示、状态保持、主窗重开和四按钮同排 | 通过 |
+| 01-02-01 | 01-02 | 2 | BASE-02 | T-01-05 | Debug 构建，核对 App、`PlistBuddy` 读出的版本和构建号、冒烟记录 | 当场验证两个设置入口、导航和独立关于窗口 | 通过 |
+| 01-02-02 | 01-02 | 2 | BASE-02 | T-01-06 | Debug 构建和 App 可执行文件检查 | 两个 Debug 交互预览的三处长字段省略与全文提示 | 通过 |
+| 01-03-01 | 01-03 | 3 | BASE-02、BASE-03 | T-01-02、T-01-03、T-01-04 | Debug 测试、Release 构建、两种配置的 `-showBuildSettings -json`、产物的 `xcrun vtool -show-build`、两张主窗 PNG 可读取 | 三种启动、A01 原生几何、主窗浅深图、API 与环境证据 | 通过 |
+| 01-03-02 | 01-03 | 3 | BASE-01、BASE-02、BASE-03 | T-01-04、T-01-05、T-01-06 | 验收记录非空及六张 PNG 可读取 | 四个界面、菜单栏几何、长字段结果、六图与上游清单复核 | 自动检查和执行者主要路径通过，用户验收待执行 |
 
 ## Wave 0 Requirements
 
-- [ ] 01-01-01 建立 macOS App target、共享 scheme 和 XCTest target，满足后续构建与启动策略测试的依赖。
-- [ ] 01-01-02 先加入 `FlutterRunletTests/LaunchPresentationTests.swift`，实现启动策略后运行测试命令。
+- [x] 01-01-01 建立 macOS App target、共享 scheme 和 XCTest target，满足后续构建与启动策略测试的依赖。
+- [x] 01-01-02 先加入 `FlutterRunletTests/LaunchPresentationTests.swift`，实现启动策略后运行测试命令。
 
 ## Manual-Only Verifications
 
 按 [UI 契约](01-UI-SPEC.md)验收 A01、A02、D-04 至 D-07，测量外框和面板、实测重开与导航、留存六张脱敏截图。Release 用 `--g1-ready` 复验仍为 Empty。A31 的部署目标与 API 核查继续执行，macOS 15 实机部分按 D-09 记录为未执行。各切片执行者先完成冒烟，01-03-02 集中交付阶段末用户确认的路径与证据。
+
+执行者验证了两处原生提示的回车关闭、主窗和设置的窗口焦点及六个悬停提示。面板外点击、完整 Tab 遍历与禁用动作的键盘复核留给 G1 用户验收。 [本轮 G1 证据](01-G1-ACCEPTANCE.md)
 
 ## 来源覆盖
 
@@ -61,5 +63,13 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 ## Validation Sign-Off
 
 - [x] 计划任务、验证命令和证据逐项对应。
-- [ ] 执行后记录首次测试耗时及证据。
-- [ ] Nyquist 合规状态由执行后的验证流程填写。
+- [x] 执行后记录测试耗时及证据。
+- [x] Nyquist 审计覆盖各任务约定的自动检查，原生交互人工项均已列明。
+
+## Validation Audit 2026-11-11
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
