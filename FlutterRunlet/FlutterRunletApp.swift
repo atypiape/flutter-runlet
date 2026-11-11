@@ -11,9 +11,14 @@ struct FlutterRunletApp: App {
 
     var body: some Scene {
         WindowGroup("FlutterRunlet", id: Self.mainSceneID, for: String.self) { _ in
-            PresentationSummary(presentation: presentation)
-                .frame(minWidth: 480, minHeight: 360)
-                .background(MainWindowIdentity())
+            MainWindowView(
+                presentation: presentation,
+                run: Self.showRunDemo,
+                openSettings: nil,
+                openAbout: nil
+            )
+            .frame(minWidth: 480, minHeight: 400)
+            .background(MainWindowIdentity())
         } defaultValue: {
             Self.mainRoute
         }
@@ -23,7 +28,13 @@ struct FlutterRunletApp: App {
         }
 
         MenuBarExtra {
-            PreviewMenuBarPanel(presentation: presentation)
+            MenuBarPanelView(
+                presentation: presentation,
+                run: Self.showRunDemo,
+                openMainWindow: Self.showMainWindow,
+                openSettings: nil,
+                quit: { NSApp.terminate(nil) }
+            )
         } label: {
             Image(nsImage: makeMenuBarTemplate())
                 .accessibilityLabel("FlutterRunlet")
@@ -39,6 +50,7 @@ struct FlutterRunletApp: App {
         }
 
         if !NSApp.isActive {
+            // A status panel can receive clicks while another app is active.
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = true
             configuration.createsNewApplicationInstance = false
@@ -52,6 +64,15 @@ struct FlutterRunletApp: App {
         }
     }
 
+    private static func showRunDemo() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "演示模式"
+        alert.informativeText = "当前为运行演示。"
+        alert.addButton(withTitle: "关闭提示")
+        alert.runModal()
+    }
+
     private struct MainWindowIdentity: NSViewRepresentable {
         func makeNSView(context: Context) -> NSView {
             WindowMarker()
@@ -63,39 +84,6 @@ struct FlutterRunletApp: App {
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
                 window?.identifier = FlutterRunletApp.mainWindowIdentifier
-            }
-        }
-    }
-
-    private struct PreviewMenuBarPanel: View {
-        @Environment(\.openWindow) private var openWindow
-
-        let presentation: LaunchPresentation
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                PresentationSummary(presentation: presentation)
-                Button("打开主窗口") {
-                    FlutterRunletApp.showMainWindow(openWindow: openWindow)
-                }
-                Button("退出") { NSApp.terminate(nil) }
-            }
-            .padding(16)
-            .frame(width: 404, alignment: .leading)
-        }
-    }
-    private struct PresentationSummary: View {
-        let presentation: LaunchPresentation
-
-        var body: some View {
-            if let selection = presentation.selection {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(selection.project)
-                    Text(selection.configuration)
-                    Text(selection.device)
-                }
-            } else {
-                Text("未选择项目")
             }
         }
     }
