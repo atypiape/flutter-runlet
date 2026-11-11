@@ -16,6 +16,8 @@
 		80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */; };
 		82CD2FF6C07AD6803154D53D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
 		A42F1AB68922F927CF5A5E54 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
+		BC4D97D449AB42DF9A8EC25F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C468FE71AFE64B16AD2909BD /* Assets.xcassets */; };
+		F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,7 +40,9 @@
 		7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlutterRunletTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlutterRunlet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B56210647C13AEC495C006BC /* flutterrunlet-menubar-template@1x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@1x.png"; sourceTree = "<group>"; };
+		C468FE71AFE64B16AD2909BD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MenuBarPanelView.swift; sourceTree = "<group>"; };
+		DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuxiliaryWindows.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +100,8 @@
 				19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */,
 				69E2E0A5310F8BBD3F7FC248 /* MainWindowView.swift */,
 				CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */,
+				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
+				C468FE71AFE64B16AD2909BD /* Assets.xcassets */,
 			);
 			name = FlutterRunlet;
 			path = FlutterRunlet;
@@ -210,6 +216,7 @@
 			files = (
 				5331C6AEA9946F5D853D4C83 /* flutterrunlet-menubar-template@1x.png in Resources */,
 				2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */,
+				BC4D97D449AB42DF9A8EC25F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -224,6 +231,7 @@
 				36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */,
 				4E024139E2EEC87B2A9E0709 /* MainWindowView.swift in Sources */,
 				3879F0059D3D0FC10CA242CB /* MenuBarPanelView.swift in Sources */,
+				F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,15 +258,15 @@
 		1AA6A625FBE7A48E6F5A17AB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet;
 				PRODUCT_NAME = FlutterRunlet;
 				SDKROOT = macosx;
@@ -330,15 +338,15 @@
 		ABA24AE3FFA523B8C27E5D8E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet;
 				PRODUCT_NAME = FlutterRunlet;
 				SDKROOT = macosx;
