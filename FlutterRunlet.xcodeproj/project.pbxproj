@@ -1,0 +1,453 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */; };
+		5331C6AEA9946F5D853D4C83 /* flutterrunlet-menubar-template@1x.png in Resources */ = {isa = PBXBuildFile; fileRef = B56210647C13AEC495C006BC /* flutterrunlet-menubar-template@1x.png */; };
+		6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */; };
+		82CD2FF6C07AD6803154D53D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
+		A42F1AB68922F927CF5A5E54 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		54074D6F7FC3F80A42ECD59E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C27809197AFAB346EDBBEEF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 24AE19C04B1A2F7AD5B9359E;
+			remoteInfo = FlutterRunlet;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@2x.png"; sourceTree = "<group>"; };
+		57BEE8A906CC6442778D4D6F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FlutterRunletApp.swift; sourceTree = "<group>"; };
+		7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlutterRunletTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlutterRunlet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B56210647C13AEC495C006BC /* flutterrunlet-menubar-template@1x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@1x.png"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		18636F6EE6697CB937F50951 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A42F1AB68922F927CF5A5E54 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A695300A25C987440AA0C82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				82CD2FF6C07AD6803154D53D /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = FlutterRunletTests;
+			path = FlutterRunletTests;
+			sourceTree = "<group>";
+		};
+		2B5F8D4EA11589FFBF3A6812 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */,
+				7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		52AAEE196EA722EA0325D33C /* Menu Bar Assets */ = {
+			isa = PBXGroup;
+			children = (
+				B56210647C13AEC495C006BC /* flutterrunlet-menubar-template@1x.png */,
+				02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */,
+			);
+			name = "Menu Bar Assets";
+			path = docs/design/assets;
+			sourceTree = "<group>";
+		};
+		63742A4E44937BE759BB7EAA /* FlutterRunlet */ = {
+			isa = PBXGroup;
+			children = (
+				668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */,
+			);
+			name = FlutterRunlet;
+			path = FlutterRunlet;
+			sourceTree = "<group>";
+		};
+		65CB6F63B615F11752EBA7C6 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				57BEE8A906CC6442778D4D6F /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		74147937F8E081A2DBF61687 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				65CB6F63B615F11752EBA7C6 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A30EFD4670AE6AAE32AE7125 = {
+			isa = PBXGroup;
+			children = (
+				2B5F8D4EA11589FFBF3A6812 /* Products */,
+				74147937F8E081A2DBF61687 /* Frameworks */,
+				63742A4E44937BE759BB7EAA /* FlutterRunlet */,
+				0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */,
+				52AAEE196EA722EA0325D33C /* Menu Bar Assets */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 296C726C6B6E56C4AC721AB4 /* Build configuration list for PBXNativeTarget "FlutterRunlet" */;
+			buildPhases = (
+				BEE11AA581C6E5FAC4303E5C /* Sources */,
+				18636F6EE6697CB937F50951 /* Frameworks */,
+				6880DA9D72F1BB9EEF303936 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FlutterRunlet;
+			productName = FlutterRunlet;
+			productReference = A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A9A28AACD7A0DFE4BEB7EA1F /* FlutterRunletTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 86B57A3EBB31F4024A6F4202 /* Build configuration list for PBXNativeTarget "FlutterRunletTests" */;
+			buildPhases = (
+				F259FAA95EC4CDE1F4F0B98B /* Sources */,
+				1A695300A25C987440AA0C82 /* Frameworks */,
+				046CDDA53CAEB1E1E4352F94 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				13753E6397261C00EF4FD902 /* PBXTargetDependency */,
+			);
+			name = FlutterRunletTests;
+			productName = FlutterRunletTests;
+			productReference = 7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7C27809197AFAB346EDBBEEF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 2710;
+			};
+			buildConfigurationList = C5EC70C48EA175F696238B9A /* Build configuration list for PBXProject "FlutterRunlet" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A30EFD4670AE6AAE32AE7125;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 2B5F8D4EA11589FFBF3A6812 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */,
+				A9A28AACD7A0DFE4BEB7EA1F /* FlutterRunletTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		046CDDA53CAEB1E1E4352F94 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6880DA9D72F1BB9EEF303936 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5331C6AEA9946F5D853D4C83 /* flutterrunlet-menubar-template@1x.png in Resources */,
+				2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BEE11AA581C6E5FAC4303E5C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F259FAA95EC4CDE1F4F0B98B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		13753E6397261C00EF4FD902 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FlutterRunlet;
+			target = 24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */;
+			targetProxy = 54074D6F7FC3F80A42ECD59E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1AA6A625FBE7A48E6F5A17AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet;
+				PRODUCT_NAME = FlutterRunlet;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		9C3AA662C6030C9E1B4C1F94 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		ABA24AE3FFA523B8C27E5D8E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet;
+				PRODUCT_NAME = FlutterRunlet;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		AD689FB7D86721709023872E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B193B6D28BBB14ED3A5089BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunletTests;
+				PRODUCT_NAME = FlutterRunletTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FlutterRunlet.app/Contents/MacOS/FlutterRunlet";
+			};
+			name = Debug;
+		};
+		B2E9086E4D9FA018E25A55B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunletTests;
+				PRODUCT_NAME = FlutterRunletTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FlutterRunlet.app/Contents/MacOS/FlutterRunlet";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		296C726C6B6E56C4AC721AB4 /* Build configuration list for PBXNativeTarget "FlutterRunlet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABA24AE3FFA523B8C27E5D8E /* Release */,
+				1AA6A625FBE7A48E6F5A17AB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		86B57A3EBB31F4024A6F4202 /* Build configuration list for PBXNativeTarget "FlutterRunletTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2E9086E4D9FA018E25A55B5 /* Release */,
+				B193B6D28BBB14ED3A5089BB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C5EC70C48EA175F696238B9A /* Build configuration list for PBXProject "FlutterRunlet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C3AA662C6030C9E1B4C1F94 /* Debug */,
+				AD689FB7D86721709023872E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7C27809197AFAB346EDBBEEF /* Project object */;
+}

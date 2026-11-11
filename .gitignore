@@ -19,3 +19,6 @@ firebase-adminsdk*.json
 *.mobileprovision
 *.jks
 *.keystore
+
+# Phase 01 本地构建、审计与验收记录
+/.build/phase-01/
