@@ -77,9 +77,9 @@ status: complete
 
 ## Task Commits
 
-1. `65d5a7f` 审计上游并接通原生主窗与菜单栏。
-2. `05083c2` 增加 Debug 就绪状态与启动测试。
-3. `1c69840` 完成原生就绪界面与运行演示。
+1. **Task 1: 审计上游并接通原生主窗与菜单栏** - `65d5a7f` (feat)
+2. **Task 2: 增加 Debug 就绪状态与启动测试** - `05083c2` (feat)
+3. **Task 3: 完成原生就绪界面与运行演示** - `1c69840` (feat)
 
 ## Files Created/Modified
 
