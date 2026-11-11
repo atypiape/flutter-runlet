@@ -75,6 +75,7 @@ FlutterRunlet 是一个无需启动 VS Code / Android Studio 的轻量 Flutter �
 
 - IDE：源码编辑、代码导航、断点/变量/调用栈 DAP UI。
 - Build/Sign/Release、包管理、Git、复杂脚本面板、`build_runner` UI、SDK 安装升级或版本下载。
+- 独立的 Doctor 全功能页。
 - 内嵌 WebView DevTools、重新实现 Inspector、无限多设备并行启动、Windows/Linux 版本。
 - 自动更新、遥测、云账号、远程调试或自定义环境变量编辑器（已有配置为准）。
 
