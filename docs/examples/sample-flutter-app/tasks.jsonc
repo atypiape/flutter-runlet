@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // 任务只切换本地的虚构 Firebase 环境标记。
+    {
+      "label": "sample:select-dev",
+      "type": "shell",
+      "command": "/bin/sh",
+      "args": ["${workspaceFolder}/scripts/simulate-firebase-switch.sh", "dev", "--quiet"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+    },
+    {
+      "label": "sample:select-test",
+      "type": "shell",
+      "command": "/bin/sh",
+      "args": ["${workspaceFolder}/scripts/simulate-firebase-switch.sh", "test", "--quiet"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+    },
+    {
+      "label": "sample:select-prod",
+      "type": "shell",
+      "command": "/bin/sh",
+      "args": ["${workspaceFolder}/scripts/simulate-firebase-switch.sh", "prod", "--quiet"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+    },
+  ],
+}

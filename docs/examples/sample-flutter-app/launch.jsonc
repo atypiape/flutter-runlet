@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "sample-flutter-app(dev)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "preLaunchTask": "sample:select-dev",
+      "args": [
+        "--dart-define=APP_ENV=dev",
+        "--dart-define=ENABLE_SAMPLE_FEATURE=true",
+        "--dart-define=USE_MOCK_TRANSPORT=false",
+        "--dart-define=DEMO_BUILD_NUMBER=1001",
+        "--dart-define=SHOW_SAMPLE_INSPECTOR=true",
+      ],
+    },
+    {
+      // 配置名不绑定设备，和 dev 使用相同任务与参数。
+      "name": "sample-flutter-app(physical)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "preLaunchTask": "sample:select-dev",
+      "args": [
+        "--dart-define=APP_ENV=dev",
+        "--dart-define=ENABLE_SAMPLE_FEATURE=true",
+        "--dart-define=USE_MOCK_TRANSPORT=false",
+        "--dart-define=DEMO_BUILD_NUMBER=1001",
+        "--dart-define=SHOW_SAMPLE_INSPECTOR=true",
+      ],
+    },
+    {
+      "name": "sample-flutter-app(test)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "preLaunchTask": "sample:select-test",
+      "toolArgs": [
+        "--dart-define=APP_ENV=test",
+        "--dart-define=ENABLE_SAMPLE_FEATURE=false",
+        "--dart-define=DEMO_BUILD_NUMBER=1001",
+        "--dart-define=SHOW_SAMPLE_INSPECTOR=true",
+      ],
+    },
+    {
+      "name": "sample-flutter-app(prod)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "osx": { "env": { "PATH": "/opt/homebrew/bin:/usr/local/bin:${env:PATH}" } },
+      "preLaunchTask": "sample:select-prod",
+      "postDebugTask": "sample:select-test",
+      "args": [
+        "--dart-define=APP_ENV=prod",
+        "--dart-define=ENABLE_SAMPLE_FEATURE=false",
+        "--dart-define=DEMO_BUILD_NUMBER=1001",
+      ],
+    },
+  ],
+}

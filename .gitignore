@@ -1,0 +1,21 @@
+.DS_Store
+
+# 本地私有审计材料与示例运行产物
+/.private/
+.runlet-fixture/
+
+# 本地环境、Firebase 配置与签名材料
+.env
+.env.*
+!.env.example
+!.env.*.example
+GoogleService-Info.plist
+google-services.json
+firebase-adminsdk*.json
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
