@@ -34,7 +34,7 @@
 		02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@2x.png"; sourceTree = "<group>"; };
 		19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentation.swift; sourceTree = "<group>"; };
 		408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentationTests.swift; sourceTree = "<group>"; };
-		57BEE8A906CC6442778D4D6F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		57BEE8A906CC6442778D4D6F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FlutterRunletApp.swift; sourceTree = "<group>"; };
 		69E2E0A5310F8BBD3F7FC248 /* MainWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlutterRunletTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };

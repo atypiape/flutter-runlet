@@ -39,6 +39,7 @@ struct MainWindowView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("打开项目", systemImage: "folder") {}
                     .disabled(true)
+                    .help("打开项目")
 
                 Button {
                     openSettings?()
