@@ -51,7 +51,7 @@ struct MenuBarPanelView: View {
 }
 
 #if DEBUG
-#Preview("G1 菜单栏长字段", traits: .sizeThatFitsLayout) {
+#Preview("G1 菜单栏长字段", traits: .fixedLayout(width: 404, height: 278)) {
     MenuBarPanelView(
         presentation: .longFieldsPreview,
         run: {},
