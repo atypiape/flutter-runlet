@@ -21,6 +21,7 @@ struct MainWindowView: View {
 
             DebugControls(canRun: presentation.selection != nil, run: run)
             session
+                .layoutPriority(1)
             logs
 
             if !isLogExpanded {
@@ -67,7 +68,11 @@ struct MainWindowView: View {
                     Text("就绪")
                         .fontWeight(.semibold)
                     Text(verbatim: selection.configuration)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(verbatim: selection.device)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("VM Service 未连接")
                         .foregroundStyle(.secondary)
                 } else {
@@ -150,3 +155,14 @@ struct BrowserControls: View {
         .buttonStyle(.bordered)
     }
 }
+
+#if DEBUG
+#Preview("G1 主窗长字段", traits: .fixedLayout(width: 640, height: 580)) {
+    MainWindowView(
+        presentation: .longFieldsPreview,
+        run: {},
+        openSettings: {},
+        openAbout: {}
+    )
+}
+#endif

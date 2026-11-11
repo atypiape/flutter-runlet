@@ -49,3 +49,15 @@ struct MenuBarPanelView: View {
         .frame(width: 404, alignment: .leading)
     }
 }
+
+#if DEBUG
+#Preview("G1 菜单栏长字段", traits: .sizeThatFitsLayout) {
+    MenuBarPanelView(
+        presentation: .longFieldsPreview,
+        run: {},
+        openMainWindow: { _ in },
+        openSettings: {},
+        quit: {}
+    )
+}
+#endif
