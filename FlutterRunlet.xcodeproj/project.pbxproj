@@ -8,8 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */; };
+		36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */; };
 		5331C6AEA9946F5D853D4C83 /* flutterrunlet-menubar-template@1x.png in Resources */ = {isa = PBXBuildFile; fileRef = B56210647C13AEC495C006BC /* flutterrunlet-menubar-template@1x.png */; };
 		6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */; };
+		80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */; };
 		82CD2FF6C07AD6803154D53D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
 		A42F1AB68922F927CF5A5E54 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
 /* End PBXBuildFile section */
@@ -26,6 +28,8 @@
 
 /* Begin PBXFileReference section */
 		02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@2x.png"; sourceTree = "<group>"; };
+		19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentation.swift; sourceTree = "<group>"; };
+		408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentationTests.swift; sourceTree = "<group>"; };
 		57BEE8A906CC6442778D4D6F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FlutterRunletApp.swift; sourceTree = "<group>"; };
 		7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlutterRunletTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -56,6 +60,7 @@
 		0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */ = {
 			isa = PBXGroup;
 			children = (
+				408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */,
 			);
 			name = FlutterRunletTests;
 			path = FlutterRunletTests;
@@ -84,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */,
+				19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */,
 			);
 			name = FlutterRunlet;
 			path = FlutterRunlet;
@@ -209,6 +215,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */,
+				36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,6 +223,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

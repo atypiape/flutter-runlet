@@ -7,9 +7,11 @@ struct FlutterRunletApp: App {
     private static let mainRoute = "main"
     private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("FlutterRunlet.MainWindow")
 
+    private let presentation = LaunchPresentation.resolve(arguments: Array(CommandLine.arguments.dropFirst()))
+
     var body: some Scene {
         WindowGroup("FlutterRunlet", id: Self.mainSceneID, for: String.self) { _ in
-            Text("未选择项目")
+            PresentationSummary(presentation: presentation)
                 .frame(minWidth: 480, minHeight: 360)
                 .background(MainWindowIdentity())
         } defaultValue: {
@@ -21,7 +23,7 @@ struct FlutterRunletApp: App {
         }
 
         MenuBarExtra {
-            EmptyMenuBarPanel()
+            PreviewMenuBarPanel(presentation: presentation)
         } label: {
             Image(nsImage: makeMenuBarTemplate())
                 .accessibilityLabel("FlutterRunlet")
@@ -65,12 +67,14 @@ struct FlutterRunletApp: App {
         }
     }
 
-    private struct EmptyMenuBarPanel: View {
+    private struct PreviewMenuBarPanel: View {
         @Environment(\.openWindow) private var openWindow
+
+        let presentation: LaunchPresentation
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
-                Text("未选择项目")
+                PresentationSummary(presentation: presentation)
                 Button("打开主窗口") {
                     FlutterRunletApp.showMainWindow(openWindow: openWindow)
                 }
@@ -78,6 +82,21 @@ struct FlutterRunletApp: App {
             }
             .padding(16)
             .frame(width: 404, alignment: .leading)
+        }
+    }
+    private struct PresentationSummary: View {
+        let presentation: LaunchPresentation
+
+        var body: some View {
+            if let selection = presentation.selection {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(selection.project)
+                    Text(selection.configuration)
+                    Text(selection.device)
+                }
+            } else {
+                Text("未选择项目")
+            }
         }
     }
 }
