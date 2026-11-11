@@ -26,9 +26,9 @@
   2. 在 macOS 打开主窗口、菜单栏、设置和关于窗口，验证窗口尺寸与原生结构，记录适用截图和偏差。（A01、A02）
   3. 构建验证暂定 macOS 15 部署目标，记录实际 API 可用性和需要的替代路径。（A31）
 
-**Plans**: 0/3 plans executed
+**Plans**: 1/3 plans executed
 **Wave 1**
-- [ ] 01-01-PLAN.md
+- [x] 01-01-PLAN.md
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-02-PLAN.md
@@ -96,7 +96,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
-| 1. 上游审计与原生 UI 骨架 | 0/3 | Planned     | - |
+| 1. 上游审计与原生 UI 骨架 | 1/3 | In Progress | - |
 | 2. 配置和任务执行内核 | 0/TBD | Not started | - |
 | 3. Flutter 调试闭环 | 0/TBD | Not started | - |
 | 4. macOS 界面与双语设置 | 0/TBD | Not started | - |
