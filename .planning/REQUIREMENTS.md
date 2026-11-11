@@ -72,8 +72,44 @@ v0.1 的需求来自 [PRD](../docs/01-PRODUCT.md)、[技术契约](../docs/02-TE
 
 ## Traceability
 
-Phase 路线确认后填入需求归属和当前状态。
+| Requirement | Phase | Status |
+|---|---|---|
+| BASE-01 | Phase 1 | Pending |
+| BASE-02 | Phase 1 | Pending |
+| BASE-03 | Phase 1 | Pending |
+| CONF-01 | Phase 2 | Pending |
+| CONF-02 | Phase 2 | Pending |
+| CONF-03 | Phase 2 | Pending |
+| CONF-04 | Phase 2 | Pending |
+| CONF-05 | Phase 2 | Pending |
+| TASK-01 | Phase 2 | Pending |
+| TASK-02 | Phase 2 | Pending |
+| SAFE-01 | Phase 2 | Pending |
+| SAFE-02 | Phase 2 | Pending |
+| SAFE-03 | Phase 2 | Pending |
+| SAFE-04 | Phase 2 | Pending |
+| RUN-01 | Phase 3 | Pending |
+| RUN-02 | Phase 3 | Pending |
+| RUN-03 | Phase 3 | Pending |
+| RUN-04 | Phase 3 | Pending |
+| RUN-05 | Phase 3 | Pending |
+| RUN-06 | Phase 3 | Pending |
+| UI-01 | Phase 4 | Pending |
+| UI-02 | Phase 4 | Pending |
+| UI-03 | Phase 4 | Pending |
+| UI-04 | Phase 4 | Pending |
+| UI-05 | Phase 4 | Pending |
+| UI-06 | Phase 4 | Pending |
+| REL-01 | Phase 5 | Pending |
+| REL-02 | Phase 5 | Pending |
+| REL-03 | Phase 5 | Pending |
+| REL-04 | Phase 5 | Pending |
+
+**Coverage:**
+- v1 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-11-12*
-*Last updated: 2026-11-12 after initial definition*
+*Last updated: 2026-11-12 after phase mapping*
