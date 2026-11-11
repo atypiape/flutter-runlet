@@ -94,3 +94,7 @@ XCTest 覆盖普通参数、完整 Debug 专用参数和相似参数。通过 `x
 ## D-09 · macOS 15 实机
 
 **未执行。** 当前没有可用的 macOS 15 环境。D-09 的例外限于 Phase 5 的该系统实机复验，适用于 A31、REL-03 和路线中的实机部分。A31 的 15.0 目标构建与 API 核查已在本轮完成，四个界面的运行证据来自 macOS 26.7.1。 [D-08、D-09](01-CONTEXT.md#macos-兼容性证据)
+
+## 代码审查后的复验
+
+提交 `281cafa` 使用当前 SDK 的 Cocoa 框架引用，并给「打开项目」添加显式悬停说明。重新运行同样的 Debug XCTest 与 Release 构建，3 项测试全部通过。两个配置的有效部署目标以及实际 Mach-O 切片仍为 macOS 15.0。修复后的 Debug Ready 原生主窗仍为 640 × 580 pt，已按深色图复核结构与示例内容。实际 Release 携带 `--g1-ready` 仍为 Empty。六张正式截图保留首次原生取证的构建基线。复验命令结果位于 `.build/phase-01/g1-review-recheck.txt`。 [代码审查处置](01-REVIEW-DISPOSITION.md)
