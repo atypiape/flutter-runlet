@@ -75,7 +75,19 @@
   3. 默认浏览器打开当前会话 DevTools 和可用的 Inspector，重新启动后连接更新，并验证 Inspector 的可用路径。（A20）
   4. 公开 dev/test/prod 样例验证前后置顺序和正常停止恢复。日志清空后折叠、展开保持清空并接收新输出。（A13、A30）
 
-**Plans**: TBD
+**Plans**: 0/4 plans executed
+**Wave 1**
+- [ ] 03-01-PLAN.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 03-02-PLAN.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 03-03-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 03-04-PLAN.md
+
 **UI hint**: yes
 
 ### Phase 4: macOS 界面与双语设置
@@ -111,6 +123,6 @@
 |---|---|---|---|
 | 1. 上游审计与原生 UI 骨架 | 4/4 | Complete    | 2026-11-12 |
 | 2. 配置和任务执行内核 | 4/4 | In Progress | - |
-| 3. Flutter 调试闭环 | 0/TBD | Not started | - |
+| 3. Flutter 调试闭环 | 0/4 | Planned     | - |
 | 4. macOS 界面与双语设置 | 0/TBD | Not started | - |
 | 5. 稳定性、异常恢复与最终验收 | 0/TBD | Not started | - |
