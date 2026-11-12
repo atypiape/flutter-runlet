@@ -51,7 +51,18 @@
   3. 公开 prod 样例在进程退出后恢复 test。部分写入、异常退出及恢复失败保留可见风险，重试成功后清除。（A13–A15）
   4. 重复 Run 或切换项目时，项目锁及会话终止规则阻止冲突的环境切换。（A16）
 
-**Plans**: TBD
+**Plans**: 4 plans
+**Wave 1**
+- [ ] 02-01-PLAN.md · 贯通公开样例的前置任务、受管进程退出和后置恢复
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 02-02-PLAN.md · 完成只读配置解析、校验、重读和最近项目
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 02-03-PLAN.md · 完成持久恢复重试、跨进程互斥和退出约束
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 02-04-PLAN.md · 验证两套构建并归档 P2 人工验收证据
 
 ### Phase 3: Flutter 调试闭环
 
