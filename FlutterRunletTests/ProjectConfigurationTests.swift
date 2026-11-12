@@ -77,6 +77,89 @@ final class ProjectConfigurationTests: XCTestCase {
         XCTAssertTrue(choices.suffix(2).allSatisfy { $0.issue?.contains("重名") == true })
     }
 
+    func testRealTaskArgumentsDirectoryEnvironmentAndExitStatus() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let capture = fixture.project.appending(path: "scripts/capture arguments.sh")
+        try """
+            #!/bin/sh
+            printf '%s\\0' "$#" "$PWD" "$RUNLET_VALUE" "$@"
+            exit 7
+            """.write(to: capture, atomically: true, encoding: .utf8)
+        let variables = ["PATH": "/usr/bin:/bin", "SOURCE": "来自父进程"]
+        let vector = ["", "空 格", "e\u{301}", "';\"&|$(printf bad)", "line\nnext"]
+        let root = try ProjectLocation.directory(fixture.project)
+        let lease = try store.lease(for: root)
+        let options = ["cwd": "$" + "{workspaceFolder}/scripts", "env": ["RUNLET_VALUE": "$" + "{env:SOURCE}"]] as [String: Any]
+        for type in ["shell", "process"] {
+            let input = ["label": "capture", "type": type, "command": "/bin/sh",
+                         "args": [capture.path] + vector, "options": options] as [String: Any]
+            try writeTasks([input], fixture)
+            let project = ProjectConfiguration(project: root, environment: variables, restricted: false)
+            let task = try project.prepareTask("capture")
+            let process = try SessionProcessRunner.bundled.start(task.command, lease: lease)
+            let result = await process.wait()
+            XCTAssertEqual(result.exit, .exited(7))
+            let expected = ["5", root.appending(path: "scripts").path, "来自父进程"] + vector
+            XCTAssertEqual(Array(result.stdout.utf8), Array((expected.joined(separator: "\0") + "\0").utf8))
+            XCTAssertEqual(task.references, ["SOURCE": "来自父进程"])
+        }
+    }
+
+    func testZeroAndNullArgumentsAndUnsupportedTasksHaveDistinctResults() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let root = try ProjectLocation.directory(fixture.project)
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let lease = try store.lease(for: root)
+        let command: [String: Any] = ["label": "task", "type": "shell", "command": "printf '%s' ok"]
+        for args in [nil, [] as [String]?] {
+            var entry = command
+            if let args { entry["args"] = args }
+            try writeTasks([entry], fixture)
+            let task = try configuration(fixture).prepareTask("task")
+            let process = try SessionProcessRunner.bundled.start(task.command, lease: lease)
+            let result = await process.wait()
+            XCTAssertEqual(result.exit, .exited(0))
+            XCTAssertEqual(result.stdout, "ok")
+        }
+        for extra in [
+            ["args": NSNull()], ["dependsOn": "other"], ["isBackground": true],
+            ["type": "extension"], ["command": "$" + "{command:select}"],
+            ["options": ["shell": ["executable": "/bin/bash"]]]
+        ] as [[String: Any]] {
+            try writeTasks([command.merging(extra, uniquingKeysWith: { _, replacement in replacement })], fixture)
+            XCTAssertThrowsError(try configuration(fixture).prepareTask("task"))
+        }
+        try writeTasks([command, command], fixture)
+        XCTAssertThrowsError(try configuration(fixture).prepareTask("task"))
+    }
+
+    func testBrokenTasksOnlyDisableReferencedLaunches() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        try writeLaunch(#"""
+        {"configurations":[
+          {"name":"可用","type":"dart","request":"launch"},
+          {"name":"引用任务","type":"dart","request":"launch","postDebugTask":"task"}
+        ]}
+        """#, fixture)
+        try "{broken".write(to: fixture.config("tasks"), atomically: true, encoding: .utf8)
+        let broken = configuration(fixture)
+        XCTAssertNotNil(broken.taskIssue)
+        XCTAssertEqual(broken.choices.compactMap(\.launch).map(\.name), ["可用"])
+        try FileManager.default.removeItem(at: fixture.config("tasks"))
+        let missing = configuration(fixture)
+        XCTAssertTrue(missing.taskIssue?.contains("缺失") == true)
+        XCTAssertEqual(missing.choices.compactMap(\.launch).map(\.name), ["可用"])
+    }
+
+    private func writeTasks(_ tasks: [[String: Any]], _ fixture: SessionFixture) throws {
+        let data = try JSONSerialization.data(withJSONObject: ["tasks": tasks])
+        try data.write(to: fixture.config("tasks"))
+    }
+
     private func configuration(_ fixture: SessionFixture) -> ProjectConfiguration {
         ProjectConfiguration(project: (try? ProjectLocation.directory(fixture.project)) ?? fixture.project, environment: fixture.environment, restricted: false)
     }
