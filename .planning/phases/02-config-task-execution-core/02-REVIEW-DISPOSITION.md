@@ -25,7 +25,7 @@ findings:
     title: "Flutter 项目判定拒绝合法 YAML 并接受无关标记"
   - id: WR-04
     severity: warning
-    disposition: deferred
+    disposition: fixed
     title: "恢复记录删除失败时回补也可能失败"
 open: 0
 total: 6
@@ -41,4 +41,4 @@ recorded: 2026-11-12
 | WR-01 | warning | fixed | `1fa5a64` 在项目租约内刷新已清除或已变更记录。双实例回归通过。 |
 | WR-02 | warning | deferred | 组长身份不可确认时继续等待其余成员退出并持锁。对长期不退出的后代增加安全终止与可见提示留待稳定性阶段。 |
 | WR-03 | warning | deferred | 当前按常见 pubspec 表示识别 Flutter SDK。特殊 YAML 结构与误识别边界留待 Flutter 项目兼容验证。 |
-| WR-04 | warning | deferred | 持久删除失败保留内存阻断并尝试回补。目录同步与回补同时失败时，重启风险证据仍依赖磁盘状态，留待稳定性阶段。 |
+| WR-04 | warning | fixed | `9a843d0` 先持久提交认证完成凭据，再清理旧文件。未确认凭据时保留原风险，清理失败时可重启核验，两个故障回归通过。 |

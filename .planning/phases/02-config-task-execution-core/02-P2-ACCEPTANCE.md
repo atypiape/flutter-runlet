@@ -4,7 +4,7 @@
 
 ## 最终构建
 
-受测源代码提交为 `1fa5a6401e42dd233e748050a04ce0d962ddbead`。共享 scheme 的 Debug XCTest 退出 0，共 32 项，通过 32 项，无失败或跳过。Release build 退出 0。Debug 构建包含 G1 的三个启动策略回归。
+受测源代码提交为 `9a843d0864039639e370de01ec75f85e22c12e27`。共享 scheme 的 Debug XCTest 退出 0，共 34 项，通过 34 项，无失败或跳过。Release build 退出 0。Debug 构建包含 G1 的三个启动策略回归。
 
 ```sh
 derived="${TMPDIR:-/tmp}/flutter-runlet-phase-02"
@@ -23,12 +23,12 @@ done
 
 | 构建 | 相对 App 的可执行文件 | SHA-256 |
 |---|---|---|
-| Debug | `Contents/MacOS/FlutterRunlet` | `6f9a39fc8b08438aa3491d2da269113c36ba630f0fd83a8d524158195f39d7c2` |
+| Debug | `Contents/MacOS/FlutterRunlet` | `e178045dc2d2564c2cc0fb01e54d2eb1e2c4b5e0c83dded7ed988073b882a712` |
 | Debug | `Contents/Helpers/FlutterRunletSessionWorker` | `59ca7863671ac31cbc2ca7ad0fbfccea0d79dc3da643fb185bcfd0ee5e854bdb` |
-| Release | `Contents/MacOS/FlutterRunlet` | `e451721fe5510d489cf447c92f8ff01da5b8f8f8dfd3d326a985006b49b6c533` |
+| Release | `Contents/MacOS/FlutterRunlet` | `423ded899d402c62a4e2db47f1203b78f83ee626312a0fffbace4839468b2c69` |
 | Release | `Contents/Helpers/FlutterRunletSessionWorker` | `84343f6ef42c86378d9de29399a7eeee27ca362c1c42fcf4ae3719a09e325cd2` |
 
-构建产物在上方 DerivedData 的 `Build/Products/{Debug,Release}/FlutterRunlet.app`。测试包在 `Logs/Test/Test-FlutterRunlet-2026.11.12_16-06-23-+0800.xcresult`。两套 App 均通过深度签名验证。Debug 主窗实际 Run 时，`pgrep -P <本次 App PID>` 找到内嵌监督进程。
+构建产物在上方 DerivedData 的 `Build/Products/{Debug,Release}/FlutterRunlet.app`。测试包在 `Logs/Test/Test-FlutterRunlet-2026.11.12_16-21-00-+0800.xcresult`。两套 App 均通过深度签名验证。Debug 主窗实际 Run 时，`pgrep -P <本次 App PID>` 找到内嵌监督进程。
 
 ## 样例准备
 
@@ -96,6 +96,10 @@ find "$HOME/Library/Application Support/FlutterRunlet-Phase02Fixture/state" -max
 - 隔离 Debug 打开根外项目和指向它的根内符号链接，两次都显示「请选择验收目录内的 Flutter 项目」，当前项目未变。根外项目维持 `test`。最终修复复验额外设置 `CFFIXED_USER_HOME`，仍在原固定根实际执行 prod → test，覆盖目录未创建验收存储。
 - 原生退出确认「停止并退出」后进程正常退出，环境为 `test`，风险记录为 0。菜单栏状态项未能经桌面控制工具定位，保留用户复验。
 - 主窗故障、重启、切换与 Profile 场景取证于 `bfe3770`。固定根修复、普通 Debug、G1 和 Release 参数复验于 `6bb37e3`。最终构建在其上加入改名、目录替换、派发前 Stop、macOS 模式覆盖与双实例恢复刷新回归。最终 Debug 重新实测 prod → Stop → test、监督进程启动和配置字节不变。
+
+## 清理失败复验
+
+最终 XCTest 额外覆盖完成凭据目录同步失败及清理旧记录失败。完成凭据未持久提交时，原风险记录保留，重启继续显示。凭据已确认持久而清理失败时，重启识别已完成的原会话，新会话的风险仍独立。最终原生 Debug Stop 后标记为 `test`，风险和完成凭据文件均已清理。
 
 ## 范围
 

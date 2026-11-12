@@ -24,7 +24,7 @@ created: "2026-11-12"
 
 | ID | 类别 | 严重度 | 处置 | 核验 | 状态 |
 |---|---|---|---|---|---|
-| T-02-01 | Tampering | high | mitigate | 风险数据同步、原子替换、目录项同步及实际后置退出。SessionLifecycleTests 逐点注入同步失败并断言零执行。 | closed |
+| T-02-01 | Tampering | high | mitigate | 风险数据同步、原子替换、目录项同步及实际后置退出。完成凭据持久之前保留原风险记录，清理失败仍能重启核验。SessionLifecycleTests 逐点注入同步失败并断言零执行。 | closed |
 | T-02-02 | Elevation of Privilege | high | mitigate | 验收固定根绑定系统账号，原始脚本、工作目录及状态文件复验。根外路径及别名被拒绝。实际环境变量覆盖试验不改变验收根。 | closed |
 | T-02-03 | Tampering | high | mitigate | 租约按设备号与 inode 获取，由 App、监督进程和受管任务共持。测试 Stop 与父管道断开后等待同组后代。 | closed |
 | T-02-04 | Information Disclosure | high | mitigate | 0700 存储目录、0600 记录、独立安装密钥与 HMAC。回归检查记录字节及变量名诊断。 | closed |
