@@ -4,6 +4,7 @@ import Foundation
 
 struct ProjectRecoveryRecord: Codable, Equatable, Sendable {
     let version: Int
+    let id: UUID?
     let projectPath: String
     let projectIdentity: String
     let taskLabel: String
@@ -17,6 +18,8 @@ struct ProjectRecoveryStore: Sendable {
         case recordData
         case recordDirectory
         case removal
+        case completionDirectory
+        case removalCleanup
     }
 
     let directory: URL
@@ -100,7 +103,7 @@ struct ProjectRecoveryStore: Sendable {
     func write(task: PreparedTask, lease: ProjectLease) throws -> ProjectRecoveryRecord {
         try lease.verifyProject()
         let record = ProjectRecoveryRecord(
-            version: 1, projectPath: lease.project.path,
+            version: 1, id: UUID(), projectPath: lease.project.path,
             projectIdentity: lease.identity, taskLabel: task.label,
             definition: authenticate(try encoded(task.definition), scope: "definition"),
             execution: authenticate(try execution(task), scope: "execution"),
@@ -120,21 +123,51 @@ struct ProjectRecoveryStore: Sendable {
         try lease.verifyProject()
         try verifyProject(expected, lease.project)
         let url = recordURL(forRecordedPath: expected.projectPath)
-        guard let bytes = try Self.privateData(url), try read(url) == expected else {
+        guard try read(url) == expected else {
             throw SessionIssue("待清除的恢复记录缺失或已变化")
         }
-        // Keep an open, writable descriptor for the storage barrier after unlink.
-        let descriptor = open(url.path, O_RDWR | O_CLOEXEC | O_NOFOLLOW)
-        guard descriptor >= 0 else { throw SessionIssue("无法打开待清除的恢复记录") }
-        defer { close(descriptor) }
-        guard unlink(url.path) == 0 else { throw SessionIssue("无法清除恢复记录") }
+
+        // Leave the original record in place until the authenticated completion is durable.
+        let receipt = completionURL(for: url)
+        try Self.replace(receipt, data: try completionCode(for: expected),
+                         beforeDataSync: { try check(.removal) },
+                         beforeDirectorySync: { try check(.completionDirectory) })
+        cleanCompletedRecord(url, receipt: receipt)
+    }
+
+    private func cleanCompletedRecord(_ record: URL, receipt: URL) {
         do {
-            try check(.removal)
+            try check(.removalCleanup)
+            guard let barrier = try Self.privateFile(receipt, writable: true),
+                  unlink(record.path) == 0 else { return }
             try Self.syncDirectory(directory)
-            try Self.syncFile(descriptor)
+            try Self.syncFile(barrier.fileDescriptor)
+            // A receipt left behind by interruption cannot clear a future session's record.
+            _ = unlink(receipt.path)
         } catch {
-            try? Self.replace(url, data: bytes)
-            throw error
+            // Keep the durable receipt when the risk file's deletion could not be confirmed.
+        }
+    }
+
+    private func completionURL(for record: URL) -> URL {
+        record.deletingPathExtension().appendingPathExtension("completed")
+    }
+
+    private func completionCode(for record: ProjectRecoveryRecord) throws -> Data {
+        authenticate(try encoded(record), scope: "completed")
+    }
+
+    private func hasDurableCompletion(for record: ProjectRecoveryRecord, at url: URL) -> Bool {
+        do {
+            guard let file = try Self.privateFile(completionURL(for: url), writable: true),
+                  try file.readToEnd() == completionCode(for: record) else { return false }
+            try check(.completionDirectory)
+            try Self.syncDirectory(directory)
+            try Self.syncFile(file.fileDescriptor)
+            return true
+        } catch {
+            // An incomplete receipt is not sufficient evidence to hide the original risk.
+            return false
         }
     }
 
@@ -166,7 +199,7 @@ struct ProjectRecoveryStore: Sendable {
             guard record.version == 1, record.projectPath.hasPrefix("/"), !record.taskLabel.isEmpty else {
                 throw SessionIssue("恢复记录格式或版本无效")
             }
-            return record
+            return hasDurableCompletion(for: record, at: url) ? nil : record
         } catch {
             throw SessionIssue("恢复记录损坏或认证失败")
         }
@@ -214,7 +247,13 @@ struct ProjectRecoveryStore: Sendable {
     }
 
     private static func privateData(_ url: URL) throws -> Data? {
-        let fd = open(url.path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        guard let handle = try privateFile(url) else { return nil }
+        return try handle.readToEnd() ?? Data()
+    }
+
+    private static func privateFile(_ url: URL, writable: Bool = false) throws -> FileHandle? {
+        let access = writable ? O_RDWR : O_RDONLY
+        let fd = open(url.path, access | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
         if fd == -1 && errno == ENOENT { return nil }
         guard fd >= 0 else { throw SessionIssue("无法读取私有恢复文件") }
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
@@ -223,7 +262,7 @@ struct ProjectRecoveryStore: Sendable {
               info.st_mode & 0o077 == 0, info.st_nlink == 1, info.st_size <= 1_048_576 else {
             throw SessionIssue("私有恢复文件身份或长度无效")
         }
-        return try handle.readToEnd() ?? Data()
+        return handle
     }
 
     private static func replace(
