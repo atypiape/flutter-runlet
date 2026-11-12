@@ -28,10 +28,10 @@ created: "2026-11-12"
 | T-02-02 | Elevation of Privilege | high | mitigate | 验收固定根绑定系统账号，原始脚本、工作目录及状态文件复验。根外路径及别名被拒绝。实际环境变量覆盖试验不改变验收根。 | closed |
 | T-02-03 | Tampering | high | mitigate | 租约按设备号与 inode 获取，由 App、监督进程和受管任务共持。测试 Stop 与父管道断开后等待同组后代。 | closed |
 | T-02-04 | Information Disclosure | high | mitigate | 0700 存储目录、0600 记录、独立安装密钥与 HMAC。回归检查记录字节及变量名诊断。 | closed |
-| T-02-05 | Tampering | high | mitigate | 严格 JSONC、Debug 执行复验、入口及设备覆盖拒绝、配置文件原始字节校验。 | closed |
+| T-02-05 | Tampering | high | mitigate | 严格 JSONC、Debug 执行复验、入口、设备及未支持的 macOS 覆盖拒绝、配置文件原始字节校验。 | closed |
 | T-02-06 | Elevation of Privilege | high | mitigate | 支持的独立命令和参数以 argv 执行，显式 shell 字符串不插入变量。真实 argv 含空格、Unicode 和 shell 元字符的测试通过。 | closed |
 | T-02-07 | Tampering | high | mitigate | 加锁后重读并比较有效定义，变化要求再次点击，配置损坏禁用运行。 | closed |
-| T-02-08 | Tampering | high | mitigate | 记录认证、规范路径和身份复验，按原标签比较原始定义和展开结果，项目改名仍阻断新运行。 | closed |
+| T-02-08 | Tampering | high | mitigate | 记录认证、规范路径和身份复验，按原标签比较原始定义和展开结果，项目改名仍阻断新运行。原目录被替换时禁止派发和清除，监督进程使用已打开的工作目录。 | closed |
 | T-02-09 | Information Disclosure | high | mitigate | 定义、执行、逐变量值与完整记录分别认证，变化诊断只输出变量名。 | closed |
 | T-02-10 | Denial of Service | high | mitigate | 监督进程等待原组静止，组长不可确认后不再发送信号。结果不明时 App 保留租约并阻断。 | closed |
 | T-02-11 | Tampering | high | mitigate | 单个控制器串行 Run、Stop、恢复与退出。实际系统退出确认及失败取消通过。 | closed |
