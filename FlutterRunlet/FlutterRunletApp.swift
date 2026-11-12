@@ -10,6 +10,7 @@ struct FlutterRunletApp: App {
 
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
+    @State private var panelWindow = PanelWindowReference()
 
     private let presentation = LaunchPresentation.resolve(arguments: Array(CommandLine.arguments.dropFirst()))
 
@@ -38,10 +39,17 @@ struct FlutterRunletApp: App {
             MenuBarPanelView(
                 presentation: presentation,
                 run: Self.showRunDemo,
-                openMainWindow: Self.showMainWindow,
-                openSettings: showSettings,
+                openMainWindow: { action in
+                    panelWindow.close()
+                    Self.showMainWindow(openWindow: action)
+                },
+                openSettings: {
+                    panelWindow.close()
+                    showSettings()
+                },
                 quit: { NSApp.terminate(nil) }
             )
+            .background(PanelWindowAnchor(reference: panelWindow))
         } label: {
             Image(nsImage: makeMenuBarTemplate())
                 .accessibilityLabel("FlutterRunlet")
@@ -61,7 +69,13 @@ struct FlutterRunletApp: App {
     }
 
     private static func showMainWindow(openWindow: OpenWindowAction) {
-        if let window = NSApp.windows.first(where: { $0.identifier == mainWindowIdentifier && $0.isVisible }) {
+        setActivationPolicy(.regular)
+        if let window = NSApp.windows.first(where: {
+            $0.identifier == mainWindowIdentifier && ($0.isVisible || $0.isMiniaturized)
+        }) {
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
             window.makeKeyAndOrderFront(nil)
         } else {
             openWindow(id: mainSceneID, value: mainRoute)
@@ -77,6 +91,12 @@ struct FlutterRunletApp: App {
 
     private func showAbout() {
         openWindow(id: Self.aboutSceneID)
+    }
+
+    private static func setActivationPolicy(_ policy: NSApplication.ActivationPolicy) {
+        if NSApp.activationPolicy() != policy, !NSApp.setActivationPolicy(policy) {
+            NSLog("FlutterRunlet could not change the application activation policy.")
+        }
     }
 
     private static func activateAppIfNeeded() {
@@ -112,11 +132,52 @@ struct FlutterRunletApp: App {
         func updateNSView(_ nsView: NSView, context: Context) {}
 
         private final class WindowMarker: NSView {
+            private weak var observedWindow: NSWindow?
+
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
-                window?.identifier = FlutterRunletApp.mainWindowIdentifier
+                guard window !== observedWindow else { return }
+
+                let notifications = NotificationCenter.default
+                if let observedWindow {
+                    notifications.removeObserver(self, name: NSWindow.willCloseNotification, object: observedWindow)
+                }
+                observedWindow = window
+                if let window {
+                    window.identifier = FlutterRunletApp.mainWindowIdentifier
+                    notifications.addObserver(
+                        self, selector: #selector(windowWillClose),
+                        name: NSWindow.willCloseNotification, object: window
+                    )
+                    FlutterRunletApp.setActivationPolicy(.regular)
+                }
+            }
+
+            @objc private func windowWillClose() {
+                FlutterRunletApp.setActivationPolicy(.accessory)
             }
         }
+    }
+
+    @MainActor
+    private final class PanelWindowReference {
+        weak var anchor: NSView?
+
+        func close() {
+            anchor?.window?.close()
+        }
+    }
+
+    private struct PanelWindowAnchor: NSViewRepresentable {
+        let reference: PanelWindowReference
+
+        func makeNSView(context: Context) -> NSView {
+            let anchor = NSView()
+            reference.anchor = anchor
+            return anchor
+        }
+
+        func updateNSView(_ nsView: NSView, context: Context) {}
     }
 }
 
