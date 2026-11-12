@@ -50,4 +50,10 @@ open -n .build/phase-01-gaps/Build/Products/Debug/FlutterRunlet.app --args --g1-
 - **菜单栏面板**。从状态项打开面板后，逐键截图显示焦点按「运行 → 打开主窗口 → 设置 → 退出」循环，Shift-Tab 反向循环。Space 可在「运行」上打开并关闭演示提示，面板随系统行为收起。禁用控件被跳过。
 - 原生窗口截图位于 `.build/phase-01-gaps/focus-captures/`，主窗文件为 `main-confirm-next-*` 和 `main-confirm-previous-*`，面板文件为 `panel-confirm-next-*` 和 `panel-confirm-previous-*`。截图范围限于被测窗口。
 
-G-01-2 和 G-01-3 的悬停部分已有用户通过记录。G-01-3 的键盘部分已完成执行者复验，等待用户在恢复开启后的系统偏好下重新检查。
+### 2026-11-12 最终确认
+
+用户在同一份 Debug Ready 构建上补充确认。
+
+> G-01-3 通过，主窗和菜单栏面板的 Tab、Shift-Tab 焦点都可见。
+
+G-01-2 的面板与 Dock、G-01-3 的悬停与键盘均通过用户复验。两次回复对应上表的同一份构建。复验结束时重新核对了 Debug 主程序与动态库的 SHA-256，均与上表一致。
