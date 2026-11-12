@@ -50,11 +50,13 @@ private func run(_ command: SessionCommand, lease: Int32) -> SessionExit {
         if stopDeadline == nil {
             let count = read(STDIN_FILENO, &byte, 1)
             if count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-                _ = kill(-pid, SIGTERM)
+                if leader == nil, getpgid(pid) == pid { _ = kill(-pid, SIGTERM) }
                 stopDeadline = .now + .seconds(3)
             }
         } else if let stopDeadline, !sentKill, ContinuousClock.now >= stopDeadline {
-            _ = kill(-pid, SIGKILL)
+            // Once reaped, the old group number can eventually be reused. Observe it
+            // until quiet, but only signal while its original leader can be identified.
+            if leader == nil, getpgid(pid) == pid { _ = kill(-pid, SIGKILL) }
             sentKill = true
         }
         usleep(20_000)

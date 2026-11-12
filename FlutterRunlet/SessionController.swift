@@ -18,11 +18,13 @@ final class SessionController {
     private(set) var taskIssue: String?
     private(set) var recovery: ProjectRecoveryRecord?
     private(set) var recoveryStoreIssue: String?
+    private(set) var executionIsUnconfirmed = false
+    var canTerminate: Bool { !isBusy && !executionIsUnconfirmed && recovery == nil && recoveryStoreIssue == nil }
     var recoveryProjectIsOpen: Bool { recovery?.projectPath == project?.path && recovery != nil }
     private(set) var logs = ""
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool {
-        !isBusy && !configurationIsStale && recovery == nil && recoveryStoreIssue == nil && selection?.launch != nil &&
+        !isBusy && !executionIsUnconfirmed && !configurationIsStale && recovery == nil && recoveryStoreIssue == nil && selection?.launch != nil &&
             store != nil && debugCommand != nil && runner.isAvailable
     }
     var displayMessage: String? {
@@ -40,6 +42,7 @@ final class SessionController {
     @ObservationIgnored private let debugCommand: ((PreparedLaunch) -> SessionCommand?)?
     @ObservationIgnored private let environment: [String: String]
     @ObservationIgnored private var active: SessionProcess?
+    @ObservationIgnored private var blockedLease: ProjectLease?
     @ObservationIgnored private var operation: Task<Void, Never>?
     @ObservationIgnored private var stopRequested = false
 
@@ -116,11 +119,16 @@ final class SessionController {
 
     @discardableResult
     func open(_ url: URL) -> Bool {
-        guard !isBusy, recovery == nil else {
+        guard requestProjectChange() else { return false }
+        return loadProject(url, remember: true)
+    }
+
+    func requestProjectChange() -> Bool {
+        guard !isBusy, !executionIsUnconfirmed, recovery == nil else {
             message = "请先停止当前会话并完成适用的环境恢复，再打开项目"
             return false
         }
-        return loadProject(url, remember: true)
+        return true
     }
 
     private func loadProject(_ url: URL, remember: Bool) -> Bool {
@@ -135,7 +143,7 @@ final class SessionController {
             if remember { preferences?.set(canonical.path, forKey: Self.recentKey) }
             do {
                 if let record = try store?.read(project: canonical) {
-                    markRecovery(record, "项目存在待恢复的环境")
+                    markRecovery(record, "项目存在待恢复的环境", pending: true)
                 }
             } catch {
                 recoveryStoreIssue = error.localizedDescription
@@ -157,7 +165,7 @@ final class SessionController {
                 throw SessionIssue("验收存储含越界恢复记录")
             }
             if let record = records.first(where: { $0.projectPath == project?.path }) ?? records.first {
-                markRecovery(record, "发现待恢复的环境")
+                markRecovery(record, "发现待恢复的环境", pending: true)
             } else if recovery != nil {
                 recovery = nil
             }
@@ -170,12 +178,12 @@ final class SessionController {
 
     @discardableResult
     func openRecoveryProject() -> Bool {
-        guard !isBusy, recoveryStoreIssue == nil, let record = recovery, let store else { return false }
+        guard !isBusy, !executionIsUnconfirmed, recoveryStoreIssue == nil, let record = recovery, let store else { return false }
         do {
             let directory = try validate(URL(fileURLWithPath: record.projectPath, isDirectory: true))
             try store.verifyProject(record, directory)
             let opened = loadProject(directory, remember: true)
-            if opened { markRecovery(record, "请确认并重试原恢复任务") }
+            if opened { markRecovery(record, "请确认并重试原恢复任务", pending: true) }
             return opened
         } catch {
             markRecovery(record, error.localizedDescription)
@@ -184,7 +192,7 @@ final class SessionController {
     }
 
     func retryRecovery() {
-        guard !isBusy, recoveryStoreIssue == nil, let expected = recovery,
+        guard !isBusy, !executionIsUnconfirmed, recoveryStoreIssue == nil, let expected = recovery,
               recoveryProjectIsOpen, let project, let store else { return }
         guard runner.isAvailable else {
             markRecovery(expected, "监督进程不可用")
@@ -261,7 +269,7 @@ final class SessionController {
     }
 
     func run() {
-        guard !isBusy, !configurationIsStale, recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
+        guard !isBusy, !executionIsUnconfirmed, !configurationIsStale, recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
         guard let store, let debugCommand, runner.isAvailable else {
             message = "当前构建没有可用的 Flutter 调试进程或恢复存储"
             return
@@ -310,6 +318,12 @@ final class SessionController {
     }
 
     func waitUntilIdle() async { await operation?.value }
+
+    func finishForTermination() async -> Bool {
+        stop()
+        await waitUntilIdle()
+        return canTerminate
+    }
 
     private func execute(_ launch: PreparedLaunch, command: SessionCommand,
                          store: ProjectRecoveryStore, lease: ProjectLease) async {
@@ -387,6 +401,10 @@ final class SessionController {
             active = nil
             let output = result.stdout + result.stderr
             if !output.isEmpty { logs = String((logs + output).suffix(64 * 1024)) }
+            if result.exit == .unconfirmed {
+                executionIsUnconfirmed = true
+                blockedLease = lease
+            }
             return result.exit
         } catch let failure as SessionSpawn.SpawnError {
             return .launchFailed(failure.code)
@@ -395,9 +413,9 @@ final class SessionController {
         }
     }
 
-    private func markRecovery(_ record: ProjectRecoveryRecord, _ reason: String) {
+    private func markRecovery(_ record: ProjectRecoveryRecord, _ reason: String, pending: Bool = false) {
         recovery = record
-        status = "环境恢复失败"
+        status = pending ? "待恢复环境" : "环境恢复失败"
         message = reason
     }
 

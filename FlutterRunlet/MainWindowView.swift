@@ -91,7 +91,7 @@ struct MainWindowView: View {
     }
 
     private func openProject() {
-        guard let session else { return }
+        guard let session, session.requestProjectChange() else { return }
         let panel = NSOpenPanel()
         panel.title = "打开 Flutter 项目"
         panel.canChooseFiles = false
@@ -130,10 +130,10 @@ struct MainWindowView: View {
                             .lineLimit(2)
                         if session.recoveryProjectIsOpen {
                             Button("重试恢复", action: session.retryRecovery)
-                                .disabled(session.isBusy || session.recoveryStoreIssue != nil)
+                                .disabled(session.isBusy || session.executionIsUnconfirmed || session.recoveryStoreIssue != nil)
                         } else {
                             Button("打开待恢复项目") { session.openRecoveryProject() }
-                                .disabled(session.isBusy || session.recoveryStoreIssue != nil)
+                                .disabled(session.isBusy || session.executionIsUnconfirmed || session.recoveryStoreIssue != nil)
                         }
                     }
                 } else {

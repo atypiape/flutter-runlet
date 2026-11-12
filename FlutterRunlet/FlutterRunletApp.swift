@@ -8,6 +8,7 @@ struct FlutterRunletApp: App {
     private static let aboutSceneID = "about"
     private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("FlutterRunlet.MainWindow")
 
+    @NSApplicationDelegateAdaptor(AppTermination.self) private var termination
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @State private var panelWindow = PanelWindowReference()
@@ -18,7 +19,9 @@ struct FlutterRunletApp: App {
     init() {
         let arguments = Array(CommandLine.arguments.dropFirst())
         presentation = SessionController.fixtureEnabled(arguments: arguments) ? .empty : LaunchPresentation.resolve(arguments: arguments)
-        _session = State(initialValue: SessionController.app(arguments: arguments))
+        let controller = SessionController.app(arguments: arguments)
+        _session = State(initialValue: controller)
+        termination.session = presentation.selection == nil ? controller : nil
     }
 
     private var liveSession: SessionController? { presentation.selection == nil ? session : nil }
@@ -189,6 +192,48 @@ struct FlutterRunletApp: App {
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
+    }
+}
+
+@MainActor
+private final class AppTermination: NSObject, NSApplicationDelegate {
+    var session: SessionController?
+    private var replying = false
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let session else { return .terminateNow }
+        guard !replying else { return .terminateLater }
+        if session.canTerminate { return .terminateNow }
+        guard session.isBusy else {
+            showBlocked(session)
+            return .terminateCancel
+        }
+        replying = true
+        let alert = NSAlert()
+        alert.messageText = "停止会话并退出 FlutterRunlet？"
+        alert.informativeText = "应用会等待受管进程退出，并完成项目配置中的后置恢复。"
+        alert.addButton(withTitle: "停止并退出")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            replying = false
+            return .terminateCancel
+        }
+        Task {
+            let completed = await session.finishForTermination()
+            sender.reply(toApplicationShouldTerminate: completed)
+            replying = false
+            if !completed { showBlocked(session) }
+        }
+        return .terminateLater
+    }
+
+    private func showBlocked(_ session: SessionController) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "当前无法退出 FlutterRunlet"
+        alert.informativeText = session.displayMessage ?? "请先在主窗口完成环境恢复。"
+        alert.addButton(withTitle: "关闭提示")
+        alert.runModal()
     }
 }
 

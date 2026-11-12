@@ -34,6 +34,12 @@ struct MenuBarPanelView: View {
                           run: session.map { $0.run } ?? run, canStop: session?.canStop ?? false,
                           stop: { session?.stop() })
             BrowserControls()
+            if let session, session.recovery != nil || session.recoveryStoreIssue != nil,
+               let reason = session.displayMessage {
+                Text(verbatim: reason)
+                    .lineLimit(2)
+                    .foregroundStyle(.secondary)
+            }
             Divider()
 
             HStack(spacing: 8) {
