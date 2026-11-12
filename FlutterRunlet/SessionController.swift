@@ -301,7 +301,7 @@ final class SessionController {
         do {
             let current = try validate(project)
             let lease = try store.lease(for: current)
-            if let existing = try store.read(project: current) {
+            if let existing = try store.pendingRecord(for: current) {
                 markRecovery(existing, "项目存在待恢复的环境")
                 return
             }
@@ -352,6 +352,10 @@ final class SessionController {
 
     private func execute(_ launch: PreparedLaunch, command: SessionCommand,
                          store: ProjectRecoveryStore, lease: ProjectLease) async {
+        guard !stopRequested else {
+            status = "就绪"
+            return
+        }
         var record: ProjectRecoveryRecord?
         do {
             if let post = launch.post {

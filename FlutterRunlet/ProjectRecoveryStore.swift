@@ -91,6 +91,13 @@ struct ProjectRecoveryStore: Sendable {
         return record
     }
 
+    // Call under the project lease so a renamed directory cannot evade its existing risk.
+    func pendingRecord(for project: URL) throws -> ProjectRecoveryRecord? {
+        if let record = try read(project: project) { return record }
+        let identity = try ProjectLocation.identity(project)
+        return try allRecords().first { $0.projectIdentity == identity }
+    }
+
     func write(project: URL, task: PreparedTask) throws -> ProjectRecoveryRecord {
         let record = ProjectRecoveryRecord(
             version: 1, projectPath: try ProjectLocation.directory(project).path,
