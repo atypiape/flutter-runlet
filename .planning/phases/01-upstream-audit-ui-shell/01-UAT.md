@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 01-upstream-audit-ui-shell
 source: [01-VERIFICATION.md]
 started: 2026-11-11T19:43:45.896Z
-updated: 2026-11-12T01:51:12.404Z
+updated: 2026-11-12T01:55:59.324Z
 ---
 
 # G1 人工验收
@@ -77,8 +77,16 @@ blocked: 0
   reason: "User reported: 点“打开主窗口”按钮或“设置”按钮弹出窗口，应该关闭面板才更符合；关闭主窗口后，菜单栏图标仍可用，但 dock 上应为关闭状态（图标底下不应有小圆点）。"
   severity: minor
   test: 2
-  artifacts: []
-  missing: []
+  root_cause: "面板入口只打开或聚焦窗口，缺少收起面板的动作。主窗关闭后进程仍存活且保留 AppKit 普通激活策略，Dock 继续显示运行指示。"
+  artifacts:
+    - path: FlutterRunlet/MenuBarPanelView.swift
+      issue: "主窗和设置按钮只调用开窗回调。"
+    - path: FlutterRunlet/FlutterRunletApp.swift
+      issue: "主窗生命周期未切换激活策略，窗口入口未收起面板。"
+  missing:
+    - "两个开窗入口主动收起当前面板，保留图标点击和点外关闭。"
+    - "主窗关闭后移除 Dock 运行指示并保持同一进程和菜单栏可用，重开恢复常规窗口行为。"
+  debug_session: .planning/debug/g1-panel-dock.md
 
 - gap_id: G-01-3
   truth: "主窗和面板的可交互控件按阅读顺序获得可见的 Tab 焦点，禁用动作无法由键盘触发。「打开项目」保持禁用并显示可读的悬停提示。"
@@ -86,5 +94,13 @@ blocked: 0
   reason: "User reported: Tab 遍历没反应，没见到哪个控件获得焦点；鼠标悬停也没见到悬停提示"
   severity: major
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "本机检查时原生键盘导航关闭，原生按钮的 Tab 焦点依赖该系统偏好，开启后的焦点链仍待验证。禁用工具栏按钮上的 SwiftUI help 未显示原生提示，具体宿主机制仍待对照。"
+  artifacts:
+    - path: FlutterRunlet/MainWindowView.swift
+      issue: "项目入口的 help 直接附在禁用工具栏按钮上。"
+    - path: FlutterRunlet/MenuBarPanelView.swift
+      issue: "面板使用原生焦点，开启系统键盘导航后的焦点链尚无证据。"
+  missing:
+    - "开启系统键盘导航复验两处可见焦点、阅读顺序与禁用动作，仅修正实际失败的焦点路径。"
+    - "使用可实际显示的原生悬停区域，保持项目入口禁用与可访问名称。"
+  debug_session: .planning/debug/g1-focus-help.md
