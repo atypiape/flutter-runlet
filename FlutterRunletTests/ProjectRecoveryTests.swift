@@ -166,6 +166,55 @@ final class ProjectRecoveryTests: XCTestCase {
         XCTAssertNil(recovered.recovery)
     }
 
+    func testUnconfirmedCompletionDirectorySyncKeepsOriginalRiskAcrossRestart() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let rejectCompletion: @Sendable (ProjectRecoveryStore.SyncPoint) throws -> Void = { point in
+            if point == .completionDirectory { throw SessionIssue("注入完成目录同步失败") }
+        }
+        let store = try ProjectRecoveryStore(directory: fixture.storage, check: rejectCompletion)
+        let session = fixture.session(store: store)
+        try fixture.select("prod", in: session)
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNotNil(session.recovery)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try store.recordURL(for: fixture.project).path))
+
+        let restartedStore = try ProjectRecoveryStore(directory: fixture.storage, check: rejectCompletion)
+        let restarted = fixture.session(store: restartedStore)
+        XCTAssertEqual(restarted.recovery, session.recovery)
+        XCTAssertFalse(restarted.canTerminate)
+    }
+
+    func testDurableCompletionSurvivesCleanupFailureWithoutRetryingPost() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage) { point in
+            if point == .removalCleanup { throw SessionIssue("注入旧记录清理失败") }
+        }
+        let session = fixture.session(store: store)
+        try fixture.select("prod", in: session)
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertNil(session.recovery)
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        let retained = try store.recordURL(for: fixture.project)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: retained.path))
+
+        let restartedStore = try ProjectRecoveryStore(directory: fixture.storage)
+        let restarted = fixture.session(store: restartedStore)
+        XCTAssertNil(restarted.recovery)
+        XCTAssertTrue(restarted.canTerminate)
+        XCTAssertTrue(restarted.open(fixture.project))
+        restarted.select("sample-flutter-app(prod)")
+        try Data().write(to: fixture.state("fail-before-test"))
+        restarted.run()
+        await restarted.waitUntilIdle()
+        XCTAssertNotNil(restarted.recovery)
+        XCTAssertEqual(try fixture.marker(), "prod\n")
+    }
+
     func testInvalidRecordAndFailedRemovalKeepRecoveryBlocked() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
