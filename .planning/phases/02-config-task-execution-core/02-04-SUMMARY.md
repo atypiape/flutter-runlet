@@ -25,8 +25,15 @@ coverage:
         ref: .planning/phases/02-config-task-execution-core/02-P2-ACCEPTANCE.md#最终构建
         status: pass
     human_judgment: false
+  - id: p2-release-isolation
+    description: 最终 Release 忽略两个验收参数，prod 禁用且隔离存储和样例无副作用
+    verification:
+      - kind: other
+        ref: .planning/phases/02-config-task-execution-core/02-P2-ACCEPTANCE.md#release-参数隔离自动复验
+        status: pass
+    human_judgment: false
   - id: p2-user-acceptance
-    description: 主窗、菜单栏、异常恢复和 Release 的独立用户复验
+    description: 主窗、菜单栏和异常恢复的用户复验
     verification: []
     human_judgment: true
     rationale: 原生界面可用性及菜单栏同步由用户确认
@@ -41,8 +48,8 @@ status: complete
 - 实际 macOS 主窗验证公开 prod → test、前置部分写入、后置失败与日志外重试、调试异常退出、强制终止后发现风险、切换约束、Profile 阻断以及 Release 参数隔离。矩阵覆盖 A07–A16、A32。
 - 固定根复验发现系统环境可覆盖 Foundation 提供的主目录，改为从当前 OS 用户记录取得固定根。另覆盖派发前 Stop、改名与替换项目目录、macOS 启动覆盖及另一实例已完成恢复时的状态刷新。
 - 先持久提交认证的恢复完成凭据，再清理旧风险记录。两项重启回归覆盖凭据同步失败和清理失败。
-- 菜单栏状态项在自动桌面环境未能定位。用户阶段末 UAT 保留菜单栏与主窗同步，以及原生验收复核。
+- 菜单栏状态项在自动桌面环境未能定位，由用户复核菜单栏与主窗同步。Release 参数隔离由原生可访问性断言和磁盘快照比对验收。
 
 ## 验证
 
-见 [P2 验收记录](02-P2-ACCEPTANCE.md)。执行者取证和独立用户验收分别记录。
+见 [P2 验收记录](02-P2-ACCEPTANCE.md) 与 [UAT 结果](02-UAT.md)。
