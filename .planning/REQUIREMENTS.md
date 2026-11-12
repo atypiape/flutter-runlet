@@ -15,17 +15,17 @@ v0.1 的需求来自 [PRD](../docs/01-PRODUCT.md)、[技术契约](../docs/02-TE
 
 ### 项目配置与任务
 
-- [ ] **CONF-01**: 打开或切换包含 `pubspec.yaml` 的 Flutter 项目，记住最近项目并能重新读取启动配置，显示读取错误。
-- [ ] **CONF-02**: 读取 `launch.json` 和 `tasks.json` 的 JSONC 注释与尾随逗号，保留配置名称并为无效文件提供位置和原因。（A07、A08）
-- [ ] **CONF-03**: 仅允许有效的 Dart Flutter Debug 启动。非 Debug 和其他不支持配置仍显示名称与原因，执行层在任务和 Flutter 启动前复验。（A32）
-- [ ] **CONF-04**: 按契约透传 `toolArgs`、应用 `args` 和旧版 `args` 中明确可识别的 `--dart-define=KEY=VALUE`，保留顺序及原值，对无法映射或冲突的参数阻断运行。（A08、A09）
-- [ ] **CONF-05**: 解析启动 `program`、`cwd`、继承环境、`env`、`osx.env` 与支持的变量，保留原配置文件和环境值。（A10、A11）
-- [ ] **TASK-01**: 按 `label` 解析前后置 shell/process 任务，处理各自的参数、目录及环境，安全执行配置的命令。（A08、A11）
-- [ ] **TASK-02**: 缺失任务、不支持的扩展、后台或依赖任务、不支持的变量及失败的前置任务均有明确错误，阻止 Flutter 启动。（A12）
-- [ ] **SAFE-01**: Flutter 进程退出后才执行项目指定的后置任务。公开 prod 示例恢复到 test，以任务退出码确认成功。（A13）
-- [ ] **SAFE-02**: prod 启动前写入持久风险标记。前置任务部分写入后失败或应用异常退出时保留标记，下次启动提供恢复入口。（A15）
-- [ ] **SAFE-03**: 后置恢复失败时显示阻塞状态，允许重试配置指定的任务，成功后才清除风险。（A14）
-- [ ] **SAFE-04**: 按规范化项目路径加锁，避免重复 Run 产生冲突。切换项目、启动新环境及退出应用时受前一会话终止与恢复约束。（A16）
+- [x] **CONF-01**: 打开或切换包含 `pubspec.yaml` 的 Flutter 项目，记住最近项目并能重新读取启动配置，显示读取错误。
+- [x] **CONF-02**: 读取 `launch.json` 和 `tasks.json` 的 JSONC 注释与尾随逗号，保留配置名称并为无效文件提供位置和原因。（A07、A08）
+- [x] **CONF-03**: 仅允许有效的 Dart Flutter Debug 启动。非 Debug 和其他不支持配置仍显示名称与原因，执行层在任务和 Flutter 启动前复验。（A32）
+- [x] **CONF-04**: 按契约透传 `toolArgs`、应用 `args` 和旧版 `args` 中明确可识别的 `--dart-define=KEY=VALUE`，保留顺序及原值，对无法映射或冲突的参数阻断运行。（A08、A09）
+- [x] **CONF-05**: 解析启动 `program`、`cwd`、继承环境、`env`、`osx.env` 与支持的变量，保留原配置文件和环境值。（A10、A11）
+- [x] **TASK-01**: 按 `label` 解析前后置 shell/process 任务，处理各自的参数、目录及环境，安全执行配置的命令。（A08、A11）
+- [x] **TASK-02**: 缺失任务、不支持的扩展、后台或依赖任务、不支持的变量及失败的前置任务均有明确错误，阻止 Flutter 启动。（A12）
+- [x] **SAFE-01**: Flutter 进程退出后才执行项目指定的后置任务。公开 prod 示例恢复到 test，以任务退出码确认成功。（A13）
+- [x] **SAFE-02**: prod 启动前写入持久风险标记。前置任务部分写入后失败或应用异常退出时保留标记，下次启动提供恢复入口。（A15）
+- [x] **SAFE-03**: 后置恢复失败时显示阻塞状态，允许重试配置指定的任务，成功后才清除风险。（A14）
+- [x] **SAFE-04**: 按规范化项目路径加锁，避免重复 Run 产生冲突。切换项目、启动新环境及退出应用时受前一会话终止与恢复约束。（A16）
 
 ### 调试会话
 
@@ -77,17 +77,17 @@ v0.1 的需求来自 [PRD](../docs/01-PRODUCT.md)、[技术契约](../docs/02-TE
 | BASE-01 | Phase 1 | Complete |
 | BASE-02 | Phase 1 | Complete |
 | BASE-03 | Phase 1 | Complete |
-| CONF-01 | Phase 2 | Pending |
-| CONF-02 | Phase 2 | Pending |
-| CONF-03 | Phase 2 | Pending |
-| CONF-04 | Phase 2 | Pending |
-| CONF-05 | Phase 2 | Pending |
-| TASK-01 | Phase 2 | Pending |
-| TASK-02 | Phase 2 | Pending |
-| SAFE-01 | Phase 2 | Pending |
-| SAFE-02 | Phase 2 | Pending |
-| SAFE-03 | Phase 2 | Pending |
-| SAFE-04 | Phase 2 | Pending |
+| CONF-01 | Phase 2 | Complete |
+| CONF-02 | Phase 2 | Complete |
+| CONF-03 | Phase 2 | Complete |
+| CONF-04 | Phase 2 | Complete |
+| CONF-05 | Phase 2 | Complete |
+| TASK-01 | Phase 2 | Complete |
+| TASK-02 | Phase 2 | Complete |
+| SAFE-01 | Phase 2 | Complete |
+| SAFE-02 | Phase 2 | Complete |
+| SAFE-03 | Phase 2 | Complete |
+| SAFE-04 | Phase 2 | Complete |
 | RUN-01 | Phase 3 | Pending |
 | RUN-02 | Phase 3 | Pending |
 | RUN-03 | Phase 3 | Pending |
