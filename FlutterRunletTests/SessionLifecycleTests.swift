@@ -37,6 +37,127 @@ final class SessionLifecycleTests: XCTestCase {
         XCTAssertEqual(try fixture.configurationBytes(), original)
     }
 
+    func testStorageSyncFailureBlocksPreAndPostOnlyLaunch() async throws {
+        for hasPre in [false, true] {
+            for point in [ProjectRecoveryStore.SyncPoint.recordData, .recordDirectory] {
+                let fixture = try SessionFixture()
+                defer { fixture.remove() }
+                if !hasPre { try fixture.removeProdPreTask() }
+                let store = try ProjectRecoveryStore(directory: fixture.storage) { current in
+                    if current == point { throw SessionIssue("注入同步失败") }
+                }
+                let session = fixture.session(store: store)
+                try fixture.select("prod", in: session)
+                session.run()
+                await session.waitUntilIdle()
+                XCTAssertEqual(try fixture.marker(), "test\n")
+                XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+                XCTAssertEqual(try store.read(project: fixture.project) != nil, point == .recordDirectory)
+                XCTAssertEqual(session.recovery != nil, point == .recordDirectory)
+            }
+        }
+    }
+
+    func testNoAdapterAndNonDebugLeaveConfigurationAndProjectUntouched() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let ordinary = SessionController(store: store, runner: .bundled)
+        try fixture.select("prod", in: ordinary)
+        ordinary.run()
+        await ordinary.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+
+        let launch = try String(contentsOf: fixture.config("launch"), encoding: .utf8)
+        try launch.replacingOccurrences(of: #""debug""#, with: #""profile""#).write(
+            to: fixture.config("launch"), atomically: true, encoding: .utf8
+        )
+        let profile = fixture.session(store: store)
+        try fixture.select("prod", in: profile)
+        profile.run()
+        await profile.waitUntilIdle()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+    }
+
+    func testPostOnlyRecordsRiskAndLaunchFailureRestoresViaRealPost() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        try fixture.removeProdPreTask()
+        let debug = fixture.session(store: store, script: """
+            test -f "$1" || exit 91
+            : > .runlet-fixture/debug-started
+            exit 19
+            """, arguments: [try store.recordURL(for: fixture.project).path])
+        try fixture.select("prod", in: debug)
+        debug.run()
+        await debug.waitUntilIdle()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+        XCTAssertEqual(debug.message, "调试进程：退出码 19")
+        XCTAssertNil(try store.read(project: fixture.project))
+
+        let missing = SessionController(store: store, runner: .bundled) { launch in
+            SessionCommand(executable: "/no-such-runlet-test-program", arguments: [],
+                           directory: launch.directory, environment: [:])
+        }
+        try "prod\n".write(to: fixture.state("firebase-environment"), atomically: true, encoding: .utf8)
+        try fixture.select("prod", in: missing)
+        missing.run()
+        await missing.waitUntilIdle()
+        XCTAssertTrue(missing.message?.contains("进程启动失败") == true)
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+    }
+
+    func testPreFailureBeforeWriteAndAfterWriteKeepDifferentRisk() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        try Data().write(to: fixture.state("fail-before-dev"))
+        try fixture.select("dev", in: session)
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertTrue(session.message?.contains("退出码 1") == true)
+        try Data().write(to: fixture.state("fail-after-prod"))
+        session.select("sample-flutter-app(prod)")
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "prod\n")
+        XCTAssertNotNil(try store.read(project: fixture.project))
+        XCTAssertNotNil(session.recovery)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+    }
+
+    func testFixtureRootRunsPublicSampleAndRejectsModifiedScriptAndLinkedState() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store, root: fixture.base)
+        try fixture.select("prod", in: session)
+        XCTAssertTrue(session.canRun, session.displayMessage ?? "")
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+
+        let script = fixture.project.appending(path: "scripts/simulate-firebase-switch.sh")
+        try "#!/bin/sh\nexit 0\n".write(to: script, atomically: true, encoding: .utf8)
+        let restarted = fixture.session(store: store, root: fixture.base)
+        try fixture.select("prod", in: restarted)
+        XCTAssertFalse(restarted.canRun)
+        let state = fixture.state("firebase-environment")
+        try FileManager.default.removeItem(at: state)
+        try FileManager.default.createSymbolicLink(at: state, withDestinationURL: fixture.config("tasks"))
+        XCTAssertFalse(restarted.open(fixture.project))
+    }
+
     func testFixtureAssemblyRequiresExactFlagAndRejectsOutsideProjectAlias() throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -96,6 +217,21 @@ struct SessionFixture {
     func select(_ mode: String, in session: SessionController) throws {
         XCTAssertTrue(session.open(project))
         session.select("sample-flutter-app(\(mode))")
+    }
+
+    func session(store: ProjectRecoveryStore, script: String = ": > .runlet-fixture/debug-started",
+                 arguments: [String] = [], root: URL? = nil) -> SessionController {
+        SessionController(store: store, runner: .bundled, allowedRoot: root, environment: environment) { launch in
+            SessionCommand(executable: "/bin/sh", arguments: ["-c", script, "fixture"] + arguments,
+                           directory: launch.project.path, environment: environment)
+        }
+    }
+
+    func removeProdPreTask() throws {
+        let url = config("launch")
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let line = #"      "preLaunchTask": "sample:select-prod","# + "\n"
+        try source.replacingOccurrences(of: line, with: "").write(to: url, atomically: true, encoding: .utf8)
     }
 
     func waitFor(_ name: String) async throws {

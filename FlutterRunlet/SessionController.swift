@@ -40,8 +40,9 @@ final class SessionController {
     ) {
         self.store = store
         self.runner = runner
-        self.allowedRoot = allowedRoot
-        allowedRootIdentity = allowedRoot.flatMap { try? ProjectLocation.identity($0) }
+        let canonicalRoot = allowedRoot.flatMap { try? ProjectLocation.directory($0) }
+        self.allowedRoot = canonicalRoot ?? allowedRoot
+        allowedRootIdentity = canonicalRoot.flatMap { try? ProjectLocation.identity($0) }
         self.debugCommand = debugCommand
         self.environment = environment
     }
@@ -71,7 +72,7 @@ final class SessionController {
                         : > .runlet-fixture/debug-started
                         while [ ! -f .runlet-fixture/debug-exit ]; do /bin/sleep 0.1; done
                         exit 19
-                        """], directory: launch.directory, environment: ["PATH": "/usr/bin:/bin"]
+                        """], directory: launch.project.path, environment: ["PATH": "/usr/bin:/bin"]
                     )
                 }
             } catch {

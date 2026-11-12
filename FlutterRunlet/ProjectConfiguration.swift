@@ -1,3 +1,4 @@
+import CryptoKit
 import Darwin
 import Foundation
 
@@ -14,7 +15,23 @@ enum ProjectLocation {
                              options: .regularExpression) != nil else {
             throw SessionIssue("所选目录缺少有效的 Flutter pubspec.yaml")
         }
+        if root != nil { try validateFixtureState(project) }
         return project
+    }
+
+    private static func validateFixtureState(_ project: URL) throws {
+        let state = project.appending(path: ".runlet-fixture")
+        var info = stat()
+        if lstat(state.path, &info) != 0 && errno == ENOENT { return }
+        guard info.st_mode & S_IFMT == S_IFDIR, info.st_uid == geteuid() else {
+            throw SessionIssue("验收项目的状态目录无效")
+        }
+        for file in try FileManager.default.contentsOfDirectory(atPath: state.path) {
+            guard lstat(state.appending(path: file).path, &info) == 0,
+                  info.st_mode & S_IFMT == S_IFREG, info.st_uid == geteuid(), info.st_nlink == 1 else {
+                throw SessionIssue("验收项目的状态文件无效")
+            }
+        }
     }
 
     static func directory(_ url: URL) throws -> URL {
@@ -44,9 +61,9 @@ enum ProjectLocation {
     }
 
     static func contains(_ url: URL, in directory: URL) -> Bool {
-        let components = url.pathComponents
-        return components.count > directory.pathComponents.count &&
-            components.starts(with: directory.pathComponents)
+        let components = url.resolvingSymlinksInPath().pathComponents
+        let root = directory.resolvingSymlinksInPath().pathComponents
+        return components.count > root.count && components.starts(with: root)
     }
 }
 
@@ -87,6 +104,9 @@ struct LaunchChoice: Identifiable, Equatable {
 }
 
 struct ProjectConfiguration {
+    // SHA-256 of the checked-in public fixture script.
+    private static let fixtureScriptDigest = "2d07516e06a3fdab9a13fe9015d1f1d35ef952dc88732ae9f142019e6d44f154"
+
     let project: URL
     let environment: [String: String]
     let restricted: Bool
@@ -199,9 +219,12 @@ struct ProjectConfiguration {
         if restricted {
             guard command == "/bin/sh", argv.count == 3,
                   argv[0] == project.appending(path: "scripts/simulate-firebase-switch.sh").path,
-                  try ProjectLocation.file("scripts/simulate-firebase-switch.sh", in: project, restricted: true).path == argv[0],
+                  try ProjectLocation.file("scripts/simulate-firebase-switch.sh", in: project, restricted: true).path ==
+                    project.resolvingSymlinksInPath().appending(path: "scripts/simulate-firebase-switch.sh").path,
                   cwd == project, ["dev", "test", "prod"].contains(argv[1]), argv[2] == "--quiet",
-                  rawEnvironment.isEmpty else {
+                  rawEnvironment.isEmpty,
+                  let script = try? Data(contentsOf: URL(fileURLWithPath: argv[0])),
+                  SHA256.hash(data: script).map({ String(format: "%02x", $0) }).joined() == fixtureScriptDigest else {
                 throw SessionIssue("验收模式仅支持公开样例的环境切换任务")
             }
             executable = "/bin/sh"
