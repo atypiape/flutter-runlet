@@ -127,10 +127,13 @@ final class SessionController {
         var result: UnsafeMutablePointer<passwd>?
         let suggested = sysconf(_SC_GETPW_R_SIZE_MAX)
         var buffer = [CChar](repeating: 0, count: max(4096, suggested))
-        let status = getpwuid_r(geteuid(), &account, &buffer, buffer.count, &result)
-        guard status == 0, result != nil, let home = account.pw_dir,
-              let path = String(validatingCString: home), path.hasPrefix("/") else {
-            throw SessionIssue("无法确定当前用户的主目录")
+        let path = try buffer.withUnsafeMutableBufferPointer { bytes -> String in
+            let status = getpwuid_r(geteuid(), &account, bytes.baseAddress, bytes.count, &result)
+            guard status == 0, result != nil, let home = account.pw_dir,
+                  let path = String(validatingCString: home), path.hasPrefix("/") else {
+                throw SessionIssue("无法确定当前用户的主目录")
+            }
+            return path
         }
         return URL(fileURLWithPath: path, isDirectory: true)
             .appending(path: "Library/Application Support/FlutterRunlet-Phase02Fixture", directoryHint: .isDirectory)
