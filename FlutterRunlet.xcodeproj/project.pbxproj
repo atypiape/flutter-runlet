@@ -29,6 +29,7 @@
 		0A3EEDD74CA3F441FA9F2390 /* ProjectConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */; };
 		E1B401C85CC3D30AAC9D40BF /* JSONCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512E7E682279B611FCA01B23 /* JSONCReader.swift */; };
 		3399A15A06279A6E54BAB204 /* ProjectSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F831607A2F937D2017E1214 /* ProjectSelectionTests.swift */; };
+		5D7CAF6D9B2CD44287304E39 /* ProjectRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DA019D2F9D2AF052965DE6 /* ProjectRecoveryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 		D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConfigurationTests.swift; sourceTree = "<group>"; };
 		512E7E682279B611FCA01B23 /* JSONCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONCReader.swift; sourceTree = "<group>"; };
 		5F831607A2F937D2017E1214 /* ProjectSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSelectionTests.swift; sourceTree = "<group>"; };
+		37DA019D2F9D2AF052965DE6 /* ProjectRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRecoveryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +96,7 @@
 		0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */ = {
 			isa = PBXGroup;
 			children = (
+				37DA019D2F9D2AF052965DE6 /* ProjectRecoveryTests.swift */,
 				5F831607A2F937D2017E1214 /* ProjectSelectionTests.swift */,
 				D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */,
 				FB3AD3C5D3510CAD525D46EA /* SessionLifecycleTests.swift */,
@@ -302,6 +305,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D7CAF6D9B2CD44287304E39 /* ProjectRecoveryTests.swift in Sources */,
 				3399A15A06279A6E54BAB204 /* ProjectSelectionTests.swift in Sources */,
 				0A3EEDD74CA3F441FA9F2390 /* ProjectConfigurationTests.swift in Sources */,
 				32D6F60700ED82D96F33D424 /* SessionLifecycleTests.swift in Sources */,
