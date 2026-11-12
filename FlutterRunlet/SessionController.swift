@@ -7,6 +7,10 @@ final class SessionController {
     private(set) var project: URL?
     private(set) var choices: [LaunchChoice] = []
     private(set) var selectedID: Int?
+    private(set) var configurationIsStale = false
+    var rememberRecentProject: Bool {
+        didSet { preferences?.set(rememberRecentProject, forKey: Self.rememberKey) }
+    }
     private(set) var isBusy = false
     private(set) var canStop = false
     private(set) var status = "无调试会话"
@@ -16,13 +20,17 @@ final class SessionController {
     private(set) var logs = ""
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool {
-        !isBusy && recovery == nil && selection?.launch != nil &&
+        !isBusy && !configurationIsStale && recovery == nil && selection?.launch != nil &&
             store != nil && debugCommand != nil && runner.isAvailable
     }
     var displayMessage: String? {
         message ?? selection?.issue ?? (project != nil && debugCommand == nil ? "当前构建尚未接入 Flutter 调试进程" : nil)
     }
 
+    private static let rememberKey = "rememberRecentProject"
+    private static let recentKey = "recentProjectPath"
+    @ObservationIgnored private let preferences: UserDefaults?
+    @ObservationIgnored private var hasLoadedConfiguration = false
     @ObservationIgnored private let store: ProjectRecoveryStore?
     @ObservationIgnored private let runner: SessionProcessRunner
     @ObservationIgnored private let allowedRoot: URL?
@@ -36,6 +44,7 @@ final class SessionController {
     init(
         store: ProjectRecoveryStore?, runner: SessionProcessRunner, allowedRoot: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
+        preferences: UserDefaults? = nil,
         debugCommand: ((PreparedLaunch) -> SessionCommand?)? = nil
     ) {
         self.store = store
@@ -45,6 +54,11 @@ final class SessionController {
         allowedRootIdentity = canonicalRoot.flatMap { try? ProjectLocation.identity($0) }
         self.debugCommand = debugCommand
         self.environment = environment
+        self.preferences = preferences
+        rememberRecentProject = preferences?.object(forKey: Self.rememberKey) as? Bool ?? true
+        if rememberRecentProject, let path = preferences?.string(forKey: Self.recentKey) {
+            open(URL(fileURLWithPath: path, isDirectory: true))
+        }
     }
 
     static func fixtureEnabled(arguments: [String]) -> Bool {
@@ -64,7 +78,10 @@ final class SessionController {
                 let namespace = try ProjectRecoveryStore.privateDirectory(location)
                 let projects = try ProjectRecoveryStore.privateDirectory(namespace.appending(path: "projects"))
                 let store = try ProjectRecoveryStore(directory: namespace.appending(path: "state"))
-                return SessionController(store: store, runner: .bundled, allowedRoot: projects) { launch in
+                return SessionController(
+                    store: store, runner: .bundled, allowedRoot: projects,
+                    preferences: UserDefaults(suiteName: "com.atypiape.FlutterRunlet.Phase02Fixture")
+                ) { launch in
                     SessionCommand(
                         executable: "/bin/sh", arguments: ["-c", """
                         /bin/mkdir -p .runlet-fixture
@@ -83,7 +100,10 @@ final class SessionController {
         }
         #endif
         do {
-            return try SessionController(store: ProjectRecoveryStore(directory: base.appending(path: "FlutterRunlet")), runner: .bundled)
+            return try SessionController(
+                store: ProjectRecoveryStore(directory: base.appending(path: "FlutterRunlet")),
+                runner: .bundled, preferences: .standard
+            )
         } catch {
             let blocked = SessionController(store: nil, runner: .bundled)
             blocked.message = error.localizedDescription
@@ -100,12 +120,12 @@ final class SessionController {
         do {
             let canonical = try validate(url)
             project = canonical
-            let config = configuration(canonical)
-            choices = config.choices
-            selectedID = choices.filter { $0.launch != nil }.only?.id
-            taskIssue = config.taskIssue
-            message = config.launchIssue
+            choices = []
+            selectedID = nil
+            hasLoadedConfiguration = false
+            apply(configuration(canonical), preserving: nil)
             status = "就绪"
+            preferences?.set(canonical.path, forKey: Self.recentKey)
             if let record = try store?.read(project: canonical) {
                 markRecovery(record, "项目存在待恢复的环境")
             }
@@ -116,18 +136,55 @@ final class SessionController {
         }
     }
 
+    func reload() {
+        guard !isBusy else {
+            message = "请先停止当前会话并完成适用的环境恢复，再重读配置"
+            return
+        }
+        guard let project else { return }
+        do {
+            let canonical = try validate(project)
+            apply(configuration(canonical), preserving: selection?.name)
+        } catch {
+            configurationIsStale = true
+            message = error.localizedDescription
+        }
+    }
+
+    private func apply(_ config: ProjectConfiguration, preserving name: String?) {
+        taskIssue = config.taskIssue
+        message = config.launchIssue
+        configurationIsStale = config.launchIssue != nil
+        if configurationIsStale { return }
+        choices = config.choices
+        if let name {
+            let matches = choices.filter { $0.name == name }
+            selectedID = matches.only?.id
+            if matches.isEmpty {
+                message = "原配置已不存在，请重新选择"
+            } else if matches.count > 1 {
+                message = "原配置名称重名，请在 launch.json 中改名"
+            }
+        } else if !hasLoadedConfiguration {
+            selectedID = choices.filter { $0.launch != nil }.only?.id
+        } else {
+            selectedID = nil
+        }
+        hasLoadedConfiguration = true
+    }
+
     func select(_ name: String) {
         select(choices.filter { $0.name == name }.only?.id)
     }
 
     func select(_ id: Int?) {
-        guard !isBusy else { return }
+        guard !isBusy, !configurationIsStale else { return }
         selectedID = id
         if !choices.isEmpty { message = nil }
     }
 
     func run() {
-        guard !isBusy, recovery == nil, let project, let selection else { return }
+        guard !isBusy, !configurationIsStale, recovery == nil, let project, let selection else { return }
         guard let store, let debugCommand, runner.isAvailable else {
             message = "当前构建没有可用的 Flutter 调试进程或恢复存储"
             return
@@ -140,10 +197,14 @@ final class SessionController {
                 return
             }
             let config = configuration(current)
-            guard let choice = config.choices.filter({ $0.name == selection.name }).only,
-                  let launch = choice.launch, launch.mode == "debug" else {
-                throw SessionIssue(config.launchIssue ?? config.choices.first(where: { $0.name == selection.name })?.issue
-                                   ?? "原启动配置已不可用")
+            apply(config, preserving: selection.name)
+            guard !configurationIsStale, let launch = self.selection?.launch, launch.mode == "debug" else {
+                message = displayMessage ?? "原启动配置已不可用"
+                return
+            }
+            guard selection.launch?.executionMatches(launch) == true else {
+                message = "启动配置或引用任务已变化。请确认后再次点击运行"
+                return
             }
             guard let command = debugCommand(launch) else { throw SessionIssue("调试运行适配器不可用") }
             isBusy = true

@@ -26,7 +26,7 @@ struct MainWindowView: View {
                             }
                         }
                         .labelsHidden()
-                        .disabled(session.isBusy || session.choices.isEmpty)
+                        .disabled(session.isBusy || session.configurationIsStale || session.choices.isEmpty)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
@@ -62,6 +62,12 @@ struct MainWindowView: View {
                         ProjectToolTip()
                             .accessibilityHidden(true)
                     }
+
+                if let session, session.project != nil {
+                    Button("重读配置", systemImage: "arrow.clockwise", action: session.reload)
+                        .disabled(session.isBusy)
+                        .help("重读配置")
+                }
 
                 Button {
                     openSettings?()
@@ -113,7 +119,7 @@ struct MainWindowView: View {
                 } else if let session, session.project != nil || session.displayMessage != nil {
                     Text(session.status).fontWeight(.semibold)
                     if let issue = session.displayMessage {
-                        Text(verbatim: issue).foregroundStyle(.secondary)
+                        Text(verbatim: session.configurationIsStale && !session.choices.isEmpty ? "配置已过期 · " + issue : issue).foregroundStyle(.secondary)
                     }
                     if let issue = session.taskIssue, issue != session.displayMessage {
                         Text(verbatim: issue).foregroundStyle(.secondary)

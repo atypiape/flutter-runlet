@@ -68,7 +68,7 @@ struct FlutterRunletApp: App {
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView()
+            SettingsView(session: liveSession)
         }
         .defaultSize(width: 672, height: 520)
 

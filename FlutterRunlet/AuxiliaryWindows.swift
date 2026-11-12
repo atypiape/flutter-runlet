@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 struct SettingsView: View {
+    var session: SessionController? = nil
     private enum Page: CaseIterable {
         case general
         case flutter
@@ -34,11 +35,19 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(142)
         } detail: {
-            Text((selection ?? .general).title)
-                .font(.title2.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(24)
+            VStack(alignment: .leading, spacing: 16) {
+                Text((selection ?? .general).title)
+                    .font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                if (selection ?? .general) == .general, let session {
+                    Toggle("记住最近打开的项目", isOn: Binding(
+                        get: { session.rememberRecentProject },
+                        set: { session.rememberRecentProject = $0 }
+                    ))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(24)
         }
         .toolbar(removing: .sidebarToggle)
     }
