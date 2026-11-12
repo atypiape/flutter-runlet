@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Observation
 
@@ -42,6 +43,7 @@ final class SessionController {
     @ObservationIgnored private let debugCommand: ((PreparedLaunch) -> SessionCommand?)?
     @ObservationIgnored private let environment: [String: String]
     @ObservationIgnored private var active: SessionProcess?
+    @ObservationIgnored private var fixtureConfigurationFailed = false
     @ObservationIgnored private var blockedLease: ProjectLease?
     @ObservationIgnored private var operation: Task<Void, Never>?
     @ObservationIgnored private var stopRequested = false
@@ -76,11 +78,10 @@ final class SessionController {
     }
 
     static func app(arguments: [String]) -> SessionController {
-        let base = URL.applicationSupportDirectory
         #if DEBUG
         if fixtureEnabled(arguments: arguments) {
-            let location = base.appending(path: "FlutterRunlet-Phase02Fixture")
             do {
+                let location = try fixtureDirectory()
                 let namespace = try ProjectRecoveryStore.privateDirectory(location)
                 let projects = try ProjectRecoveryStore.privateDirectory(namespace.appending(path: "projects"))
                 let store = try ProjectRecoveryStore(directory: namespace.appending(path: "state"))
@@ -99,7 +100,8 @@ final class SessionController {
                     )
                 }
             } catch {
-                let blocked = SessionController(store: nil, runner: .bundled, allowedRoot: location.appending(path: "projects"))
+                let blocked = SessionController(store: nil, runner: .bundled)
+                blocked.fixtureConfigurationFailed = true
                 blocked.message = "无法验证隔离验收目录：\(error.localizedDescription)"
                 return blocked
             }
@@ -107,7 +109,7 @@ final class SessionController {
         #endif
         do {
             return try SessionController(
-                store: ProjectRecoveryStore(directory: base.appending(path: "FlutterRunlet")),
+                store: ProjectRecoveryStore(directory: URL.applicationSupportDirectory.appending(path: "FlutterRunlet")),
                 runner: .bundled, preferences: .standard
             )
         } catch {
@@ -117,6 +119,24 @@ final class SessionController {
         }
     }
 
+    #if DEBUG
+    private static func fixtureDirectory() throws -> URL {
+        // Foundation's applicationSupportDirectory honors CFFIXED_USER_HOME.
+        // The acceptance root is bound to the current OS user account instead.
+        var account = passwd()
+        var result: UnsafeMutablePointer<passwd>?
+        let suggested = sysconf(_SC_GETPW_R_SIZE_MAX)
+        var buffer = [CChar](repeating: 0, count: max(4096, suggested))
+        let status = getpwuid_r(geteuid(), &account, &buffer, buffer.count, &result)
+        guard status == 0, result != nil, let home = account.pw_dir,
+              let path = String(validatingCString: home), path.hasPrefix("/") else {
+            throw SessionIssue("无法确定当前用户的主目录")
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
+            .appending(path: "Library/Application Support/FlutterRunlet-Phase02Fixture", directoryHint: .isDirectory)
+    }
+    #endif
+
     @discardableResult
     func open(_ url: URL) -> Bool {
         guard requestProjectChange() else { return false }
@@ -124,6 +144,7 @@ final class SessionController {
     }
 
     func requestProjectChange() -> Bool {
+        guard !fixtureConfigurationFailed else { return false }
         guard !isBusy, !executionIsUnconfirmed, recovery == nil else {
             message = "请先停止当前会话并完成适用的环境恢复，再打开项目"
             return false
@@ -314,6 +335,7 @@ final class SessionController {
         canStop = false
         stopRequested = true
         status = "正在停止"
+        message = nil
         active?.stop()
     }
 
