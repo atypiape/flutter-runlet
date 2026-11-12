@@ -148,9 +148,11 @@ struct ProjectConfiguration {
         }
     }
 
-    func prepareTask(_ label: String) throws -> PreparedTask {
-        try Self.prepareTask(label, tasks: tasks, taskIssue: taskIssue,
-                             project: project, environment: environment, restricted: restricted)
+    func prepareTask(
+        _ label: String, verify: (PreparedTask.Definition) throws -> Void = { _ in }
+    ) throws -> PreparedTask {
+        try Self.prepareTask(label, tasks: tasks, taskIssue: taskIssue, project: project,
+                             environment: environment, restricted: restricted, verify: verify)
     }
 
     private static func prepare(
@@ -208,7 +210,8 @@ struct ProjectConfiguration {
 
     private static func prepareTask(
         _ label: String, tasks: [[String: Any]], taskIssue: String?, project: URL,
-        environment: [String: String], restricted: Bool
+        environment: [String: String], restricted: Bool,
+        verify: (PreparedTask.Definition) throws -> Void = { _ in }
     ) throws -> PreparedTask {
         if let taskIssue { throw SessionIssue(taskIssue) }
         let matches = tasks.filter { $0["label"] as? String == label }
@@ -229,6 +232,14 @@ struct ProjectConfiguration {
         let rawCommand = try string(entry, key: "command")
         let rawArguments = try strings(entry, "args")
         let rawDirectory = try string(options, key: "cwd", default: "$" + "{workspaceFolder}")
+        let definition = PreparedTask.Definition(
+            type: type, command: rawCommand, arguments: rawArguments, directory: rawDirectory,
+            environment: try rawEnvironment.mapValues {
+                guard let value = $0 as? String else { throw SessionIssue("任务环境值必须是字符串") }
+                return value
+            }
+        )
+        try verify(definition)
         var variables = ConfigVariables(project: project, environment: environment)
         let cwd = try ProjectLocation.directory(resolve(variables.expand(rawDirectory), in: project))
         if restricted && !insideProject(cwd, project) { throw SessionIssue("任务工作目录超出验收项目") }
@@ -257,13 +268,6 @@ struct ProjectConfiguration {
         } else {
             throw SessionIssue("任务 \(label) 的命令不可执行或引用方式暂不支持")
         }
-        let definition = PreparedTask.Definition(
-            type: type, command: rawCommand, arguments: rawArguments, directory: rawDirectory,
-            environment: try rawEnvironment.mapValues {
-                guard let value = $0 as? String else { throw SessionIssue("任务环境值必须是字符串") }
-                return value
-            }
-        )
         return PreparedTask(label: label,
                             command: SessionCommand(executable: executable, arguments: argv, directory: cwd.path,
                                                     environment: restricted ? ["PATH": "/usr/bin:/bin"] : taskEnvironment),

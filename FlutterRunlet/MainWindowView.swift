@@ -127,6 +127,14 @@ struct MainWindowView: View {
                     if let recovery = session.recovery {
                         Text(verbatim: "\(recovery.projectPath) · \(recovery.taskLabel)")
                             .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        if session.recoveryProjectIsOpen {
+                            Button("重试恢复", action: session.retryRecovery)
+                                .disabled(session.isBusy || session.recoveryStoreIssue != nil)
+                        } else {
+                            Button("打开待恢复项目") { session.openRecoveryProject() }
+                                .disabled(session.isBusy || session.recoveryStoreIssue != nil)
+                        }
                     }
                 } else {
                     Text("无调试会话")

@@ -17,14 +17,16 @@ final class SessionController {
     private(set) var message: String?
     private(set) var taskIssue: String?
     private(set) var recovery: ProjectRecoveryRecord?
+    private(set) var recoveryStoreIssue: String?
+    var recoveryProjectIsOpen: Bool { recovery?.projectPath == project?.path && recovery != nil }
     private(set) var logs = ""
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool {
-        !isBusy && !configurationIsStale && recovery == nil && selection?.launch != nil &&
+        !isBusy && !configurationIsStale && recovery == nil && recoveryStoreIssue == nil && selection?.launch != nil &&
             store != nil && debugCommand != nil && runner.isAvailable
     }
     var displayMessage: String? {
-        message ?? selection?.issue ?? (project != nil && debugCommand == nil ? "当前构建尚未接入 Flutter 调试进程" : nil)
+        recoveryStoreIssue ?? message ?? selection?.issue ?? (project != nil && debugCommand == nil ? "当前构建尚未接入 Flutter 调试进程" : nil)
     }
 
     private static let rememberKey = "rememberRecentProject"
@@ -57,8 +59,9 @@ final class SessionController {
         self.preferences = preferences
         rememberRecentProject = preferences?.object(forKey: Self.rememberKey) as? Bool ?? true
         if rememberRecentProject, let path = preferences?.string(forKey: Self.recentKey) {
-            open(URL(fileURLWithPath: path, isDirectory: true))
+            _ = loadProject(URL(fileURLWithPath: path, isDirectory: true), remember: false)
         }
+        discoverRecovery()
     }
 
     static func fixtureEnabled(arguments: [String]) -> Bool {
@@ -117,6 +120,10 @@ final class SessionController {
             message = "请先停止当前会话并完成适用的环境恢复，再打开项目"
             return false
         }
+        return loadProject(url, remember: true)
+    }
+
+    private func loadProject(_ url: URL, remember: Bool) -> Bool {
         do {
             let canonical = try validate(url)
             project = canonical
@@ -125,14 +132,84 @@ final class SessionController {
             hasLoadedConfiguration = false
             apply(configuration(canonical), preserving: nil)
             status = "就绪"
-            preferences?.set(canonical.path, forKey: Self.recentKey)
-            if let record = try store?.read(project: canonical) {
-                markRecovery(record, "项目存在待恢复的环境")
+            if remember { preferences?.set(canonical.path, forKey: Self.recentKey) }
+            do {
+                if let record = try store?.read(project: canonical) {
+                    markRecovery(record, "项目存在待恢复的环境")
+                }
+            } catch {
+                recoveryStoreIssue = error.localizedDescription
             }
             return true
         } catch {
             message = error.localizedDescription
             return false
+        }
+    }
+
+    private func discoverRecovery() {
+        guard let store else { return }
+        do {
+            let records = try store.allRecords()
+            if let allowedRoot, records.contains(where: {
+                !ProjectLocation.contains(URL(fileURLWithPath: $0.projectPath, isDirectory: true), in: allowedRoot)
+            }) {
+                throw SessionIssue("验收存储含越界恢复记录")
+            }
+            if let record = records.first(where: { $0.projectPath == project?.path }) ?? records.first {
+                markRecovery(record, "发现待恢复的环境")
+            } else if recovery != nil {
+                recovery = nil
+            }
+            recoveryStoreIssue = nil
+        } catch {
+            recoveryStoreIssue = error.localizedDescription
+            status = "环境恢复记录不可用"
+        }
+    }
+
+    @discardableResult
+    func openRecoveryProject() -> Bool {
+        guard !isBusy, recoveryStoreIssue == nil, let record = recovery, let store else { return false }
+        do {
+            let directory = try validate(URL(fileURLWithPath: record.projectPath, isDirectory: true))
+            try store.verifyProject(record, directory)
+            let opened = loadProject(directory, remember: true)
+            if opened { markRecovery(record, "请确认并重试原恢复任务") }
+            return opened
+        } catch {
+            markRecovery(record, error.localizedDescription)
+            return false
+        }
+    }
+
+    func retryRecovery() {
+        guard !isBusy, recoveryStoreIssue == nil, let expected = recovery,
+              recoveryProjectIsOpen, let project, let store else { return }
+        guard runner.isAvailable else {
+            markRecovery(expected, "监督进程不可用")
+            return
+        }
+        do {
+            let canonical = try validate(project)
+            let lease = try store.lease(for: canonical)
+            guard let record = try store.read(project: canonical), record == expected else {
+                throw SessionIssue("恢复记录已变化，请重新启动应用后核对")
+            }
+            let task = try configuration(canonical).prepareTask(record.taskLabel) { definition in
+                try store.verifyDefinition(definition, environment: environment, record: record)
+            }
+            try store.verifyExecution(task, record: record)
+            isBusy = true
+            message = nil
+            operation = Task { [self] in
+                await restore(task, record: record, project: canonical, store: store, lease: lease)
+                active = nil
+                isBusy = false
+                operation = nil
+            }
+        } catch {
+            markRecovery(expected, error.localizedDescription)
         }
     }
 
@@ -184,7 +261,7 @@ final class SessionController {
     }
 
     func run() {
-        guard !isBusy, !configurationIsStale, recovery == nil, let project, let selection else { return }
+        guard !isBusy, !configurationIsStale, recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
         guard let store, let debugCommand, runner.isAvailable else {
             message = "当前构建没有可用的 Flutter 调试进程或恢复存储"
             return
@@ -296,6 +373,7 @@ final class SessionController {
             try store.remove(project: project)
             recovery = nil
             status = "就绪"
+            discoverRecovery()
         } catch {
             markRecovery(record, error.localizedDescription)
         }

@@ -5,8 +5,10 @@ import Foundation
 struct ProjectRecoveryRecord: Codable, Equatable, Sendable {
     let version: Int
     let projectPath: String
+    let projectIdentity: String
     let taskLabel: String
     let definition: Data
+    let execution: Data
     let variables: [String: Data]
 }
 
@@ -74,21 +76,27 @@ struct ProjectRecoveryStore: Sendable {
     }
 
     func recordURL(for project: URL) throws -> URL {
-        let hash = SHA256.hash(data: Data(project.resolvingSymlinksInPath().path.utf8))
+        recordURL(forRecordedPath: try ProjectLocation.directory(project).path)
+    }
+
+    private func recordURL(forRecordedPath path: String) -> URL {
+        let hash = SHA256.hash(data: Data(path.utf8))
         return directory.appending(path: hash.map { String(format: "%02x", $0) }.joined() + ".risk")
     }
 
     func read(project: URL) throws -> ProjectRecoveryRecord? {
         let url = try recordURL(for: project)
         guard let record = try read(url) else { return nil }
-        guard record.projectPath == (try ProjectLocation.directory(project)).path else { throw SessionIssue("恢复记录项目不匹配") }
+        try verifyProject(record, project)
         return record
     }
 
     func write(project: URL, task: PreparedTask) throws -> ProjectRecoveryRecord {
         let record = ProjectRecoveryRecord(
-            version: 1, projectPath: project.path, taskLabel: task.label,
-            definition: authenticate(try definition(task), scope: "definition"),
+            version: 1, projectPath: try ProjectLocation.directory(project).path,
+            projectIdentity: try ProjectLocation.identity(project), taskLabel: task.label,
+            definition: authenticate(try encoded(task.definition), scope: "definition"),
+            execution: authenticate(try execution(task), scope: "execution"),
             variables: Dictionary(uniqueKeysWithValues: task.references.map {
                     ($0.key, authenticate(Data($0.value.utf8), scope: "variable:\($0.key)"))
             })
@@ -104,13 +112,13 @@ struct ProjectRecoveryStore: Sendable {
     func remove(project: URL) throws {
         let url = try recordURL(for: project)
         guard let bytes = try Self.privateData(url) else { throw SessionIssue("待清除的恢复记录缺失") }
-        try check(.removal)
         // Keep an open, writable descriptor for the storage barrier after unlink.
         let descriptor = open(url.path, O_RDWR | O_CLOEXEC | O_NOFOLLOW)
         guard descriptor >= 0 else { throw SessionIssue("无法打开待清除的恢复记录") }
         defer { close(descriptor) }
         guard unlink(url.path) == 0 else { throw SessionIssue("无法清除恢复记录") }
         do {
+            try check(.removal)
             try Self.syncDirectory(directory)
             try Self.syncFile(descriptor)
         } catch {
@@ -123,7 +131,7 @@ struct ProjectRecoveryStore: Sendable {
         let items = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         return try items.filter { $0.pathExtension == "risk" }.sorted { $0.path < $1.path }.compactMap { url in
             guard let record = try read(url) else { return nil }
-            let expected = try recordURL(for: URL(fileURLWithPath: record.projectPath, isDirectory: true))
+            let expected = recordURL(forRecordedPath: record.projectPath)
             guard url.lastPathComponent == expected.lastPathComponent else {
                 throw SessionIssue("恢复记录文件名与项目不匹配")
             }
@@ -153,10 +161,41 @@ struct ProjectRecoveryStore: Sendable {
         }
     }
 
-    private func definition(_ task: PreparedTask) throws -> Data {
+    func verifyProject(_ record: ProjectRecoveryRecord, _ project: URL) throws {
+        guard record.projectPath == (try ProjectLocation.directory(project)).path,
+              record.projectIdentity == (try ProjectLocation.identity(project)) else {
+            throw SessionIssue("恢复记录的项目目录已移动或身份已变化")
+        }
+    }
+
+    func verifyDefinition(_ definition: PreparedTask.Definition, environment: [String: String],
+                          record: ProjectRecoveryRecord) throws {
+        guard authenticate(try encoded(definition), scope: "definition") == record.definition else {
+            throw SessionIssue("原恢复任务定义已变化。请还原命令、参数、工作目录和任务环境后重试")
+        }
+        let changed = record.variables.keys.sorted().filter { name in
+            guard let value = environment[name] else { return true }
+            return authenticate(Data(value.utf8), scope: "variable:\(name)") != record.variables[name]
+        }
+        if !changed.isEmpty {
+            throw SessionIssue("恢复任务引用的环境变量已变化：\(changed.joined(separator: "、"))")
+        }
+    }
+
+    func verifyExecution(_ task: PreparedTask, record: ProjectRecoveryRecord) throws {
+        guard authenticate(try execution(task), scope: "execution") == record.execution else {
+            throw SessionIssue("原恢复任务的可执行文件、参数或工作目录解析结果已变化")
+        }
+    }
+
+    private func execution(_ task: PreparedTask) throws -> Data {
+        try encoded([task.command.executable, task.command.directory] + task.command.arguments)
+    }
+
+    private func encoded(_ value: some Encodable) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(task.definition)
+        return try encoder.encode(value)
     }
 
     private func authenticate(_ data: Data, scope: String) -> Data {
