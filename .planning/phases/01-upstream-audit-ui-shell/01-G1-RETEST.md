@@ -38,4 +38,16 @@ open -n .build/phase-01-gaps/Build/Products/Debug/FlutterRunlet.app --args --g1-
 1. **G-01-2**。分别从菜单栏打开「打开主窗口」和「设置」，观察面板是否收起且目标窗口取得焦点。用状态图标及点外方式关闭面板。关闭主窗后核对菜单栏仍可用且 Dock 无运行指示点，再重复打开主窗，核对仅一扇主窗且 Ready 数据仍在。最小化主窗后从面板打开，核对恢复原窗。
 2. **G-01-3**。开启「系统设置 → 键盘 → 键盘导航」，在主窗与面板用 Tab／Shift-Tab 正反遍历，核对可用控件的可见焦点及禁用动作。将指针停在禁用的文件夹图标上，核对是否显示「打开项目」。
 
-两项均待用户确认。
+### 2026-11-12 用户复验与本机追查
+
+用户对上表同一份 Debug 构建的回复如下。
+
+> G-01-2 通过；G-01-3 未通过，已在「系统设置 → 键盘」开启「键盘导航」，按 Tab 和 Shift-Tab 遍历主窗与面板，未见焦点，可能是整个主窗口只有“运行”是未被禁用的；鼠标停在主窗的文件夹图标上，确认出现「打开项目」提示
+
+随后读取到「系统设置 → 键盘 → 键盘导航」仍显示开启，AppKit 的 `isFullKeyboardAccessEnabled` 却为 `false`。关闭该开关后立即恢复为开启，系统设置的可见状态与用户复验时一致，AppKit 改为返回 `true`。`AppleKeyboardUIMode` 在这次检查中由 `1` 变为 `2`。复验复用了原 Debug 构建，主程序和 `FlutterRunlet.debug.dylib` 的 SHA-256 均与上表一致。[Apple 键盘导航](https://support.apple.com/guide/mac-help/-mchlc06d1059/mac) · [AppKit 键盘访问状态](https://developer.apple.com/documentation/appkit/nsapplication/isfullkeyboardaccessenabled)
+
+- **主窗**。逐键截图显示蓝色原生焦点环按「运行 → 运行日志 → 设置 → 关于 FlutterRunlet」循环，Shift-Tab 反向循环。Space 可在「运行」上打开演示提示，关闭后可继续遍历。聚焦「运行日志」时，Space 可折叠和展开日志。禁用控件被跳过。
+- **菜单栏面板**。从状态项打开面板后，逐键截图显示焦点按「运行 → 打开主窗口 → 设置 → 退出」循环，Shift-Tab 反向循环。Space 可在「运行」上打开并关闭演示提示，面板随系统行为收起。禁用控件被跳过。
+- 原生窗口截图位于 `.build/phase-01-gaps/focus-captures/`，主窗文件为 `main-confirm-next-*` 和 `main-confirm-previous-*`，面板文件为 `panel-confirm-next-*` 和 `panel-confirm-previous-*`。截图范围限于被测窗口。
+
+G-01-2 和 G-01-3 的悬停部分已有用户通过记录。G-01-3 的键盘部分已完成执行者复验，等待用户在恢复开启后的系统偏好下重新检查。
