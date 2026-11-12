@@ -99,6 +99,43 @@ final class ProjectConcurrencyTests: XCTestCase {
         XCTAssertNil(session.recovery)
     }
 
+    func testStopBeforeDispatchLeavesEnvironmentAndRecordUntouched() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        try "dev\n".write(to: fixture.state("firebase-environment"), atomically: true, encoding: .utf8)
+        try fixture.select("prod", in: session)
+        session.run()
+        session.stop()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "dev\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+    }
+
+    func testAlreadyOpenSecondInstanceCannotRunRenamedProjectWithOutstandingRisk() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let second = fixture.session(store: store)
+        let first = fixture.session(store: store)
+        try Data().write(to: fixture.state("fail-after-prod"))
+        try fixture.select("prod", in: first)
+        first.run()
+        await first.waitUntilIdle()
+        XCTAssertNotNil(first.recovery)
+        let renamed = fixture.base.appending(path: "Renamed Flutter Sample", directoryHint: .isDirectory)
+        try FileManager.default.moveItem(at: fixture.project, to: renamed)
+        try FileManager.default.removeItem(at: renamed.appending(path: ".runlet-fixture/fail-after-prod"))
+        XCTAssertTrue(second.open(renamed))
+        second.select("sample-flutter-app(prod)")
+        second.run()
+        await second.waitUntilIdle()
+        XCTAssertEqual(second.recovery?.projectPath, first.recovery?.projectPath)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: renamed.appending(path: ".runlet-fixture/debug-started").path))
+        XCTAssertEqual(try String(contentsOf: renamed.appending(path: ".runlet-fixture/firebase-environment"), encoding: .utf8), "prod\n")
+    }
+
     private static let wrapper = """
         (
             trap '' TERM
