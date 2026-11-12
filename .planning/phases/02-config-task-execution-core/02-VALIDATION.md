@@ -1,9 +1,9 @@
 ---
 phase: "02"
 slug: "config-task-execution-core"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-12"
 ---
 
@@ -28,21 +28,21 @@ created: "2026-11-12"
 
 ## 任务级验证
 
-下表的测试类使用上文共享命令的 `-only-testing:FlutterRunletTests/<测试类>`。每项在执行时记录首次失败方向及实现后结果，当前状态为待执行。
+下表的测试类使用上文共享命令的 `-only-testing:FlutterRunletTests/<测试类>`。最终 Debug XCTest 29 项通过。原生桌面场景的证据和用户复验状态见验收记录。
 
-| 任务 | 波次 | 验证入口 | 威胁引用 | 断言与证据 |
-|---|---:|---|---|---|
-| 02-01-01 | 1 | SessionLifecycleTests、LaunchPresentationTests | T-02-01–T-02-04 | 真实前置、持久风险、真实受管退出、后置和字节校验，重复 Run 只启动一次，Debug 固定根及重启身份隔离。 |
-| 02-01-02 | 1 | SessionLifecycleTests | T-02-01 | 仅后置时先持久提交记录。非 Debug、文件同步和父目录项同步失败均零副作用，部分写入及恢复失败保留风险。 |
-| 02-02-01 | 2 | ProjectConfigurationTests、SessionLifecycleTests | T-02-05 | 四原名、JSONC 坐标、旧 define、PATH、入口及参数，执行层阻断非 Debug。 |
-| 02-02-02 | 2 | ProjectConfigurationTests、SessionLifecycleTests | T-02-06 | 真实 shell/process 的 argv、cwd、env、退出码，非法输入和任务文件独立诊断。 |
-| 02-02-03 | 2 | ProjectSelectionTests、LaunchPresentationTests | T-02-07 | 过期、重名、删除和最近项目状态，复验发现有效变更时当次零副作用。 |
-| 02-03-01 | 3 | ProjectRecoveryTests、SessionLifecycleTests | T-02-08、T-02-09 | 首次快照、重试原定义和环境、重启恢复入口、记录字节、清理持久性和验收根外记录阻断。 |
-| 02-03-02 | 3 | ProjectConcurrencyTests、ProjectRecoveryTests | T-02-03、T-02-10、T-02-11 | 项目别名、跨实例和切换，验证 Stop 或控制管道断开后执行组仍活动时阻断竞争及后置。 |
-| 02-04-01 | 4 | 全量 Debug XCTest、Release build、两套主程序及监督进程可执行性 | T-02-12、T-02-14 | 记录本轮测试、构建、两套主程序及 Contents/Helpers 内监督进程的摘要、签名嵌入及启动模式。 |
-| 02-04-02 | 4 | A07–A16、A32 的记录行检查与阶段末人工验收 | T-02-12–T-02-14 | 逐项比对可复现命令输出、截图或实际阻塞，复验根外项目及符号链接隔离。 |
+| 任务 | 波次 | 验证入口 | 威胁引用 | 断言与证据 | 结果 |
+|---|---:|---|---|---|---|
+| 02-01-01 | 1 | SessionLifecycleTests、LaunchPresentationTests | T-02-01–T-02-04 | 真实前置、持久风险、真实受管退出、后置和字节校验，重复 Run 只启动一次，Debug 固定根及重启身份隔离。 | 通过 |
+| 02-01-02 | 1 | SessionLifecycleTests | T-02-01 | 仅后置时先持久提交记录。非 Debug、文件同步和父目录项同步失败均零副作用，部分写入及恢复失败保留风险。 | 通过 |
+| 02-02-01 | 2 | ProjectConfigurationTests、SessionLifecycleTests | T-02-05 | 四原名、JSONC 坐标、旧 define、PATH、入口及参数，执行层阻断非 Debug。 | 通过 |
+| 02-02-02 | 2 | ProjectConfigurationTests、SessionLifecycleTests | T-02-06 | 真实 shell/process 的 argv、cwd、env、退出码，非法输入和任务文件独立诊断。 | 通过 |
+| 02-02-03 | 2 | ProjectSelectionTests、LaunchPresentationTests | T-02-07 | 过期、重名、删除和最近项目状态，复验发现有效变更时当次零副作用。 | 通过 |
+| 02-03-01 | 3 | ProjectRecoveryTests、SessionLifecycleTests | T-02-08、T-02-09 | 首次快照、重试原定义和环境、重启恢复入口、记录字节、清理持久性和验收根外记录阻断。 | 通过 |
+| 02-03-02 | 3 | ProjectConcurrencyTests、ProjectRecoveryTests | T-02-03、T-02-10、T-02-11 | 项目别名、跨实例和切换，验证 Stop 或控制管道断开后执行组仍活动时阻断竞争及后置。 | 通过 |
+| 02-04-01 | 4 | 全量 Debug XCTest、Release build、两套主程序及监督进程可执行性 | T-02-12、T-02-14 | 记录本轮测试、构建、两套主程序及 Contents/Helpers 内监督进程的摘要、签名嵌入及启动模式。 | 通过 |
+| 02-04-02 | 4 | A07–A16、A32 的记录行检查与阶段末人工验收 | T-02-12–T-02-14 | 逐项比对可复现命令输出、截图或实际阻塞，复验根外项目及符号链接隔离。 | 通过，用户验收待确认 |
 
-当前仓库已有共享 scheme 和 LaunchPresentationTests。其余五个测试类分别由相应首个任务创建并接入同一 XCTest target，无独立测试框架安装。
+共享 scheme 现包含 LaunchPresentationTests 及五个阶段新增 XCTest 类。回归探针先观察到缺失接口或失败断言，再验证实现后的通过结果。派发前 Stop 和改名目录的最后两条回归均先失败、后通过。
 
 ## 测试样例与人工验收
 
@@ -70,7 +70,7 @@ created: "2026-11-12"
 
 本阶段没有独立 SPEC。TASK-01 的空输入与编码探针已进入 02-02 的可执行断言。其余自动探针无法分类的条目保留为人工复核项，以下判据从已确认上下文与验收矩阵取得。
 
-| 待人工复核 | 执行期核对 |
+| 人工复核项目 | 执行期核对 |
 |---|---|
 | CONF-01 | 有效目录内坏 launch 仍打开，重启偏好只影响打开和读盘。 |
 | CONF-02 | 引号内符号、非 ASCII 与 CRLF 的错误位置对应原文，配置字节未变。 |
@@ -85,7 +85,15 @@ created: "2026-11-12"
 
 ## 签署
 
-- [ ] 各任务验证命令已运行，记录失败方向和修复后结果
-- [ ] 全量 XCTest 和 Release 构建通过
-- [ ] A07–A16、A32 的人工证据归档
-- [ ] 执行后的 Nyquist 合规状态已核对
+- [x] 各任务验证命令已运行，记录失败方向和修复后结果
+- [x] 全量 XCTest 和 Release 构建通过
+- [x] A07–A16、A32 的执行证据归档，菜单栏和独立用户确认保留在 UAT
+- [x] 执行后的 Nyquist 合规状态已核对
+
+## Validation Audit 2026-11-12
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
