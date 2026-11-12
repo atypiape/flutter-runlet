@@ -51,12 +51,12 @@
   3. 公开 prod 样例在进程退出后恢复 test。部分写入、异常退出及恢复失败保留可见风险，重试成功后清除。（A13–A15）
   4. 重复 Run 或切换项目时，项目锁及会话终止规则阻止冲突的环境切换。（A16）
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 **Wave 1**
 - [x] 02-01-PLAN.md · 贯通公开样例的前置任务、受管进程退出和后置恢复
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 02-02-PLAN.md · 完成只读配置解析、校验、重读和最近项目
+- [x] 02-02-PLAN.md · 完成只读配置解析、校验、重读和最近项目
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 02-03-PLAN.md · 完成持久恢复重试、跨进程互斥和退出约束
@@ -110,7 +110,7 @@
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
 | 1. 上游审计与原生 UI 骨架 | 4/4 | Complete    | 2026-11-12 |
-| 2. 配置和任务执行内核 | 1/4 | In Progress | - |
+| 2. 配置和任务执行内核 | 2/4 | In Progress | - |
 | 3. Flutter 调试闭环 | 0/TBD | Not started | - |
 | 4. macOS 界面与双语设置 | 0/TBD | Not started | - |
 | 5. 稳定性、异常恢复与最终验收 | 0/TBD | Not started | - |
