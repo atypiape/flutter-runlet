@@ -1,3 +1,4 @@
+import CoreFoundation
 import CryptoKit
 import Darwin
 import Foundation
@@ -215,7 +216,8 @@ struct ProjectConfiguration {
         guard matches.count == 1 else { throw SessionIssue("任务标签重复：\(label)") }
         let type = try string(entry, key: "type")
         guard ["shell", "process"].contains(type),
-              entry["dependsOn"] == nil, entry["isBackground"] == nil || (entry["isBackground"] as? Bool) == false,
+              entry["dependsOn"] == nil, entry["runOptions"] == nil, entry["osx"] == nil,
+              isAbsentOrFalse(entry["isBackground"]),
               entry["problemMatcher"] == nil || (entry["problemMatcher"] as? [Any])?.isEmpty == true else {
             throw SessionIssue("暂不支持任务 \(label) 的类型、依赖或后台设置")
         }
@@ -248,7 +250,7 @@ struct ProjectConfiguration {
             executable = "/bin/sh"
         } else if let path = executablePath(command, directory: cwd, environment: taskEnvironment) {
             executable = path
-        } else if type == "shell", entry["args"] == nil, rawCommand == command,
+        } else if type == "shell", rawArguments.isEmpty, rawCommand == command,
                   command.rangeOfCharacter(from: .whitespaces) != nil {
             executable = "/bin/sh"
             argv = ["-c", command]
@@ -338,14 +340,24 @@ struct ProjectConfiguration {
         return entries
     }
 
+    private static func isAbsentOrFalse(_ value: Any?) -> Bool {
+        guard let value else { return true }
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return false }
+        return !number.boolValue
+    }
+
     private static func executablePath(_ command: String, directory: URL, environment: [String: String]) -> String? {
+        func isExecutable(_ path: String) -> Bool {
+            var info = stat()
+            return stat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFREG && access(path, X_OK) == 0
+        }
         if command.contains("/") {
             let path = resolve(command, in: directory).path
-            return FileManager.default.isExecutableFile(atPath: path) ? path : nil
+            return isExecutable(path) ? path : nil
         }
         return (environment["PATH"] ?? "/usr/bin:/bin").components(separatedBy: ":")
             .lazy.map { resolve($0, in: directory).appending(path: command).path }
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
+            .first(where: isExecutable)
     }
 
     private static func resolve(_ path: String, in directory: URL) -> URL {
