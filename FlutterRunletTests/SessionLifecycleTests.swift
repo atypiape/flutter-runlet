@@ -17,9 +17,17 @@ final class SessionLifecycleTests: XCTestCase {
             """, "fixture", try store.recordURL(for: fixture.project).path], directory: fixture.project.path, environment: fixture.environment)
         let session = SessionController(store: store, runner: .bundled, debugCommand: { _ in debug })
         try fixture.select("prod", in: session)
+        XCTAssertTrue(session.canRun, session.displayMessage ?? "无有效配置")
         session.run()
         session.run()
-        try await fixture.waitFor("debug-started")
+        do {
+            try await fixture.waitFor("debug-started")
+        } catch {
+            XCTFail("\(session.status) / \(session.displayMessage ?? "") / \(session.logs)")
+            session.stop()
+            await session.waitUntilIdle()
+            return
+        }
         XCTAssertEqual(try fixture.marker(), "prod\n")
         XCTAssertEqual(try store.read(project: fixture.project)?.taskLabel, "sample:select-test")
         session.stop()
@@ -60,7 +68,7 @@ struct SessionFixture {
     let environment = ["PATH": "/usr/bin:/bin"]
 
     init() throws {
-        base = FileManager.default.temporaryDirectory.appending(path: "Runlet \(UUID())")
+        base = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appending(path: "Runlet \(UUID())")
         project = base.appending(path: "Public Flutter Sample")
         storage = base.appending(path: "storage")
         let files = FileManager.default

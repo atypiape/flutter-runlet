@@ -4,6 +4,7 @@ struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
 
     let presentation: LaunchPresentation
+    var session: SessionController? = nil
     let run: () -> Void
     let openMainWindow: (OpenWindowAction) -> Void
     let openSettings: (() -> Void)?
@@ -17,19 +18,21 @@ struct MenuBarPanelView: View {
 
                 Spacer(minLength: 12)
 
-                Text(presentation.selection == nil ? "无调试会话" : "就绪")
+                Text(session?.status ?? (presentation.selection == nil ? "无调试会话" : "就绪"))
                     .foregroundStyle(.secondary)
             }
 
-            PresentationField(title: "项目", value: presentation.selection?.project, fallback: "未选择项目")
+            PresentationField(title: "项目", value: session?.project?.lastPathComponent ?? presentation.selection?.project, fallback: "未选择项目")
 
             HStack(alignment: .top, spacing: 12) {
-                PresentationField(title: "配置", value: presentation.selection?.configuration)
-                PresentationField(title: "设备", value: presentation.selection?.device)
+                PresentationField(title: "配置", value: session?.selection?.name ?? presentation.selection?.configuration)
+                PresentationField(title: "设备", value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
             }
 
             Divider()
-            DebugControls(canRun: presentation.selection != nil, run: run)
+            DebugControls(canRun: session?.canRun ?? (presentation.selection != nil),
+                          run: session.map { $0.run } ?? run, canStop: session?.canStop ?? false,
+                          stop: { session?.stop() })
             BrowserControls()
             Divider()
 

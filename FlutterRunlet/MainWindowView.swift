@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MainWindowView: View {
     let presentation: LaunchPresentation
+    var session: SessionController? = nil
     let run: () -> Void
     let openSettings: (() -> Void)?
     let openAbout: (() -> Void)?
@@ -11,16 +12,34 @@ struct MainWindowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PresentationField(title: "项目", value: presentation.selection?.project, fallback: "未选择项目")
+            PresentationField(title: "项目", value: session?.project?.lastPathComponent ?? presentation.selection?.project, fallback: "未选择项目")
 
             HStack(alignment: .top, spacing: 16) {
-                PresentationField(title: "配置", value: presentation.selection?.configuration)
-                PresentationField(title: "设备", value: presentation.selection?.device)
+                if let session, session.project != nil {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("配置").foregroundStyle(.secondary)
+                        Picker("配置", selection: Binding(get: { session.selectedID }, set: session.select)) {
+                            Text("请选择配置").tag(nil as Int?)
+                            ForEach(session.choices) { choice in
+                                Text(verbatim: choice.issue.map { "\(choice.name) · \($0)" } ?? choice.name)
+                                    .tag(choice.id as Int?)
+                            }
+                        }
+                        .labelsHidden()
+                        .disabled(session.isBusy || session.choices.isEmpty)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    PresentationField(title: "配置", value: presentation.selection?.configuration)
+                }
+                PresentationField(title: "设备", value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
                     .frame(maxWidth: 240)
             }
 
-            DebugControls(canRun: presentation.selection != nil, run: run)
-            session
+            DebugControls(canRun: session?.canRun ?? (presentation.selection != nil),
+                          run: session.map { $0.run } ?? run, canStop: session?.canStop ?? false,
+                          stop: { session?.stop() })
+            sessionDetails
                 .layoutPriority(1)
             logs
 
@@ -29,7 +48,7 @@ struct MainWindowView: View {
             }
 
             Divider()
-            Text(presentation.selection == nil ? "未选择项目" : "已选择项目")
+            Text(session?.project == nil && presentation.selection == nil ? "未选择项目" : "已选择项目")
                 .foregroundStyle(.secondary)
         }
         .font(.system(size: 13))
@@ -37,8 +56,8 @@ struct MainWindowView: View {
         .padding(.vertical, 16)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button("打开项目", systemImage: "folder") {}
-                    .disabled(true)
+                Button("打开项目", systemImage: "folder", action: openProject)
+                    .disabled(session == nil)
                     .overlay {
                         ProjectToolTip()
                             .accessibilityHidden(true)
@@ -65,7 +84,19 @@ struct MainWindowView: View {
         }
     }
 
-    private var session: some View {
+    private func openProject() {
+        guard let session else { return }
+        let panel = NSOpenPanel()
+        panel.title = "打开 Flutter 项目"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            session.open(url)
+        }
+    }
+
+    private var sessionDetails: some View {
         GroupBox("调试会话") {
             VStack(alignment: .leading, spacing: 8) {
                 if let selection = presentation.selection {
@@ -79,6 +110,18 @@ struct MainWindowView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Text("VM Service 未连接")
                         .foregroundStyle(.secondary)
+                } else if let session, session.project != nil || session.displayMessage != nil {
+                    Text(session.status).fontWeight(.semibold)
+                    if let issue = session.displayMessage {
+                        Text(verbatim: issue).foregroundStyle(.secondary)
+                    }
+                    if let issue = session.taskIssue, issue != session.displayMessage {
+                        Text(verbatim: issue).foregroundStyle(.secondary)
+                    }
+                    if let recovery = session.recovery {
+                        Text(verbatim: "\(recovery.projectPath) · \(recovery.taskLabel)")
+                            .foregroundStyle(.secondary)
+                    }
                 } else {
                     Text("无调试会话")
                         .foregroundStyle(.secondary)
@@ -93,7 +136,10 @@ struct MainWindowView: View {
     private var logs: some View {
         DisclosureGroup("运行日志", isExpanded: $isLogExpanded) {
             ScrollView([.horizontal, .vertical]) {
-                EmptyView()
+                if let session {
+                    Text(verbatim: session.logs).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .font(.system(size: 12, design: .monospaced))
             .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity)
@@ -145,6 +191,8 @@ struct PresentationField: View {
 struct DebugControls: View {
     let canRun: Bool
     let run: () -> Void
+    var canStop = false
+    var stop: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 8) {
@@ -152,8 +200,8 @@ struct DebugControls: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!canRun)
 
-            Button("停止") {}
-                .disabled(true)
+            Button("停止", action: stop)
+                .disabled(!canStop)
             Button("热重载") {}
                 .disabled(true)
             Button("热重启") {}

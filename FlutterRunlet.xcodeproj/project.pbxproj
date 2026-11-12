@@ -19,6 +19,13 @@
 		BC4D97D449AB42DF9A8EC25F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C468FE71AFE64B16AD2909BD /* Assets.xcassets */; };
 		F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */; };
 		32D6F60700ED82D96F33D424 /* SessionLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3AD3C5D3510CAD525D46EA /* SessionLifecycleTests.swift */; };
+		BF1BCBA41F9E5042876BA500 /* Worker in Helpers */ = {isa = PBXBuildFile; fileRef = FA2E1BF3C984AC5772EB3971; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		C5291B88C5812805202EDBA2 /* SessionProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203B8524D266CF1B1089DC86 /* SessionProcess.swift */; };
+		11F933C4B0A08EEA0EE34810 /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */; };
+		B2CA859CB69A73B428E24E4B /* ProjectConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2198DCFDD8449DF1CE2E0F /* ProjectConfiguration.swift */; };
+		FF1D87463612CE1C765B94D8 /* ProjectRecoveryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AD02FE029D86A76194966B /* ProjectRecoveryStore.swift */; };
+		8D6FFE35684C8506506A48F1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AD132103AC523EDDF0EDAE /* main.swift */; };
+		47EB1D47BB01BF24EF3E21B0 /* SessionProcess.swift in Worker Sources */ = {isa = PBXBuildFile; fileRef = 203B8524D266CF1B1089DC86; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,7 +36,12 @@
 			remoteGlobalIDString = 24AE19C04B1A2F7AD5B9359E;
 			remoteInfo = FlutterRunlet;
 		};
+		4AD6F79F280F2AC799FE3D68 = {isa = PBXContainerItemProxy; containerPortal = 7C27809197AFAB346EDBBEEF; proxyType = 1; remoteGlobalIDString = 87B3344492BD40F23CE1D153; remoteInfo = FlutterRunletSessionWorker; };
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DEA9663545CE895C4EFEBDDB /* Embed Session Worker */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = Contents/Helpers; dstSubfolderSpec = 1; files = (BF1BCBA41F9E5042876BA500, ); name = "Embed Session Worker"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@2x.png"; sourceTree = "<group>"; };
@@ -45,6 +57,12 @@
 		CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MenuBarPanelView.swift; sourceTree = "<group>"; };
 		DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuxiliaryWindows.swift; sourceTree = "<group>"; };
 		FB3AD3C5D3510CAD525D46EA /* SessionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLifecycleTests.swift; sourceTree = "<group>"; };
+		FA2E1BF3C984AC5772EB3971 /* FlutterRunletSessionWorker */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = FlutterRunletSessionWorker; sourceTree = BUILT_PRODUCTS_DIR; };
+		203B8524D266CF1B1089DC86 /* SessionProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProcess.swift; sourceTree = "<group>"; };
+		63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
+		9B2198DCFDD8449DF1CE2E0F /* ProjectConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConfiguration.swift; sourceTree = "<group>"; };
+		60AD02FE029D86A76194966B /* ProjectRecoveryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRecoveryStore.swift; sourceTree = "<group>"; };
+		D0AD132103AC523EDDF0EDAE /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +98,7 @@
 		2B5F8D4EA11589FFBF3A6812 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				FA2E1BF3C984AC5772EB3971 /* FlutterRunletSessionWorker */,
 				A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */,
 				7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */,
 			);
@@ -99,6 +118,10 @@
 		63742A4E44937BE759BB7EAA /* FlutterRunlet */ = {
 			isa = PBXGroup;
 			children = (
+				60AD02FE029D86A76194966B /* ProjectRecoveryStore.swift */,
+				9B2198DCFDD8449DF1CE2E0F /* ProjectConfiguration.swift */,
+				63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */,
+				203B8524D266CF1B1089DC86 /* SessionProcess.swift */,
 				668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */,
 				19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */,
 				69E2E0A5310F8BBD3F7FC248 /* MainWindowView.swift */,
@@ -134,7 +157,16 @@
 				63742A4E44937BE759BB7EAA /* FlutterRunlet */,
 				0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */,
 				52AAEE196EA722EA0325D33C /* Menu Bar Assets */,
+				8DC33059E39B3EDE0DCE2C5A /* FlutterRunletSessionWorker */,
 			);
+			sourceTree = "<group>";
+		};
+		8DC33059E39B3EDE0DCE2C5A /* FlutterRunletSessionWorker */ = {
+			isa = PBXGroup;
+			children = (
+				D0AD132103AC523EDDF0EDAE /* main.swift */,
+			);
+			path = FlutterRunletSessionWorker;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -144,6 +176,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 296C726C6B6E56C4AC721AB4 /* Build configuration list for PBXNativeTarget "FlutterRunlet" */;
 			buildPhases = (
+				DEA9663545CE895C4EFEBDDB /* Embed Session Worker */,
 				BEE11AA581C6E5FAC4303E5C /* Sources */,
 				18636F6EE6697CB937F50951 /* Frameworks */,
 				6880DA9D72F1BB9EEF303936 /* Resources */,
@@ -151,6 +184,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				8806E72FDB617B3058303F75 /* Session worker dependency */,
 			);
 			name = FlutterRunlet;
 			productName = FlutterRunlet;
@@ -174,6 +208,17 @@
 			productName = FlutterRunletTests;
 			productReference = 7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		87B3344492BD40F23CE1D153 /* FlutterRunletSessionWorker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 30B0454CAD483FD9E37A65B1;
+			buildPhases = (0B82A6B1B6550FD391006EB1, );
+			buildRules = ();
+			dependencies = ();
+			name = FlutterRunletSessionWorker;
+			productName = FlutterRunletSessionWorker;
+			productReference = FA2E1BF3C984AC5772EB3971;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -199,6 +244,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				87B3344492BD40F23CE1D153 /* FlutterRunletSessionWorker */,
 				24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */,
 				A9A28AACD7A0DFE4BEB7EA1F /* FlutterRunletTests */,
 			);
@@ -230,6 +276,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF1D87463612CE1C765B94D8 /* ProjectRecoveryStore.swift in Sources */,
+				B2CA859CB69A73B428E24E4B /* ProjectConfiguration.swift in Sources */,
+				11F933C4B0A08EEA0EE34810 /* SessionController.swift in Sources */,
+				C5291B88C5812805202EDBA2 /* SessionProcess.swift in Sources */,
 				6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */,
 				36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */,
 				4E024139E2EEC87B2A9E0709 /* MainWindowView.swift in Sources */,
@@ -247,6 +297,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0B82A6B1B6550FD391006EB1 /* Worker Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				47EB1D47BB01BF24EF3E21B0 /* SessionProcess.swift in Worker Sources */,
+				8D6FFE35684C8506506A48F1 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -256,6 +315,7 @@
 			target = 24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */;
 			targetProxy = 54074D6F7FC3F80A42ECD59E /* PBXContainerItemProxy */;
 		};
+		8806E72FDB617B3058303F75 = {isa = PBXTargetDependency; target = 87B3344492BD40F23CE1D153; targetProxy = 4AD6F79F280F2AC799FE3D68; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -444,6 +504,32 @@
 			};
 			name = Release;
 		};
+		2B2478DE862F389992397E4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_NAME = FlutterRunletSessionWorker;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B48678C7D455D8B6FA77F23C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_NAME = FlutterRunletSessionWorker;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -474,6 +560,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		30B0454CAD483FD9E37A65B1 = {isa = XCConfigurationList; buildConfigurations = (2B2478DE862F389992397E4E, B48678C7D455D8B6FA77F23C, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 7C27809197AFAB346EDBBEEF /* Project object */;

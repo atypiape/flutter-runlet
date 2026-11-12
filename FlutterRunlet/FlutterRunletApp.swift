@@ -12,12 +12,22 @@ struct FlutterRunletApp: App {
     @Environment(\.openWindow) private var openWindow
     @State private var panelWindow = PanelWindowReference()
 
-    private let presentation = LaunchPresentation.resolve(arguments: Array(CommandLine.arguments.dropFirst()))
+    private let presentation: LaunchPresentation
+    @State private var session: SessionController
+
+    init() {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        presentation = SessionController.fixtureEnabled(arguments: arguments) ? .empty : LaunchPresentation.resolve(arguments: arguments)
+        _session = State(initialValue: SessionController.app(arguments: arguments))
+    }
+
+    private var liveSession: SessionController? { presentation.selection == nil ? session : nil }
 
     var body: some Scene {
         WindowGroup("FlutterRunlet", id: Self.mainSceneID, for: String.self) { _ in
             MainWindowView(
                 presentation: presentation,
+                session: liveSession,
                 run: Self.showRunDemo,
                 openSettings: showSettings,
                 openAbout: showAbout
@@ -38,6 +48,7 @@ struct FlutterRunletApp: App {
         MenuBarExtra {
             MenuBarPanelView(
                 presentation: presentation,
+                session: liveSession,
                 run: Self.showRunDemo,
                 openMainWindow: { action in
                     panelWindow.close()
