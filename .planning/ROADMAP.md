@@ -8,7 +8,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: 上游审计与原生 UI 骨架** - 完成上游审计，交付可启动的原生 App 骨架并通过 G1。
+- [x] **Phase 1: 上游审计与原生 UI 骨架** - 完成上游审计，交付可启动的原生 App 骨架并通过 G1。 (completed 2026-11-12)
 - [ ] **Phase 2: 配置和任务执行内核** - 建立只读项目配置、任务与恢复内核，让启动和环境切换具备可测试的行为。
 - [ ] **Phase 3: Flutter 调试闭环** - 使用真实 Flutter 工程完成从选择设备到 Debug、浏览器检查及环境恢复的流程并通过 G2。
 - [ ] **Phase 4: macOS 界面与双语设置** - 按 G0 基线完成原生界面、本地化、设置与图标。
@@ -26,8 +26,8 @@
   2. 在 macOS 打开主窗口、菜单栏、设置和关于窗口，验证窗口尺寸与原生结构，记录适用截图和偏差。（A01、A02）
   3. 构建验证暂定 macOS 15 部署目标，记录实际 API 可用性和需要的替代路径。（A31）
 
-**Plans**: 3/4 plans executed
-- [ ] 01-04-PLAN.md
+**Plans**: 4/4 plans complete
+- [x] 01-04-PLAN.md
 
 **Wave 1**
 - [x] 01-01-PLAN.md
@@ -98,7 +98,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
-| 1. 上游审计与原生 UI 骨架 | 3/4 | In Progress | - |
+| 1. 上游审计与原生 UI 骨架 | 4/4 | Complete    | 2026-11-12 |
 | 2. 配置和任务执行内核 | 0/TBD | Not started | - |
 | 3. Flutter 调试闭环 | 0/TBD | Not started | - |
 | 4. macOS 界面与双语设置 | 0/TBD | Not started | - |

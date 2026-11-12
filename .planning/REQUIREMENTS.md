@@ -9,9 +9,9 @@ v0.1 的需求来自 [PRD](../docs/01-PRODUCT.md)、[技术契约](../docs/02-TE
 
 ### 上游与原生窗口
 
-- [ ] **BASE-01**: 审查 Flutter GUI Runner 的源码、依赖与许可证，记录复用边界，导入的代码保留必要许可及版权。
-- [ ] **BASE-02**: 原生 App 可启动并打开主窗口、菜单栏面板、设置及独立关于窗口。主窗默认 640 × 580 pt，菜单栏面板宽 404 pt，记录原生控件差异。（A01、A02）
-- [ ] **BASE-03**: 审查所用原生 API 在暂定最低目标 macOS 15 的可用性和替代路径，验证目标构建。（A31）
+- [x] **BASE-01**: 审查 Flutter GUI Runner 的源码、依赖与许可证，记录复用边界，导入的代码保留必要许可及版权。
+- [x] **BASE-02**: 原生 App 可启动并打开主窗口、菜单栏面板、设置及独立关于窗口。主窗默认 640 × 580 pt，菜单栏面板宽 404 pt，记录原生控件差异。（A01、A02）
+- [x] **BASE-03**: 审查所用原生 API 在暂定最低目标 macOS 15 的可用性和替代路径，验证目标构建。（A31）
 
 ### 项目配置与任务
 
@@ -74,9 +74,9 @@ v0.1 的需求来自 [PRD](../docs/01-PRODUCT.md)、[技术契约](../docs/02-TE
 
 | Requirement | Phase | Status |
 |---|---|---|
-| BASE-01 | Phase 1 | Pending |
-| BASE-02 | Phase 1 | Pending |
-| BASE-03 | Phase 1 | Pending |
+| BASE-01 | Phase 1 | Complete |
+| BASE-02 | Phase 1 | Complete |
+| BASE-03 | Phase 1 | Complete |
 | CONF-01 | Phase 2 | Pending |
 | CONF-02 | Phase 2 | Pending |
 | CONF-03 | Phase 2 | Pending |
