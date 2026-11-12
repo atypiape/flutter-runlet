@@ -1,6 +1,6 @@
 ---
 phase: 01-upstream-audit-ui-shell
-reviewed: 2026-11-11T19:36:36Z
+reviewed: 2026-11-12T02:55:37Z
 depth: standard
 files_reviewed: 11
 files_reviewed_list:
@@ -17,9 +17,9 @@ files_reviewed_list:
   - FlutterRunletTests/LaunchPresentationTests.swift
 findings:
   critical: 0
-  warning: 2
+  warning: 3
   info: 1
-  total: 3
+  total: 4
 status: issues_found
 ---
 
@@ -27,7 +27,7 @@ status: issues_found
 
 ## Summary
 
-按任务提交解析的 11 个文件，核查了两种构建配置、Debug 演示入口、窗口路由、资源和启动测试。未发现 Critical 问题。以下记录工程中的失效 SDK 引用、一个图标的悬停提示缺口，以及额外的 Release 测试配置限制。 [G1 验收记录](01-G1-ACCEPTANCE.md)
+首次审查于 2026-11-11T19:36:36Z 按任务提交解析 11 个文件，核查两种构建配置、Debug 演示入口、窗口路由、资源和启动测试。未发现 Critical 问题。以下保留工程中的失效 SDK 引用、一个图标的悬停提示缺口，以及额外的 Release 测试配置限制。 [G1 验收记录](01-G1-ACCEPTANCE.md)
 
 ## Narrative Findings (AI reviewer)
 
@@ -60,3 +60,15 @@ status: issues_found
 **修复** 若要增加自动化的 Release 行为回归，使用面向成品 App 的启动验证，直接检查 `--g1-ready` 仍进入 Empty。
 
 _Reviewer: gsd-code-reviewer_
+
+## 01-04 补审 · 2026-11-12
+
+按标准深度复核 `da45b25..b3f2062` 的 `FlutterRunletApp.swift` 和 `MainWindowView.swift`，并对照最终构建、用户确认和原阶段审查。以下为新增的一项兼容性警告。 [G1 最终复验](01-G1-RETEST.md)
+
+### WR-03: 主窗关闭通知的选择器缺少通知参数
+
+**文件** [FlutterRunletApp.swift](../../../FlutterRunlet/FlutterRunletApp.swift#L148)
+
+**问题** `NotificationCenter` 的选择器注册接口要求回调接收一个通知参数。当前传入无参 `windowWillClose()`。最终构建在 macOS 26.7.1 实测收到通知并完成 Dock 策略切换，用户也通过了该路径。签名与 Foundation 的文档契约仍有差异。 [Foundation 接口契约](https://developer.apple.com/documentation/foundation/notificationcenter/addobserver(_:selector:name:object:))
+
+**修复** 让 `windowWillClose(_:)` 接收一个 `Notification`，并使注册选择器指向该签名。

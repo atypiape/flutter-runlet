@@ -37,7 +37,10 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 | 01-02-01 | 01-02 | 2 | BASE-02 | T-01-05 | Debug 构建，核对 App、`PlistBuddy` 读出的版本和构建号、冒烟记录 | 当场验证两个设置入口、导航和独立关于窗口 | 通过 |
 | 01-02-02 | 01-02 | 2 | BASE-02 | T-01-06 | Debug 构建和 App 可执行文件检查 | 两个 Debug 交互预览的三处长字段省略与全文提示 | 通过 |
 | 01-03-01 | 01-03 | 3 | BASE-02、BASE-03 | T-01-02、T-01-03、T-01-04 | Debug 测试、Release 构建、两种配置的 `-showBuildSettings -json`、产物的 `xcrun vtool -show-build`、两张主窗 PNG 可读取 | 三种启动、A01 原生几何、主窗浅深图、API 与环境证据 | 通过 |
-| 01-03-02 | 01-03 | 3 | BASE-01、BASE-02、BASE-03 | T-01-04、T-01-05、T-01-06 | 验收记录非空及六张 PNG 可读取 | 四个界面、菜单栏几何、长字段结果、六图与上游清单复核 | 自动检查和执行者主要路径通过，用户验收待执行 |
+| 01-03-02 | 01-03 | 3 | BASE-01、BASE-02、BASE-03 | T-01-04、T-01-05、T-01-06 | 验收记录非空及六张 PNG 可读取 | 四个界面、菜单栏几何、长字段结果、六图与上游清单复核 | 通过，阶段末用户复验见 UAT 与 01-04 |
+| 01-04-01 | 01-04 | 4 | BASE-02 | T-01-07、T-01-SC | Debug 构建与可执行产物检查 | 关闭主窗前后为同一进程，主窗最小化保持常规激活策略，设置及关于可用。用户确认面板与 Dock | 通过 |
+| 01-04-02 | 01-04 | 4 | BASE-02、BASE-03 | T-01-08、T-01-SC | Debug XCTest 3 项通过，Release 构建成功。核对有效设置、Mach-O、调试条件与构建哈希 | 两处原生键盘正反向遍历、Space 与禁用状态实测，用户确认悬停提示 | 通过 |
+| 01-04-03 | 01-04 | 4 | BASE-02、BASE-03 | T-01-07、T-01-08 | 复核两次复验对应同一 Debug 主程序与动态库 SHA-256 | 用户在同一最终构建确认 G-01-2 和 G-01-3 | 通过 |
 
 ## Wave 0 Requirements
 
@@ -50,6 +53,8 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 
 执行者验证了两处原生提示的回车关闭、主窗和设置的窗口焦点及六个悬停提示。面板外点击、完整 Tab 遍历与禁用动作的键盘复核留给 G1 用户验收。 [本轮 G1 证据](01-G1-ACCEPTANCE.md)
 
+01-04 以最终构建复验面板和 Dock、两处键盘焦点及项目悬停。用户确认两项缺口通过，原始反馈及处置保留在 UAT。有效设置与 Mach-O 均确认 macOS 15.0 部署目标，D-09 实机复验仍未执行。 [最终复验](01-G1-RETEST.md#2026-11-12-最终确认) · [UAT](01-UAT.md)
+
 ## 来源覆盖
 
 | 来源 | 范围 | 任务 |
@@ -59,6 +64,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 | CONTEXT、UI 契约 | D-05 至 D-07 的截图、设置、关于和长字段覆盖 | 01-02-01、01-02-02、01-03-01、01-03-02 |
 | ROADMAP、REQUIREMENTS、CONTEXT、RESEARCH | BASE-03、A31、D-08、D-09，原生 API 和两种配置的 macOS 15 目标证据、当前系统实测 | 01-01-01、01-03-01、01-03-02 |
 | RESEARCH、PATTERNS | Swift 6 共享工程、系统场景与现有品牌素材、XCTest 及有效构建设置 | 01-01-01 至 01-01-03、01-02-01、01-03-01 |
+| UAT、缺口复验 | G-01-2 与 G-01-3 的最终构建、原生交互和用户确认 | 01-04-01 至 01-04-03 |
 
 ## Validation Sign-Off
 
@@ -73,3 +79,12 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 | Gaps found | 0 |
 | Resolved | 0 |
 | Escalated | 0 |
+
+## Validation Audit 2026-11-12
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| 01-04 tasks verified | 3 |
