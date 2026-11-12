@@ -225,8 +225,16 @@ final class SessionController {
         do {
             let canonical = try validate(project)
             let lease = try store.lease(for: canonical)
-            guard let record = try store.read(project: canonical), record == expected else {
-                throw SessionIssue("恢复记录已变化，请重新启动应用后核对")
+            guard let record = try store.read(project: canonical) else {
+                recovery = nil
+                status = "就绪"
+                message = "当前项目没有待恢复记录"
+                discoverRecovery()
+                return
+            }
+            guard record == expected else {
+                markRecovery(record, "恢复记录已变化，请核对后重试", pending: true)
+                return
             }
             let task = try configuration(canonical).prepareTask(record.taskLabel) { definition in
                 try store.verifyDefinition(definition, environment: environment, record: record)
@@ -359,7 +367,7 @@ final class SessionController {
         var record: ProjectRecoveryRecord?
         do {
             if let post = launch.post {
-                record = try store.write(project: launch.project, task: post)
+                record = try store.write(task: post, lease: lease)
             }
         } catch {
             if let visible = try? store.read(project: launch.project) {
@@ -416,6 +424,8 @@ final class SessionController {
                          store: ProjectRecoveryStore, lease: ProjectLease) async {
         status = "正在恢复环境"
         do {
+            try lease.verifyProject()
+            try store.verifyProject(record, project)
             try validateFixtureExecution(post, in: project)
         } catch {
             markRecovery(record, error.localizedDescription)
@@ -427,7 +437,7 @@ final class SessionController {
             return
         }
         do {
-            try store.remove(project: project)
+            try store.remove(record, lease: lease)
             recovery = nil
             status = "就绪"
             discoverRecovery()

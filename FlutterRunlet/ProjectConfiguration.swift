@@ -191,6 +191,9 @@ struct ProjectConfiguration {
             throw SessionIssue("Dart 入口或工作目录超出验收项目")
         }
         let options = try dictionary(entry, "osx")
+        guard options.keys.allSatisfy({ $0 == "env" }) else {
+            throw SessionIssue("暂不支持 osx.env 以外的 macOS 启动覆盖")
+        }
         var env = try dictionary(entry, "env")
         env.merge(try dictionary(options, "env"), uniquingKeysWith: { _, macOS in macOS })
         let launchEnvironment = try variables.apply(env)

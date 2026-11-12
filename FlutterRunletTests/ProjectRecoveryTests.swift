@@ -135,7 +135,10 @@ final class ProjectRecoveryTests: XCTestCase {
         let canonical = try ProjectLocation.directory(fixture.project)
         let config = ProjectConfiguration(project: canonical, environment: original, restricted: false)
         let task = try config.prepareTask("sample:select-test")
-        _ = try store.write(project: canonical, task: task)
+        do {
+            let lease = try store.lease(for: canonical)
+            _ = try store.write(task: task, lease: lease)
+        }
         let risk = try store.recordURL(for: canonical)
         let envelope = try JSONSerialization.jsonObject(with: Data(contentsOf: risk)) as? [String: String]
         let encoded = try XCTUnwrap(envelope?["payload"])

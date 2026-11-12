@@ -71,8 +71,7 @@ struct ProjectRecoveryStore: Sendable {
     }
 
     func lease(for project: URL) throws -> ProjectLease {
-        let identity = try ProjectLocation.identity(project)
-        return try ProjectLease(path: directory.appending(path: "\(identity).lock").path)
+        try ProjectLease(project: ProjectLocation.directory(project), lockDirectory: directory)
     }
 
     func recordURL(for project: URL) throws -> URL {
@@ -98,10 +97,11 @@ struct ProjectRecoveryStore: Sendable {
         return try allRecords().first { $0.projectIdentity == identity }
     }
 
-    func write(project: URL, task: PreparedTask) throws -> ProjectRecoveryRecord {
+    func write(task: PreparedTask, lease: ProjectLease) throws -> ProjectRecoveryRecord {
+        try lease.verifyProject()
         let record = ProjectRecoveryRecord(
-            version: 1, projectPath: try ProjectLocation.directory(project).path,
-            projectIdentity: try ProjectLocation.identity(project), taskLabel: task.label,
+            version: 1, projectPath: lease.project.path,
+            projectIdentity: lease.identity, taskLabel: task.label,
             definition: authenticate(try encoded(task.definition), scope: "definition"),
             execution: authenticate(try execution(task), scope: "execution"),
             variables: Dictionary(uniqueKeysWithValues: task.references.map {
@@ -110,15 +110,19 @@ struct ProjectRecoveryStore: Sendable {
         )
         let payload = try JSONEncoder().encode(record)
         let envelope = Envelope(payload: payload, authentication: authenticate(payload, scope: "record"))
-        try Self.replace(try recordURL(for: project), data: JSONEncoder().encode(envelope),
+        try Self.replace(recordURL(forRecordedPath: record.projectPath), data: JSONEncoder().encode(envelope),
                          beforeDataSync: { try check(.recordData) },
                          beforeDirectorySync: { try check(.recordDirectory) })
         return record
     }
 
-    func remove(project: URL) throws {
-        let url = try recordURL(for: project)
-        guard let bytes = try Self.privateData(url) else { throw SessionIssue("待清除的恢复记录缺失") }
+    func remove(_ expected: ProjectRecoveryRecord, lease: ProjectLease) throws {
+        try lease.verifyProject()
+        try verifyProject(expected, lease.project)
+        let url = recordURL(forRecordedPath: expected.projectPath)
+        guard let bytes = try Self.privateData(url), try read(url) == expected else {
+            throw SessionIssue("待清除的恢复记录缺失或已变化")
+        }
         // Keep an open, writable descriptor for the storage barrier after unlink.
         let descriptor = open(url.path, O_RDWR | O_CLOEXEC | O_NOFOLLOW)
         guard descriptor >= 0 else { throw SessionIssue("无法打开待清除的恢复记录") }

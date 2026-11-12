@@ -1,10 +1,11 @@
 import Darwin
 import Foundation
 
-private func run(_ command: SessionCommand, lease: Int32) -> SessionExit {
-    guard command.executable.hasPrefix("/"), chdir(command.directory) == 0 else {
+private func run(_ command: SessionCommand, lease: Int32, directory: Int32) -> SessionExit {
+    guard command.executable.hasPrefix("/"), fchdir(directory) == 0 else {
         return .launchFailed(ENOENT)
     }
+    close(directory)
     guard fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK) == 0 else { return .launchFailed(errno) }
     var byte: UInt8 = 0
     let initial = read(STDIN_FILENO, &byte, 1)
@@ -65,7 +66,7 @@ private func run(_ command: SessionCommand, lease: Int32) -> SessionExit {
 
 private func main() -> Int32 {
     let args = CommandLine.arguments.dropFirst().compactMap(Int32.init)
-    guard args.count == 3, CommandLine.arguments.count == 4, Set(args).count == 3,
+    guard args.count == 4, CommandLine.arguments.count == 5, Set(args).count == 4,
           args.allSatisfy({ $0 > STDERR_FILENO }) else { return 64 }
     let lease = args[0]
     let input = FileHandle(fileDescriptor: args[1], closeOnDealloc: true)
@@ -75,7 +76,7 @@ private func main() -> Int32 {
           let payload = try? input.readToEnd(),
           let command = try? JSONDecoder().decode(SessionCommand.self, from: payload) else { return 65 }
     try? input.close()
-    let result = run(command, lease: lease)
+    let result = run(command, lease: lease, directory: args[3])
     guard let data = try? JSONEncoder().encode(result) else { return 66 }
     // The app can be gone by the time the worker finishes draining its group.
     try? report.write(contentsOf: data)

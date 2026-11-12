@@ -43,21 +43,66 @@ struct SessionIssue: Error, LocalizedError, Equatable, Sendable {
 
 final class ProjectLease: Sendable {
     let descriptor: Int32
+    let project: URL
+    let identity: String
+    private let projectDescriptor: Int32
 
-    init(path: String) throws {
-        let fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard fd >= 0 else { throw SessionIssue("无法打开项目锁") }
+    init(project: URL, lockDirectory: URL) throws {
+        let root = open(project.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw SessionIssue("无法打开项目目录") }
         var info = stat()
+        guard fstat(root, &info) == 0 else {
+            close(root)
+            throw SessionIssue("无法确认项目目录身份")
+        }
+        let identity = "\(info.st_dev)-\(info.st_ino)"
+        let path = lockDirectory.appending(path: "\(identity).lock").path
+        let fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        guard fd >= 0 else {
+            close(root)
+            throw SessionIssue("无法打开项目锁")
+        }
         guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
               info.st_uid == geteuid(), info.st_mode & 0o077 == 0, info.st_nlink == 1,
               flock(fd, LOCK_EX | LOCK_NB) == 0 else {
             close(fd)
+            close(root)
             throw SessionIssue("项目正由另一个会话使用，或项目锁不可用")
         }
+        self.project = project
+        self.identity = identity
+        projectDescriptor = root
         descriptor = fd
+        try verifyProject()
     }
 
-    deinit { close(descriptor) }
+    func verifyProject() throws {
+        var info = stat()
+        guard lstat(project.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR,
+              "\(info.st_dev)-\(info.st_ino)" == identity else {
+            throw SessionIssue("项目目录已移动或身份已变化")
+        }
+    }
+
+    func openWorkingDirectory(_ path: String) throws -> Int32 {
+        try verifyProject()
+        let directory = path == project.path
+            ? fcntl(projectDescriptor, F_DUPFD_CLOEXEC, STDERR_FILENO + 1)
+            : open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard directory >= 0 else { throw SessionIssue("任务工作目录不可用") }
+        do {
+            try verifyProject()
+            return directory
+        } catch {
+            close(directory)
+            throw error
+        }
+    }
+
+    deinit {
+        close(projectDescriptor)
+        close(descriptor)
+    }
 }
 
 enum SessionSpawn {
@@ -111,6 +156,8 @@ struct SessionProcessRunner: Sendable {
     @MainActor
     func start(_ command: SessionCommand, lease: ProjectLease) throws -> SessionProcess {
         let payload = try JSONEncoder().encode(command)
+        let directoryFD = try lease.openWorkingDirectory(command.directory)
+        defer { close(directoryFD) }
         let control = Pipe()
         let input = Pipe()
         let output = Pipe()
@@ -124,7 +171,7 @@ struct SessionProcessRunner: Sendable {
         }
         let result = SessionSpawn.spawn(
             worker.path,
-            arguments: [String(lease.descriptor), String(inputFD), String(reportFD)],
+            arguments: [String(lease.descriptor), String(inputFD), String(reportFD), String(directoryFD)],
             environment: [:], flags: Int16(POSIX_SPAWN_CLOEXEC_DEFAULT)
         ) { actions in
             for (source, target) in [
@@ -135,7 +182,7 @@ struct SessionProcessRunner: Sendable {
                 let code = posix_spawn_file_actions_adddup2(&actions, source, target)
                 if code != 0 { return code }
             }
-            for fd in [lease.descriptor, inputFD, reportFD] {
+            for fd in [lease.descriptor, inputFD, reportFD, directoryFD] {
                 let code = posix_spawn_file_actions_addinherit_np(&actions, fd)
                 if code != 0 { return code }
             }
