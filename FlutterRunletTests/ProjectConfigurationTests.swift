@@ -77,6 +77,26 @@ final class ProjectConfigurationTests: XCTestCase {
         XCTAssertTrue(choices.suffix(2).allSatisfy { $0.issue?.contains("重名") == true })
     }
 
+    func testMacOSModeOverrideCannotDispatchPreTask() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        try fixture.writeLaunch(#"""
+        {"configurations":[{"name":"macOS Profile","type":"dart","request":"launch",
+          "flutterMode":"debug","osx":{"flutterMode":"profile"},"preLaunchTask":"sample:select-prod"}]}
+        """#)
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        XCTAssertTrue(session.open(fixture.project))
+        session.select("macOS Profile")
+        XCTAssertEqual(session.selection?.name, "macOS Profile")
+        XCTAssertFalse(session.canRun)
+        XCTAssertTrue(session.displayMessage?.contains("osx") == true)
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+    }
+
     func testRealTaskArgumentsDirectoryEnvironmentAndExitStatus() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }

@@ -24,6 +24,55 @@ final class ProjectRecoveryTests: XCTestCase {
         XCTAssertNil(try store.read(project: fixture.project))
     }
 
+    func testAutomaticPostBlocksWhenOriginalProjectDirectoryIsReplaced() async throws {
+        let fixture = try SessionFixture()
+        let replacement = try SessionFixture()
+        defer { fixture.remove(); replacement.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store, script: """
+            trap 'exit 0' TERM
+            : > .runlet-fixture/debug-started
+            while :; do /bin/sleep 0.05; done
+            """)
+        try fixture.select("prod", in: session)
+        session.run()
+        try await fixture.waitFor("debug-started")
+        let original = fixture.base.appending(path: "Moved project", directoryHint: .isDirectory)
+        try FileManager.default.moveItem(at: fixture.project, to: original)
+        try FileManager.default.moveItem(at: replacement.project, to: fixture.project)
+        try "dev\n".write(to: fixture.state("firebase-environment"), atomically: true, encoding: .utf8)
+        session.stop()
+        await session.waitUntilIdle()
+        XCTAssertTrue(session.message?.contains("身份") == true)
+        XCTAssertNotNil(session.recovery)
+        XCTAssertEqual(try store.allRecords().count, 1)
+        XCTAssertEqual(try fixture.marker(), "dev\n")
+        XCTAssertEqual(try String(contentsOf: original.appending(path: ".runlet-fixture/firebase-environment"), encoding: .utf8), "prod\n")
+    }
+
+    func testSecondInstanceRefreshesRecordClearedByFirstInstance() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let producer = fixture.session(store: store)
+        try Data().write(to: fixture.state("fail-before-test"))
+        try fixture.select("prod", in: producer)
+        producer.run()
+        await producer.waitUntilIdle()
+        let other = fixture.session(store: store)
+        XCTAssertTrue(other.openRecoveryProject())
+        try FileManager.default.removeItem(at: fixture.state("fail-before-test"))
+        producer.retryRecovery()
+        await producer.waitUntilIdle()
+        XCTAssertNil(producer.recovery)
+        XCTAssertNotNil(other.recovery)
+        other.retryRecovery()
+        await other.waitUntilIdle()
+        XCTAssertNil(other.recovery)
+        XCTAssertTrue(other.canTerminate)
+        XCTAssertEqual(try fixture.marker(), "test\n")
+    }
+
     func testFailedPostRestartAndExplicitRetryUseOriginalLabelAndDefinition() async throws {
         let fixture = try SessionFixture()
         let other = try SessionFixture()
