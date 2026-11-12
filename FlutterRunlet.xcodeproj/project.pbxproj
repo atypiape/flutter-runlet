@@ -27,6 +27,7 @@
 		8D6FFE35684C8506506A48F1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AD132103AC523EDDF0EDAE /* main.swift */; };
 		47EB1D47BB01BF24EF3E21B0 /* SessionProcess.swift in Worker Sources */ = {isa = PBXBuildFile; fileRef = 203B8524D266CF1B1089DC86; };
 		0A3EEDD74CA3F441FA9F2390 /* ProjectConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */; };
+		E1B401C85CC3D30AAC9D40BF /* JSONCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512E7E682279B611FCA01B23 /* JSONCReader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		60AD02FE029D86A76194966B /* ProjectRecoveryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRecoveryStore.swift; sourceTree = "<group>"; };
 		D0AD132103AC523EDDF0EDAE /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConfigurationTests.swift; sourceTree = "<group>"; };
+		512E7E682279B611FCA01B23 /* JSONCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONCReader.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +123,7 @@
 		63742A4E44937BE759BB7EAA /* FlutterRunlet */ = {
 			isa = PBXGroup;
 			children = (
+				512E7E682279B611FCA01B23 /* JSONCReader.swift */,
 				60AD02FE029D86A76194966B /* ProjectRecoveryStore.swift */,
 				9B2198DCFDD8449DF1CE2E0F /* ProjectConfiguration.swift */,
 				63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */,
@@ -279,6 +282,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1B401C85CC3D30AAC9D40BF /* JSONCReader.swift in Sources */,
 				FF1D87463612CE1C765B94D8 /* ProjectRecoveryStore.swift in Sources */,
 				B2CA859CB69A73B428E24E4B /* ProjectConfiguration.swift in Sources */,
 				11F933C4B0A08EEA0EE34810 /* SessionController.swift in Sources */,

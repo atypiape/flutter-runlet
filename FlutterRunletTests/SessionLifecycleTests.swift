@@ -190,7 +190,7 @@ struct SessionFixture {
 
     init() throws {
         base = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appending(path: "Runlet \(UUID())")
-        project = base.appending(path: "Public Flutter Sample")
+        project = base.appending(path: "Public Flutter Sample", directoryHint: .isDirectory)
         storage = base.appending(path: "storage")
         let files = FileManager.default
         let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

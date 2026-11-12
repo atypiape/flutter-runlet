@@ -78,7 +78,7 @@ final class ProjectConfigurationTests: XCTestCase {
     }
 
     private func configuration(_ fixture: SessionFixture) -> ProjectConfiguration {
-        ProjectConfiguration(project: fixture.project, environment: fixture.environment, restricted: false)
+        ProjectConfiguration(project: (try? ProjectLocation.directory(fixture.project)) ?? fixture.project, environment: fixture.environment, restricted: false)
     }
 
     private func writeLaunch(_ source: String, _ fixture: SessionFixture) throws {

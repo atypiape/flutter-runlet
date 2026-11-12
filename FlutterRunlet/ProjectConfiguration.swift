@@ -67,7 +67,7 @@ enum ProjectLocation {
     }
 }
 
-struct PreparedTask: Equatable, Sendable {
+struct PreparedTask: Codable, Equatable, Sendable {
     struct Definition: Codable, Equatable, Sendable {
         let type: String
         let command: String
@@ -82,7 +82,7 @@ struct PreparedTask: Equatable, Sendable {
     let references: [String: String]
 }
 
-struct PreparedLaunch: Equatable, Sendable {
+struct PreparedLaunch: Codable, Equatable, Sendable {
     let project: URL
     let name: String
     let mode: String
@@ -94,6 +94,13 @@ struct PreparedLaunch: Equatable, Sendable {
     let deviceID: String?
     let pre: PreparedTask?
     let post: PreparedTask?
+
+    func executionMatches(_ other: Self) -> Bool {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let left = try? encoder.encode(self), let right = try? encoder.encode(other) else { return false }
+        return left == right
+    }
 }
 
 struct LaunchChoice: Identifiable, Equatable {
@@ -125,8 +132,13 @@ struct ProjectConfiguration {
         let launchResult = Result { try Self.read("launch", key: "configurations", in: project, restricted: restricted) }
         launchIssue = launchResult.issue
         let source = (try? launchResult.get()) ?? []
+        let names = source.compactMap { $0["name"] as? String }
+        let nameCounts = Dictionary(grouping: names, by: { $0 }).mapValues(\.count)
         choices = source.enumerated().map { index, entry in
             let name = entry["name"] as? String ?? "配置 \(index + 1)"
+            if nameCounts[name, default: 0] > 1 {
+                return LaunchChoice(id: index, name: name, launch: nil, issue: "启动配置重名，请在 launch.json 中改名")
+            }
             let result = Result {
                 try Self.prepare(entry, project: project, tasks: (try? taskResult.get()) ?? [],
                                  taskIssue: taskResult.issue, environment: environment, restricted: restricted)
@@ -152,7 +164,9 @@ struct ProjectConfiguration {
         guard mode == "debug" else { throw SessionIssue("仅支持 Debug 模式（当前为 \(mode)）") }
         var variables = ConfigVariables(project: project, environment: environment)
         let program = try resolve(variables.expand(string(entry, key: "program", default: "lib/main.dart")), in: project)
-        guard program.pathExtension == "dart", FileManager.default.fileExists(atPath: program.path) else {
+        var fileInfo = stat()
+        guard program.pathExtension == "dart", stat(program.path, &fileInfo) == 0,
+              fileInfo.st_mode & S_IFMT == S_IFREG else {
             throw SessionIssue("Dart 入口文件不可用")
         }
         let cwd = try ProjectLocation.directory(resolve(variables.expand(string(entry, key: "cwd", default: project.path)), in: project))
@@ -164,14 +178,18 @@ struct ProjectConfiguration {
         env.merge(try dictionary(options, "env"), uniquingKeysWith: { _, macOS in macOS })
         let launchEnvironment = try variables.apply(env)
         var tool = try strings(entry, "toolArgs").map { try variables.expand($0) }
+        var keys = try validateToolArguments(tool)
         let arguments = try strings(entry, "args").map { try variables.expand($0) }
         var application: [String] = []
+        let define = "--dart-define="
         for argument in arguments {
-            if argument.hasPrefix("--dart-define=") {
-                guard argument.dropFirst("--dart-define=".count).firstIndex(of: "=").map({
-                    $0 != argument.index(argument.startIndex, offsetBy: "--dart-define=".count)
-                }) == true else { throw SessionIssue("旧 Dart define 格式无效，请移到 toolArgs") }
+            if argument.hasPrefix(define) {
+                let key = try defineKey(String(argument.dropFirst(define.count)))
+                guard keys.insert(key).inserted else { throw SessionIssue("Dart define 冲突，请在 toolArgs 中保留唯一声明") }
                 tool.append(argument)
+            } else if argument == "--dart-define" || argument == "--dart-define-from-file" ||
+                        argument.hasPrefix("--dart-define-from-file=") {
+                throw SessionIssue("旧 Dart define 格式无法兼容，请移到 toolArgs")
             } else {
                 application.append(argument)
             }
@@ -250,63 +268,74 @@ struct ProjectConfiguration {
                             definition: definition, references: variables.references)
     }
 
+    private static func validateToolArguments(_ arguments: [String]) throws -> Set<String> {
+        let flags: Set<String> = [
+            "--verbose", "-v", "--pub", "--no-pub", "--build", "--no-build", "--start-paused",
+            "--hot", "--no-hot", "--track-widget-creation", "--no-track-widget-creation",
+            "--enable-software-rendering", "--enable-impeller", "--no-enable-impeller",
+            "--machine", "--no-resident", "--dds", "--no-dds"
+        ]
+        let options: Set<String> = [
+            "--dart-define", "--dart-define-from-file", "--flavor", "--route",
+            "--web-port", "--web-hostname", "--web-browser-flag", "--host-vmservice-port",
+            "--device-vmservice-port", "--dds-port", "--device-timeout"
+        ]
+        var index = 0
+        var keys: Set<String> = []
+        while index < arguments.count {
+            let token = arguments[index]
+            index += 1
+            if flags.contains(token) { continue }
+            let parts = token.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let option = parts.first.map(String.init), options.contains(option) else {
+                throw SessionIssue("toolArgs 含无法确认保持 Debug 模式、入口或设备的参数")
+            }
+            let value: String
+            if parts.count == 2 {
+                value = String(parts[1])
+            } else {
+                guard index < arguments.count, !arguments[index].hasPrefix("-") else {
+                    throw SessionIssue("toolArgs 中的 \(option) 缺少参数值")
+                }
+                value = arguments[index]
+                index += 1
+            }
+            guard !value.isEmpty else { throw SessionIssue("toolArgs 中的 \(option) 缺少参数值") }
+            if option == "--dart-define" {
+                let key = try defineKey(value)
+                guard keys.insert(key).inserted else { throw SessionIssue("toolArgs 中的 Dart define 重复") }
+            }
+        }
+        return keys
+    }
+
+    private static func defineKey(_ assignment: String) throws -> String {
+        guard let separator = assignment.firstIndex(of: "="), separator != assignment.startIndex else {
+            throw SessionIssue("Dart define 必须为 KEY=VALUE，请检查 toolArgs")
+        }
+        let key = String(assignment[..<separator])
+        guard !key.hasPrefix("-"), !key.contains(where: \.isWhitespace) else {
+            throw SessionIssue("Dart define 的名称无效，请检查 toolArgs")
+        }
+        return key
+    }
+
     private static func read(_ file: String, key: String, in project: URL, restricted: Bool) throws -> [[String: Any]] {
         let name = "\(file).json"
         let url = try ProjectLocation.file(".vscode/\(name)", in: project, restricted: restricted)
         let data: Data
-        do { data = try Data(contentsOf: url) } catch {
+        do {
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            guard values.isRegularFile == true else { throw SessionIssue("配置必须为普通文件") }
+            data = try Data(contentsOf: url)
+        } catch {
             throw SessionIssue("\(name) 缺失或无法读取")
         }
-        let object: Any
-        do { object = try JSONSerialization.jsonObject(with: jsonWithoutComments(data)) } catch {
-            let info = (error as NSError).userInfo
-            let position = info["NSJSONSerializationErrorIndex"] as? Int ?? 0
-            let prefix = String(decoding: data.prefix(max(0, position)), as: UTF8.self)
-            let lines = prefix.replacingOccurrences(of: "\r\n", with: "\n")
-                .replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
-            throw SessionIssue("\(name) 第 \(lines.count) 行第 \((lines.last?.count ?? 0) + 1) 列：JSONC 语法错误")
-        }
+        let object = try JSONCReader.decode(data, file: name)
         guard let entries = (object as? [String: Any])?[key] as? [[String: Any]] else {
             throw SessionIssue("\(name) 的 \(key) 必须是对象数组")
         }
         return entries
-    }
-
-    private static func jsonWithoutComments(_ data: Data) -> Data {
-        var bytes = Array(data)
-        var index = 0
-        var inString = false
-        var previous: UInt8?
-        var comma: Int?
-        while index < bytes.count {
-            let byte = bytes[index]
-            if inString {
-                if byte == 92 { index += 2; continue }
-                if byte == 34 { inString = false }
-            } else if byte == 47, index + 1 < bytes.count, [42, 47].contains(bytes[index + 1]) {
-                let start = index
-                let line = bytes[index + 1] == 47
-                index += 2
-                while index < bytes.count {
-                    if line && [10, 13].contains(bytes[index]) { break }
-                    if !line && bytes[index] == 42 && index + 1 < bytes.count && bytes[index + 1] == 47 {
-                        index += 2
-                        break
-                    }
-                    index += 1
-                }
-                if !line && (index - start < 4 || bytes[(index - 2)..<index] != [42, 47]) { return data }
-                for offset in start..<index where ![10, 13].contains(bytes[offset]) { bytes[offset] = 32 }
-                continue
-            } else if ![9, 10, 13, 32].contains(byte) {
-                if [93, 125].contains(byte), let comma { bytes[comma] = 32 }
-                comma = byte == 44 && previous.map({ ![44, 58, 91, 123].contains($0) }) == true ? index : nil
-                inString = byte == 34
-                previous = byte
-            }
-            index += 1
-        }
-        return Data(bytes)
     }
 
     private static func executablePath(_ command: String, directory: URL, environment: [String: String]) -> String? {
