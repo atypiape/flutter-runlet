@@ -343,7 +343,15 @@ final class SessionController {
         }
         if let pre = launch.pre, !stopRequested {
             status = "正在运行前置任务"
-            let result = await execute(pre.command, lease: lease)
+            let result: SessionExit
+            do {
+                try validateFixtureExecution(pre, in: launch.project)
+                result = await execute(pre.command, lease: lease)
+            } catch {
+                if let record { markRecovery(record, error.localizedDescription) }
+                else { status = "启动已阻断"; message = error.localizedDescription }
+                return
+            }
             if result != .exited(0) {
                 let reason = "前置任务 \(pre.label) 失败（\(result.detail)）"
                 if let record { markRecovery(record, reason) }
@@ -378,6 +386,12 @@ final class SessionController {
     private func restore(_ post: PreparedTask, record: ProjectRecoveryRecord, project: URL,
                          store: ProjectRecoveryStore, lease: ProjectLease) async {
         status = "正在恢复环境"
+        do {
+            try validateFixtureExecution(post, in: project)
+        } catch {
+            markRecovery(record, error.localizedDescription)
+            return
+        }
         let result = await execute(post.command, lease: lease)
         guard result == .exited(0) else {
             markRecovery(record, "后置任务 \(post.label) 失败（\(result.detail)）")
@@ -391,6 +405,15 @@ final class SessionController {
         } catch {
             markRecovery(record, error.localizedDescription)
         }
+    }
+
+    private func validateFixtureExecution(_ task: PreparedTask, in project: URL) throws {
+        guard allowedRoot != nil else { return }
+        let directory = try validate(project)
+        let command = task.command
+        let cwd = try ProjectLocation.directory(URL(fileURLWithPath: command.directory, isDirectory: true))
+        try ProjectLocation.validateFixtureTask(executable: command.executable, arguments: command.arguments,
+                                                cwd: cwd, project: directory)
     }
 
     private func execute(_ command: SessionCommand, lease: ProjectLease) async -> SessionExit {

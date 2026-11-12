@@ -4,6 +4,9 @@ import Darwin
 import Foundation
 
 enum ProjectLocation {
+    // SHA-256 of the checked-in public fixture script.
+    private static let fixtureScriptDigest = "2d07516e06a3fdab9a13fe9015d1f1d35ef952dc88732ae9f142019e6d44f154"
+
     static func project(_ url: URL, inside root: URL? = nil) throws -> URL {
         guard url.isFileURL else { throw SessionIssue("请选择本地 Flutter 项目目录") }
         let project = try directory(url)
@@ -33,6 +36,20 @@ enum ProjectLocation {
                 throw SessionIssue("验收项目的状态文件无效")
             }
         }
+    }
+
+    static func validateFixtureTask(executable: String, arguments: [String], cwd: URL, project: URL) throws {
+        let relativeScript = "scripts/simulate-firebase-switch.sh"
+        guard executable == "/bin/sh", arguments.count == 3,
+              arguments[0] == project.appending(path: relativeScript).path,
+              try file(relativeScript, in: project, restricted: true).path ==
+                project.resolvingSymlinksInPath().appending(path: relativeScript).path,
+              cwd.path == project.path, ["dev", "test", "prod"].contains(arguments[1]), arguments[2] == "--quiet",
+              let script = try? Data(contentsOf: URL(fileURLWithPath: arguments[0])),
+              SHA256.hash(data: script).map({ String(format: "%02x", $0) }).joined() == fixtureScriptDigest else {
+            throw SessionIssue("验收模式仅支持公开样例的环境切换任务")
+        }
+        try validateFixtureState(project)
     }
 
     static func directory(_ url: URL) throws -> URL {
@@ -112,9 +129,6 @@ struct LaunchChoice: Identifiable, Equatable {
 }
 
 struct ProjectConfiguration {
-    // SHA-256 of the checked-in public fixture script.
-    private static let fixtureScriptDigest = "2d07516e06a3fdab9a13fe9015d1f1d35ef952dc88732ae9f142019e6d44f154"
-
     let project: URL
     let environment: [String: String]
     let restricted: Bool
@@ -248,16 +262,8 @@ struct ProjectConfiguration {
         var argv = try rawArguments.map { try variables.expand($0) }
         let executable: String
         if restricted {
-            guard command == "/bin/sh", argv.count == 3,
-                  argv[0] == project.appending(path: "scripts/simulate-firebase-switch.sh").path,
-                  try ProjectLocation.file("scripts/simulate-firebase-switch.sh", in: project, restricted: true).path ==
-                    project.resolvingSymlinksInPath().appending(path: "scripts/simulate-firebase-switch.sh").path,
-                  cwd == project, ["dev", "test", "prod"].contains(argv[1]), argv[2] == "--quiet",
-                  rawEnvironment.isEmpty,
-                  let script = try? Data(contentsOf: URL(fileURLWithPath: argv[0])),
-                  SHA256.hash(data: script).map({ String(format: "%02x", $0) }).joined() == fixtureScriptDigest else {
-                throw SessionIssue("验收模式仅支持公开样例的环境切换任务")
-            }
+            guard rawEnvironment.isEmpty else { throw SessionIssue("验收任务不支持额外环境变量") }
+            try ProjectLocation.validateFixtureTask(executable: command, arguments: argv, cwd: cwd, project: project)
             executable = "/bin/sh"
         } else if let path = executablePath(command, directory: cwd, environment: taskEnvironment) {
             executable = path
