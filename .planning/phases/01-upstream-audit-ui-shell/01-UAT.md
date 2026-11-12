@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: complete
 phase: 01-upstream-audit-ui-shell
 source: [01-VERIFICATION.md]
 started: 2026-11-11T19:43:45.896Z
-updated: 2026-11-12T01:55:59.324Z
+updated: 2026-11-12T02:51:33.152Z
 ---
 
 # G1 人工验收
@@ -73,7 +73,9 @@ blocked: 0
 
 - gap_id: G-01-2
   truth: "从菜单栏面板打开主窗口或设置时，面板自动收起。关闭主窗口后，菜单栏图标仍可用，Dock 图标下不显示运行指示点。"
-  status: failed
+  status: resolved
+  resolved_by: 01-04-PLAN.md
+  resolved_at: 2026-11-12
   reason: "User reported: 点“打开主窗口”按钮或“设置”按钮弹出窗口，应该关闭面板才更符合；关闭主窗口后，菜单栏图标仍可用，但 dock 上应为关闭状态（图标底下不应有小圆点）。"
   severity: minor
   test: 2
@@ -90,7 +92,9 @@ blocked: 0
 
 - gap_id: G-01-3
   truth: "主窗和面板的可交互控件按阅读顺序获得可见的 Tab 焦点，禁用动作无法由键盘触发。「打开项目」保持禁用并显示可读的悬停提示。"
-  status: failed
+  status: resolved
+  resolved_by: 01-04-PLAN.md
+  resolved_at: 2026-11-12
   reason: "User reported: Tab 遍历没反应，没见到哪个控件获得焦点；鼠标悬停也没见到悬停提示"
   severity: major
   test: 3
