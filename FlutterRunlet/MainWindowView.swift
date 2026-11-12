@@ -39,7 +39,10 @@ struct MainWindowView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("打开项目", systemImage: "folder") {}
                     .disabled(true)
-                    .help("打开项目")
+                    .overlay {
+                        ProjectToolTip()
+                            .accessibilityHidden(true)
+                    }
 
                 Button {
                     openSettings?()
@@ -100,6 +103,22 @@ struct MainWindowView: View {
                     .strokeBorder(Color(nsColor: .separatorColor))
             }
             .padding(.top, 8)
+        }
+    }
+}
+
+private struct ProjectToolTip: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = ToolTipView()
+        view.toolTip = "打开项目"
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class ToolTipView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            nil
         }
     }
 }
