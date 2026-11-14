@@ -133,5 +133,6 @@ struct RunletPopup<Content: View>: View {
         .background(palette.toolbar)
         .overlay { RoundedRectangle(cornerRadius: compactHeader ? 9 : 10).strokeBorder(palette.border).allowsHitTesting(false) }
         .clipShape(.rect(cornerRadius: compactHeader ? 9 : 10))
+        .focusEffectDisabled()
     }
 }

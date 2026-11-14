@@ -68,6 +68,7 @@ struct MenuBarPanelView: View {
         .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(palette.border).allowsHitTesting(false) }
         .clipShape(.rect(cornerRadius: 14))
         .frame(width: 348, alignment: .leading)
+        .focusEffectDisabled()
     }
 
     private func footerButton(_ title: LocalizedStringResource, label: LocalizedStringResource,

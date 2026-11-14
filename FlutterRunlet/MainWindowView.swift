@@ -55,6 +55,7 @@ struct MainWindowView: View {
         .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(palette.border).allowsHitTesting(false) }
         .clipShape(.rect(cornerRadius: 14))
         .ignoresSafeArea(.container, edges: .top)
+        .focusEffectDisabled()
     }
 
     private var sessionDetails: some View {
@@ -214,7 +215,6 @@ struct DeviceSelectionControls: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
     @State private var isShowing = false
-    @FocusState private var isTriggerFocused: Bool
 
     let session: SessionController?
     let demoDevice: String?
@@ -248,21 +248,12 @@ struct DeviceSelectionControls: View {
         .accessibilityLabel("Device for Next Run")
         .accessibilityValue(summary(device))
         .help(summary(device))
-        .focused($isTriggerFocused)
         .disabled(!canInspect && demoDevice == nil)
         .contextMenu {
             if let device { Text(verbatim: summary(device)) }
         }
         .popover(isPresented: $isShowing, arrowEdge: .bottom) {
             if let session { choices(for: session).environment(\.locale, locale) }
-        }
-        .onKeyPress(.return) {
-            guard canInspect else { return .ignored }
-            isShowing = true
-            return .handled
-        }
-        .onChange(of: isShowing) { _, showing in
-            if !showing { isTriggerFocused = canInspect }
         }
     }
 
@@ -616,8 +607,6 @@ struct ProjectControls: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
     @State private var isShowingHistory = false
-    @FocusState private var isFolderFocused: Bool
-    @FocusState private var isHistoryFocused: Bool
 
     static let historyTitle: LocalizedStringResource = "Recent Projects"
     static let folderTitle: LocalizedStringResource = "Open Project"
@@ -646,26 +635,11 @@ struct ProjectControls: View {
             Spacer(minLength: 4)
 
             projectButton(Self.historyTitle, icon: "History", action: { isShowingHistory.toggle() })
-                .focused($isHistoryFocused)
-                .onKeyPress(.return) {
-                    guard session?.canChangeProject == true else { return .ignored }
-                    isShowingHistory = true
-                    return .handled
-                }
                 .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
                     if let session { history(session).environment(\.locale, locale) }
                 }
-                .onChange(of: isShowingHistory) { _, showing in
-                    if !showing { isHistoryFocused = session?.canChangeProject == true }
-                }
 
             projectButton(Self.folderTitle, icon: "Folder", action: openProject)
-                .focused($isFolderFocused)
-                .onKeyPress(.return) {
-                    guard session?.canChangeProject == true else { return .ignored }
-                    openProject()
-                    return .handled
-                }
         }
         .frame(height: 26)
     }
@@ -740,10 +714,8 @@ struct ProjectControls: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        // Restore the SwiftUI folder button as the focus destination after AppKit closes.
         if panel.runModal() == .OK, let url = panel.url { session.open(url) }
         restorePickerWindow?()
-        isFolderFocused = session.canChangeProject
     }
 }
 
@@ -818,7 +790,6 @@ struct RunConfigurationControls: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
     @State private var isShowing = false
-    @FocusState private var isTriggerFocused: Bool
 
     let session: SessionController?
     let demoConfiguration: String?
@@ -869,18 +840,9 @@ struct RunConfigurationControls: View {
             .accessibilityLabel("Configuration")
             .accessibilityValue(Text(verbatim: prompt))
             .help(prompt)
-            .focused($isTriggerFocused)
             .disabled(!canChoose && demoConfiguration == nil)
-            .onKeyPress(.return) {
-                guard canChoose else { return .ignored }
-                isShowing = true
-                return .handled
-            }
             .popover(isPresented: $isShowing, arrowEdge: .bottom) {
                 if let session { choices(session).environment(\.locale, locale) }
-            }
-            .onChange(of: isShowing) { _, showing in
-                if !showing { isTriggerFocused = canChoose }
             }
             if let session, session.configurationIsStale, session.project != nil {
                 Button("Reload Configuration", systemImage: "arrow.clockwise", action: session.reload)

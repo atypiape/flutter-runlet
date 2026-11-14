@@ -151,7 +151,7 @@ struct FlutterRunletApp: App {
     @State private var settingsPage: SettingsView.Page? = .general
     @State private var language: AppLanguageSettings
     @State private var loginItem: LoginItemSettings
-    @State private var debugKeys: DebugKeys
+    @State private var windowKeys: WindowKeys
 
     private let presentation: LaunchPresentation
     private let presentsMainWindowOnLaunch: Bool
@@ -170,7 +170,7 @@ struct FlutterRunletApp: App {
         _loginItem = State(initialValue: loginItem)
         let panelWindow = PanelWindowReference()
         _panelWindow = State(initialValue: panelWindow)
-        _debugKeys = State(initialValue: DebugKeys(session: presentation.selection == nil ? controller : nil))
+        _windowKeys = State(initialValue: WindowKeys(session: presentation.selection == nil ? controller : nil))
         termination.session = presentation.selection == nil ? controller : nil
         termination.language = language
         termination.loginItem = loginItem
@@ -189,7 +189,7 @@ struct FlutterRunletApp: App {
                 openFlutterSettings: showFlutterSettings
             )
             .frame(minWidth: 480, minHeight: 400)
-            .background(MainWindowIdentity(debugKeys: debugKeys))
+            .background(MainWindowIdentity(windowKeys: windowKeys))
             .environment(\.locale, language.locale)
         } defaultValue: {
             Self.mainRoute
@@ -231,7 +231,7 @@ struct FlutterRunletApp: App {
                     return restore
                 }
             )
-            .background(PanelWindowAnchor(reference: panelWindow, debugKeys: debugKeys))
+            .background(PanelWindowAnchor(reference: panelWindow, windowKeys: windowKeys))
             .environment(\.locale, language.locale)
         } label: {
             Image(nsImage: makeMenuBarTemplate())
@@ -359,20 +359,20 @@ struct FlutterRunletApp: App {
     }
 
     private struct MainWindowIdentity: NSViewRepresentable {
-        let debugKeys: DebugKeys
+        let windowKeys: WindowKeys
 
         func makeNSView(context: Context) -> NSView {
-            WindowMarker(debugKeys: debugKeys)
+            WindowMarker(windowKeys: windowKeys)
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
 
         private final class WindowMarker: NSView {
             private weak var observedWindow: NSWindow?
-            private let debugKeys: DebugKeys
+            private let windowKeys: WindowKeys
 
-            init(debugKeys: DebugKeys) {
-                self.debugKeys = debugKeys
+            init(windowKeys: WindowKeys) {
+                self.windowKeys = windowKeys
                 super.init(frame: .zero)
             }
 
@@ -390,7 +390,7 @@ struct FlutterRunletApp: App {
                 observedWindow = window
                 if let window {
                     window.identifier = FlutterRunletApp.mainWindowIdentifier
-                    debugKeys.register(window, source: .mainWindow)
+                    windowKeys.register(window, source: .mainWindow)
                     notifications.addObserver(
                         self, selector: #selector(windowWillClose),
                         name: NSWindow.willCloseNotification, object: window
@@ -415,7 +415,7 @@ struct FlutterRunletApp: App {
 
         func suspendForProjectPicker() -> (() -> Void)? {
             guard let window = anchor?.window else { return nil }
-            // Keep the menu bar content alive so the picker can return to its original button.
+            // Keep the menu bar content alive so the picker can return to the panel.
             window.orderOut(nil)
             return { [weak self] in
                 guard self?.anchor?.window === window else { return }
@@ -426,10 +426,10 @@ struct FlutterRunletApp: App {
 
     private struct PanelWindowAnchor: NSViewRepresentable {
         let reference: PanelWindowReference
-        let debugKeys: DebugKeys
+        let windowKeys: WindowKeys
 
         func makeNSView(context: Context) -> NSView {
-            let anchor = PanelAnchorView(debugKeys: debugKeys)
+            let anchor = PanelAnchorView(windowKeys: windowKeys)
             reference.anchor = anchor
             return anchor
         }
@@ -437,10 +437,10 @@ struct FlutterRunletApp: App {
         func updateNSView(_ nsView: NSView, context: Context) {}
 
         private final class PanelAnchorView: NSView {
-            private let debugKeys: DebugKeys
+            private let windowKeys: WindowKeys
 
-            init(debugKeys: DebugKeys) {
-                self.debugKeys = debugKeys
+            init(windowKeys: WindowKeys) {
+                self.windowKeys = windowKeys
                 super.init(frame: .zero)
             }
 
@@ -449,14 +449,14 @@ struct FlutterRunletApp: App {
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
-                if let window { debugKeys.register(window, source: .menuBar) }
+                if let window { windowKeys.register(window, source: .menuBar) }
             }
         }
     }
 }
 
 @MainActor
-private final class DebugKeys {
+private final class WindowKeys {
     private weak var session: SessionController?
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private let menuPanels = NSHashTable<NSWindow>.weakObjects()
@@ -469,9 +469,9 @@ private final class DebugKeys {
         case .mainWindow: mainWindows.add(window)
         case .menuBar: menuPanels.add(window)
         }
-        guard monitor == nil, session != nil else { return }
+        guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let handled = MainActor.assumeIsolated { self?.dispatchDebugKey(event) == true }
+            let handled = MainActor.assumeIsolated { self?.handleKey(event) == true }
             return handled ? nil : event
         }
     }
@@ -480,17 +480,29 @@ private final class DebugKeys {
         if let monitor { NSEvent.removeMonitor(monitor) }
     }
 
-    private func dispatchDebugKey(_ event: NSEvent) -> Bool {
-        guard let session, NSApp.modalWindow == nil, let window = NSApp.keyWindow,
+    private func handleKey(_ event: NSEvent) -> Bool {
+        guard NSApp.modalWindow == nil, let window = NSApp.keyWindow,
               event.window == nil || event.window === window,
-              window.isVisible, window.attachedSheet == nil,
-              let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
-                                       isRepeat: event.isARepeat) else {
+              window.isVisible, window.attachedSheet == nil else {
             return false
         }
-        if mainWindows.contains(window) { return session.performDebugAction(action, source: .mainWindow) }
-        if menuPanels.contains(window) { return session.performDebugAction(action, source: .menuBar) }
-        return false
+        let source: DebugActionSource
+        if mainWindows.contains(window) {
+            source = .mainWindow
+        } else if menuPanels.contains(window) {
+            source = .menuBar
+        } else {
+            return false
+        }
+        if event.keyCode == kVK_Tab,
+           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            return true
+        }
+        guard let session, let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
+                                                    isRepeat: event.isARepeat) else {
+            return false
+        }
+        return session.performDebugAction(action, source: source)
     }
 }
 

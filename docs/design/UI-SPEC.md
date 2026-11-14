@@ -77,7 +77,8 @@ SDK 的解析/失败规则以 [技术设计](../02-TECHNICAL.md#5-flutter-sdk--f
 
 ## 7. 可访问性与键盘
 
-- 使用 macOS 标准焦点顺序和 VoiceOver 可访问名称；图标按钮设置 tooltip。
+- 保留控件的 VoiceOver 可访问名称，图标按钮提供 tooltip。
+- 主窗口和系统菜单栏面板停用 Tab／Shift-Tab 控件切换及蓝色焦点框。设置、关于和系统目录选择器沿用各自的原生键盘行为。
 - Disabled 状态不只靠变浅的颜色，也要在快捷键行为上禁用。
 - 菜单栏和主窗口状态一致；打开 DevTools 的外链按钮无空链接。
 - 日志复制不应包含 UI 机密外泄；VM Service 原始 URL 的展示及持久化应受控。

@@ -19,7 +19,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(DebugAction(keyCode: 96, modifiers: flags, isRepeat: false), action, "F5 modifiers: \(flags)")
             XCTAssertNil(DebugAction(keyCode: 96, modifiers: flags, isRepeat: true))
         }
-        XCTAssertNil(DebugAction(keyCode: 48, modifiers: [], isRepeat: false), "Tab remains native")
+        XCTAssertNil(DebugAction(keyCode: 48, modifiers: [], isRepeat: false), "Tab is not a debug action")
     }
 
     func testCurrentMachineAppAndVMVerificationGateProdRecovery() async throws {
@@ -63,6 +63,8 @@ final class FlutterDebugSessionTests: XCTestCase {
             try Data().write(to: fixture.state("verify-vm"))
             try await eventually { session.vmConnected }
             XCTAssertEqual(session.status, .running)
+            // Log delivery is batched independently of VM verification.
+            try await eventually { session.logs.contains("127.0.0.1:8181") }
             XCTAssertTrue(session.logs.contains("127.0.0.1:8181"))
             XCTAssertFalse(session.logs.contains("private="))
             XCTAssertFalse(session.logs.contains("stale="))
