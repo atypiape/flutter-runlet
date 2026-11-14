@@ -1,36 +1,32 @@
 ---
 gsd_state_version: "1.0"
-milestone: v0.1
-milestone_name: FlutterRunlet
-status: Awaiting next milestone
-stopped_at: Phase 05 complete — all phases complete
-last_updated: "2026-11-13T19:19:49.462Z"
+milestone: v0.2
+milestone_name: 界面与调试体验
+status: planning
+last_updated: "2026-11-14T14:15:40.718Z"
 last_activity: 2026-11-14
-last_activity_desc: Milestone v0.1 completed and archived
-state_head: 4c0f9c6349d12a58e1122bc76c6e4ccb6db3ad32
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 22
-  completed_plans: 22
-  percent: 100
-current_phase: 05
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: Milestone v0.1 complete
+Phase: 06 主窗口与菜单栏
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-11-14 — Milestone v0.1 completed and archived
+Status: 需求与路线图已记录，待规划
+Last activity: 2026-11-14 — 已确认四个界面原型并记录 v0.2 路线图
 
 ## Session
 
-**Last session:** 2026-11-14T17:09:27+08:00
-**Stopped at:** 已恢复 v0.1.1（build 95）私有预发布交接，等待确定下一个开发目标。公开发布暂缓，待团队账户持有人续费并由用户重启。
-**Resume file:** 本地会话交接；公开发布接续见 AGENTS.local.md。
+**Last session:** 2026-11-14T22:16:23+08:00
+**Stopped at:** v0.2 需求和路线图已记录，下一步规划阶段 06。公开发布继续暂缓。
+**Resume file:** [v0.2 路线图](ROADMAP.md) · 本地 Figma 与公开发布交接。
 
 ## Performance Metrics
 
@@ -57,4 +53,4 @@ Last activity: 2026-11-14 — Milestone v0.1 completed and archived
 
 ## Operator Next Steps
 
-- Start the next milestone with $gsd-new-milestone
+- 规划阶段 06 主窗口与菜单栏，按需用 `$gsd-plan-phase 06`。

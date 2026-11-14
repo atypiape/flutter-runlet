@@ -65,3 +65,9 @@ G0 在 macOS 26.7.1、Apple Silicon、macOS SDK 27.0 上运行独立 SwiftUI 实
 品牌 Figma 页与[导出资产](assets/)保留矢量主标志、App/Dock 图标、同源单色菜单栏 Template。关于窗口沿用[上游 Flutter GUI Runner 许可](https://github.com/huseyiniriss/flutter-gui-runner/blob/main/LICENSE)。
 
 GSD 初始化输入、建议 Phase 和当时的验收门槛见 [v0.1 历史路线图](../03-ROADMAP.md)。
+
+## v0.2 界面原型
+
+2026-11-14 确认了菜单栏、主窗口、设置和独立关于窗口的 v0.2 原型。四处采用同一 Figma 文件，复用运行与配置、项目入口、设备、状态、设置及关于组件。私有编辑与播放入口登记在本地 `.private/FIGMA-HANDOFF.md`。[v0.2 需求](../../.planning/REQUIREMENTS.md) · [v0.2 路线图](../../.planning/ROADMAP.md#v02-界面与调试体验)
+
+原型的 Flutter 项目、设备、日志、版本及更新结果用于演示。实现按 v0.2 需求验收。恢复安全继续遵循技术契约，公开发布暂缓。
