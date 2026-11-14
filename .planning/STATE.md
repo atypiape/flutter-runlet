@@ -4,18 +4,18 @@ milestone: v0.2
 milestone_name: 界面与调试体验
 current_phase: 06
 current_phase_name: 主窗口与菜单栏
-status: executing
-stopped_at: 阶段 06 第 2 波已通过回归，正在执行第 3 波。公开发布继续暂缓。
-last_updated: "2026-11-14T23:19:22+08:00"
+status: human_needed
+stopped_at: 阶段 06 四波已执行，最终 Debug 90 项通过；本地联验仍有待补项。阶段 07 另行规划，公开发布继续暂缓。
+last_updated: "2026-11-14T23:51:46+08:00"
 last_activity: 2026-11-14
-last_activity_desc: 阶段 06 第 2 波完成
-state_head: ee40a61aa238e9828181b39b440ea21eee8c814e
+last_activity_desc: 阶段 06 四波已执行，待补最终本地联验
+state_head: 5fd6aa8c6f878d12154381659c7b01b4df04e976
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 ## Current Position
 
 Phase: 06 主窗口与菜单栏
-Plan: 4 份，2 份已执行
-Status: 第 3 波执行中
-Last activity: 2026-11-14 — 阶段 06 第 2 波完成
+Plan: 4 份，4 份已执行（第四波待补验收）
+Status: 本地联验待补
+Last activity: 2026-11-14 — 阶段 06 四波已执行并归档本地证据
 
 ## Session
 
-**Last session:** 2026-11-14T23:19:22+08:00
-**Stopped at:** 阶段 06 第 2 波已通过回归，正在执行第 3 波。公开发布继续暂缓。
+**Last session:** 2026-11-14T23:51:46+08:00
+**Stopped at:** 阶段 06 四波已执行，最终 Debug 90 项通过；本地联验仍有待补项。阶段 07 另行规划，公开发布继续暂缓。
 **Resume file:** [阶段 06 计划](ROADMAP.md#phase-06-主窗口与菜单栏) · [验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)。
 
 ## Performance Metrics
@@ -58,4 +58,4 @@ Last activity: 2026-11-14 — 阶段 06 第 2 波完成
 
 ## Operator Next Steps
 
-- 完成阶段 06 其余波次及本地联验。阶段 07 另行规划。
+- 补齐[本地联验](phases/06-main-window-menu-bar/06-ACCEPTANCE.md)所列专项证据后重新判定阶段 06。阶段 07 另行规划。

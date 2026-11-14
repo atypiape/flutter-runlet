@@ -36,13 +36,13 @@
 
 **Wave 3（依赖 06-02）**
 
-- [ ] [06-03 恢复、重试与主窗口日志](phases/06-main-window-menu-bar/06-03-PLAN.md)
+- [x] [06-03 恢复、重试与主窗口日志](phases/06-main-window-menu-bar/06-03-PLAN.md)
 
 **Wave 4（依赖 06-03）**
 
-- [ ] [06-04 Figma 对照与真实 Flutter 本地联验](phases/06-main-window-menu-bar/06-04-PLAN.md)
+- [x] [06-04 Figma 对照与真实 Flutter 本地联验](phases/06-main-window-menu-bar/06-04-PLAN.md)（已执行，尚待补充联验证据）
 
-[验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)
+[验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md) · [本地联验](phases/06-main-window-menu-bar/06-ACCEPTANCE.md)
 
 ### Phase 07: 设置、关于与更新
 
