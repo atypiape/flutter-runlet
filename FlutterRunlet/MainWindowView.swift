@@ -195,7 +195,7 @@ struct MainWindowView: View {
                 .foregroundStyle(palette.secondary)
                 .frame(width: 25, height: 25)
         }
-        .buttonStyle(RunletButtonStyle(radius: 5))
+        .buttonStyle(RunletButtonStyle(radius: 5, disabledOpacity: 1))
         .accessibilityLabel(Text(title))
         .help(Text(title))
     }
@@ -773,6 +773,7 @@ struct SessionStatusLabel: View {
         .padding(.horizontal, 8)
         .frame(height: 22)
         .background(colors.surface, in: Capsule())
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(status.title))
         .accessibilityValue(Text(session?.recoveryMessage.map { locale.appString($0) } ?? ""))
         .help(Text(session?.recoveryMessage ?? status.title))
@@ -848,7 +849,7 @@ struct RunConfigurationControls: View {
             } label: {
                 RunletIcon("Run", size: 17).frame(width: 34, height: 32)
             }
-            .buttonStyle(RunletButtonStyle())
+            .buttonStyle(RunletButtonStyle(disabledOpacity: 0.43))
             .accessibilityLabel(Text(DebugControls.runAccessibilityLabel))
             .help(Text(DebugControls.runTitle))
             .disabled(!canRun)
@@ -864,7 +865,7 @@ struct RunConfigurationControls: View {
                 .padding(.horizontal, 9)
                 .frame(height: 32)
             }
-            .buttonStyle(RunletButtonStyle())
+            .buttonStyle(RunletButtonStyle(disabledOpacity: 0.48))
             .accessibilityLabel("Configuration")
             .accessibilityValue(Text(verbatim: prompt))
             .help(prompt)

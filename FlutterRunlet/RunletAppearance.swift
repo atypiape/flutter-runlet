@@ -84,6 +84,7 @@ struct RunletButtonStyle: ButtonStyle {
 
     var surface: Surface = .clear
     var radius: CGFloat = 6
+    var disabledOpacity = 0.44
 
     func makeBody(configuration: Configuration) -> some View {
         let palette = RunletAppearance(scheme)
@@ -97,7 +98,7 @@ struct RunletButtonStyle: ButtonStyle {
                     shape.strokeBorder(palette.border).allowsHitTesting(false)
                 }
             }
-            .opacity(enabled ? 1 : 0.44)
+            .opacity(enabled ? 1 : disabledOpacity)
     }
 }
 

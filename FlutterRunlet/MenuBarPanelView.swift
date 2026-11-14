@@ -37,7 +37,7 @@ struct MenuBarPanelView: View {
                 DeviceSelectionControls(session: session, demoDevice: presentation.selection?.device)
                 BrowserControls(session: session)
                 SessionFeedbackView(session: session)
-                if let session {
+                if let session, session.status != .restoringEnvironment {
                     let showsQuickRetry = session.status == .recoveryFailed && session.recoveryAction == .retry
                     RecoveryDetails(session: session, showMessage: !showsQuickRetry, showRetry: !showsQuickRetry)
                 }
