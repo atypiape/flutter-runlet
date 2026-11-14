@@ -194,6 +194,7 @@ struct FlutterRunletApp: App {
         } defaultValue: {
             Self.mainRoute
         }
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 640, height: 520)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)

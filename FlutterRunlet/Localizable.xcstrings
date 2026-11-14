@@ -417,6 +417,22 @@
         }
       }
     },
+    "Checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查"
+          }
+        }
+      }
+    },
     "Checking Environment": {
       "localizations": {
         "en": {
@@ -461,6 +477,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在检查 Flutter SDK 和设备"
+          }
+        }
+      }
+    },
+    "Choose a launch configuration and device to run.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a launch configuration and device to run."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择启动配置和设备后运行。"
+          }
+        }
+      }
+    },
+    "Clear Configuration Selection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Configuration Selection"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除配置选择"
           }
         }
       }
@@ -1233,6 +1281,22 @@
         }
       }
     },
+    "Debug Not Started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debug Not Started"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未启动调试"
+          }
+        }
+      }
+    },
     "Debug Session": {
       "localizations": {
         "en": {
@@ -1357,6 +1421,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "下次运行设备"
+          }
+        }
+      }
+    },
+    "Disconnected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接中断"
           }
         }
       }
@@ -1697,6 +1777,22 @@
         }
       }
     },
+    "Flutter Has Exited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter Has Exited"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter 已退出"
+          }
+        }
+      }
+    },
     "Flutter has not found the selected simulator": {
       "localizations": {
         "en": {
@@ -1709,6 +1805,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Flutter 尚未发现所选模拟器"
+          }
+        }
+      }
+    },
+    "Flutter output will appear here after launch.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter output will appear here after launch."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动后，Flutter 的运行输出会显示在这里。"
           }
         }
       }
@@ -1985,6 +2097,22 @@
         }
       }
     },
+    "Idle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空闲"
+          }
+        }
+      }
+    },
     "Inspired by Flutter GUI Runner": {
       "localizations": {
         "en": {
@@ -2125,6 +2253,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "日志已清空，后续输出将在这里显示。"
+          }
+        }
+      }
+    },
+    "Main Window": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Main Window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主窗口"
           }
         }
       }
@@ -2609,6 +2753,22 @@
         }
       }
     },
+    "Pre-launch Failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pre-launch Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前置任务失败"
+          }
+        }
+      }
+    },
     "Pre-launch Task Failed": {
       "localizations": {
         "en": {
@@ -2657,6 +2817,22 @@
         }
       }
     },
+    "Preparing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备"
+          }
+        }
+      }
+    },
     "Process State Unconfirmed": {
       "localizations": {
         "en": {
@@ -2685,6 +2861,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "进程启动失败（%@）"
+          }
+        }
+      }
+    },
+    "Process Unconfirmed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Process Unconfirmed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "进程未确认"
           }
         }
       }
@@ -2817,6 +3009,38 @@
         }
       }
     },
+    "Recovery Failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复失败"
+          }
+        }
+      }
+    },
+    "Recovery Pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery Pending"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待恢复"
+          }
+        }
+      }
+    },
     "Recovery record authentication failed": {
       "localizations": {
         "en": {
@@ -2845,6 +3069,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "历史项目"
+          }
+        }
+      }
+    },
+    "Recovery Unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery Unavailable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复不可用"
           }
         }
       }
@@ -2881,6 +3121,22 @@
         }
       }
     },
+    "Reload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重载"
+          }
+        }
+      }
+    },
     "Reload Configuration": {
       "localizations": {
         "en": {
@@ -2909,6 +3165,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "记住最近打开的项目"
+          }
+        }
+      }
+    },
+    "Restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重启"
+          }
+        }
+      }
+    },
+    "Restoring": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在恢复"
           }
         }
       }
@@ -3073,6 +3361,22 @@
         }
       }
     },
+    "Running post-debug task %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running post-debug task %@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在执行后置任务 %@。"
+          }
+        }
+      }
+    },
     "Running Pre-launch Task": {
       "localizations": {
         "en": {
@@ -3085,6 +3389,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在运行前置任务"
+          }
+        }
+      }
+    },
+    "Select Device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Device"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择设备"
           }
         }
       }
@@ -3165,6 +3485,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "请选择本地 Flutter 项目目录"
+          }
+        }
+      }
+    },
+    "Select Launch Configuration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Launch Configuration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择启动配置"
           }
         }
       }
@@ -3389,6 +3725,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "启动 iOS 模拟器"
+          }
+        }
+      }
+    },
+    "Starting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在启动"
           }
         }
       }
@@ -4813,6 +5165,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看完整输出"
+          }
+        }
+      }
+    },
+    "Waiting for VM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for VM"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待 VM"
           }
         }
       }

@@ -191,6 +191,7 @@ final class SessionController {
     private(set) var taskIssue: LocalizedStringResource?
     private(set) var recovery: ProjectRecoveryRecord?
     private(set) var recoveryFailure: RecoveryFailure?
+    private(set) var activeRecoveryTaskLabel: String?
     private var recoveryReason: LocalizedStringResource?
     private(set) var recoveryStoreIssue: LocalizedStringResource?
     private(set) var executionIsUnconfirmed = false
@@ -1265,6 +1266,8 @@ final class SessionController {
 
     private func restore(_ post: PreparedTask, record: ProjectRecoveryRecord, project: URL,
                          store: ProjectRecoveryStore, lease: ProjectLease) async -> Bool {
+        activeRecoveryTaskLabel = post.label
+        defer { activeRecoveryTaskLabel = nil }
         status = .restoringEnvironment
         recoveryFailure = nil
         do {
