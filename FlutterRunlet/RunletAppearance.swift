@@ -35,7 +35,7 @@ struct RunletAppearance {
 
 enum RunletType {
     private static let registeredFonts: Void = {
-        for name in ["NotoSansSC-Regular", "NotoSansSC-Medium"] {
+        for name in ["NotoSansSC-Regular", "NotoSansSC-Medium", "RobotoMono-Regular"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "ttf", subdirectory: "Fonts") {
                 CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
             }
@@ -48,6 +48,11 @@ enum RunletType {
             return .custom(medium ? "NotoSansSC-Medium" : "NotoSansSC-Regular", fixedSize: size)
         }
         return .system(size: size, weight: medium ? .medium : .regular)
+    }
+
+    static func logFont() -> NSFont {
+        _ = registeredFonts
+        return NSFont(name: "RobotoMono-Regular", size: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .regular)
     }
 }
 
@@ -102,20 +107,22 @@ struct RunletPopup<Content: View>: View {
 
     let title: LocalizedStringResource
     let close: () -> Void
+    var compactHeader = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         let palette = RunletAppearance(scheme)
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Text(title).font(RunletType.localized(locale, size: 13, medium: true))
+                Text(title).font(RunletType.localized(locale, size: compactHeader ? 12 : 13, medium: true))
                 Spacer()
                 Button("Cancel", action: close)
+                    .font(RunletType.localized(locale, size: compactHeader ? 12 : 11))
                     .foregroundStyle(palette.secondary)
                     .buttonStyle(RunletButtonStyle())
             }
-            .padding(.horizontal, 5)
-            .frame(minHeight: 23)
+            .padding(.horizontal, compactHeader ? 0 : 5)
+            .frame(minHeight: compactHeader ? 18 : 25)
             content()
         }
         .font(RunletType.localized(locale, size: 12))
@@ -123,7 +130,7 @@ struct RunletPopup<Content: View>: View {
         .padding(10)
         .frame(width: 320)
         .background(palette.toolbar)
-        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(palette.border).allowsHitTesting(false) }
-        .clipShape(.rect(cornerRadius: 10))
+        .overlay { RoundedRectangle(cornerRadius: compactHeader ? 9 : 10).strokeBorder(palette.border).allowsHitTesting(false) }
+        .clipShape(.rect(cornerRadius: compactHeader ? 9 : 10))
     }
 }

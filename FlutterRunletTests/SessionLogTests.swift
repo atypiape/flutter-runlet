@@ -234,8 +234,11 @@ final class SessionLogTests: XCTestCase {
             XCTAssertEqual(retained.location, selected.location - trimmed)
             XCTAssertEqual(text.selectedRange(), retained)
             XCTAssertEqual(scroll.documentVisibleRect.minY - lineTop(of: retained.location), readingOffset, accuracy: 2)
-            XCTAssertEqual(storage.attribute(.font, at: retained.location, effectiveRange: nil) as? NSFont,
-                           NSFont.monospacedSystemFont(ofSize: 12, weight: .regular))
+            let retainedFont = try XCTUnwrap(storage.attribute(.font, at: retained.location, effectiveRange: nil) as? NSFont)
+            let appendedFont = try XCTUnwrap(storage.attribute(.font, at: storage.length - 2, effectiveRange: nil) as? NSFont)
+            XCTAssertEqual(retainedFont.fontName, "RobotoMono-Regular")
+            XCTAssertEqual(retainedFont.pointSize, 11)
+            XCTAssertEqual(appendedFont, retainedFont)
             // A reading anchor and selection that were actually removed clamp to the retained start.
             scroll.contentView.scroll(to: .zero)
             text.setSelectedRange(NSRange(location: 0, length: 1))

@@ -46,7 +46,8 @@ struct MainWindowView: View {
                 if !isLogExpanded { Spacer(minLength: 0) }
             }
             .padding(.horizontal, 21)
-            .padding(.vertical, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 17)
         }
         .font(.system(size: 12))
         .foregroundStyle(palette.primary)
@@ -126,7 +127,8 @@ struct MainWindowView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.recoveryFailure?.message ?? session.recoveryMessage ?? session.status.title)
-                    .font(RunletType.localized(locale, size: 13, medium: true))
+                    .font(RunletType.localized(locale, size: 12, medium: true))
+                    .frame(minHeight: 19, alignment: .leading)
                     .foregroundStyle(palette.error)
                 if session.canRunAfterRecovery {
                     Text(RecoveryRetryButton.runHint)
@@ -162,7 +164,7 @@ struct MainWindowView: View {
                           rotation: isLogExpanded ? 0 : -90, action: { isLogExpanded.toggle() })
             }
             .padding(.horizontal, 11)
-            .frame(height: 37)
+            .frame(height: 38)
             .background(palette.toolbar)
             if isLogExpanded {
                 if let session, !session.logs.isEmpty {
@@ -253,6 +255,11 @@ struct DeviceSelectionControls: View {
         }
         .popover(isPresented: $isShowing, arrowEdge: .bottom) {
             if let session { choices(for: session).environment(\.locale, locale) }
+        }
+        .onKeyPress(.return) {
+            guard canInspect else { return .ignored }
+            isShowing = true
+            return .handled
         }
         .onChange(of: isShowing) { _, showing in
             if !showing { isTriggerFocused = canInspect }
@@ -451,7 +458,13 @@ final class SessionLogScrollView: NSScrollView {
     }
 
     private let logText = NSTextView(frame: .zero)
-    private let logFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    private let logFont = RunletType.logFont()
+    private let logParagraph: NSParagraphStyle = {
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = 18
+        style.maximumLineHeight = 18
+        return style.copy() as? NSParagraphStyle ?? .default
+    }()
     private var trimmedUTF16 = 0
     private var lastUpdate: ContinuousClock.Instant?
     private var pendingUpdate: (contents: String, trimmedUTF16: Int)?
@@ -469,7 +482,8 @@ final class SessionLogScrollView: NSScrollView {
         logText.isRichText = false
         logText.font = logFont
         logText.textColor = Self.logColor
-        logText.textContainerInset = NSSize(width: 7, height: 9)
+        logText.defaultParagraphStyle = logParagraph
+        logText.textContainerInset = NSSize(width: 7, height: 8)
         logText.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         logText.textContainer?.containerSize = logText.maxSize
         logText.textContainer?.widthTracksTextView = false
@@ -530,7 +544,9 @@ final class SessionLogScrollView: NSScrollView {
             return NSValue(range: NSRange(location: start - removed, length: NSMaxRange(range) - start))
         } : []
         if textChanged, let storage = logText.textStorage {
-            let attributes: [NSAttributedString.Key: Any] = [.font: logFont, .foregroundColor: Self.logColor]
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: logFont, .foregroundColor: Self.logColor, .paragraphStyle: logParagraph,
+            ]
             if retainsText, let retained {
                 let suffix = (contents as NSString).substring(from: retained.utf16.count)
                 storage.beginEditing()
@@ -631,6 +647,11 @@ struct ProjectControls: View {
 
             projectButton(Self.historyTitle, icon: "History", action: { isShowingHistory.toggle() })
                 .focused($isHistoryFocused)
+                .onKeyPress(.return) {
+                    guard session?.canChangeProject == true else { return .ignored }
+                    isShowingHistory = true
+                    return .handled
+                }
                 .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
                     if let session { history(session).environment(\.locale, locale) }
                 }
@@ -640,6 +661,11 @@ struct ProjectControls: View {
 
             projectButton(Self.folderTitle, icon: "Folder", action: openProject)
                 .focused($isFolderFocused)
+                .onKeyPress(.return) {
+                    guard session?.canChangeProject == true else { return .ignored }
+                    openProject()
+                    return .handled
+                }
         }
         .frame(height: 26)
     }
@@ -844,6 +870,11 @@ struct RunConfigurationControls: View {
             .help(prompt)
             .focused($isTriggerFocused)
             .disabled(!canChoose && demoConfiguration == nil)
+            .onKeyPress(.return) {
+                guard canChoose else { return .ignored }
+                isShowing = true
+                return .handled
+            }
             .popover(isPresented: $isShowing, arrowEdge: .bottom) {
                 if let session { choices(session).environment(\.locale, locale) }
             }
@@ -873,7 +904,7 @@ struct RunConfigurationControls: View {
     }
 
     private func choices(_ session: SessionController) -> some View {
-        RunletPopup(title: "Select Launch Configuration", close: { isShowing = false }) {
+        RunletPopup(title: "Select Launch Configuration", close: { isShowing = false }, compactHeader: true) {
             ScrollView {
                 VStack(spacing: 5) {
                     ForEach(session.choices) { choice in
