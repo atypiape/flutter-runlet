@@ -1,9 +1,9 @@
 ---
 phase: "06"
 slug: main-window-menu-bar
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: human_needed
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-14"
 ---
 
@@ -32,9 +32,9 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 
 ## 签核
 
-- [ ] 核对所有任务的校验命令及失败条件。
-- [ ] 执行各波次测试及最终 Release 构建，记录实际输出和有无跳过。
+- [x] 核对所有任务的校验命令及失败条件。
+- [x] 执行各波次测试及最终 Release 构建，记录实际输出和有无跳过。
 - [ ] 完成同一候选的 Figma 对照、原生窗口与真实 Flutter 验收。
-- [ ] 按验收结果更新状态和未覆盖项。
+- [x] 按验收结果更新状态和未覆盖项。
 
-**签核状态** 待实施后验证
+**签核状态** 自动化签核通过；原生验收未全部闭环。Debug 全量执行 90 项，零失败、零跳过，目标套件全部在该全量中执行；普通 Release 构建与签名检查通过。新增旧目录迁移边界在旧代码失败、修复后定向 24 项通过。自动化验证与原生验收分开记账；双语深浅下的完整矩阵、跨入口补验和最终候选尚待复跑的项目见 [本地联验](06-ACCEPTANCE.md)。
