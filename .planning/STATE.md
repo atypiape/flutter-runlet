@@ -28,9 +28,9 @@ Last activity: 2026-11-14 — Milestone v0.1 completed and archived
 
 ## Session
 
-**Last session:** 2026-11-14T07:48:14Z
-**Stopped at:** 已复核 v0.1.0 本地 Release ZIP 的校验值、解包签名、双架构和部署目标。公开发布等待正式签名与公证。
-**Resume file:** 本地公开发布交接（见 AGENTS.local.md）
+**Last session:** 2026-11-14T17:09:27+08:00
+**Stopped at:** 已恢复 v0.1.1（build 95）私有预发布交接，等待确定下一个开发目标。公开发布暂缓，待团队账户持有人续费并由用户重启。
+**Resume file:** 本地会话交接；公开发布接续见 AGENTS.local.md。
 
 ## Performance Metrics
 
