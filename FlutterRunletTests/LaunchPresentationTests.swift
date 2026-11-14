@@ -258,6 +258,22 @@ final class LaunchPresentationTests: XCTestCase {
         XCTAssertEqual(LaunchPresentation.resolve(arguments: ["--unrelated"]), .empty)
     }
 
+    @MainActor
+    func testRecoveryAndLogButtonsUseBothBundleLanguages() {
+        let names: [(LocalizedStringResource, String, String)] = [
+            (RecoveryAction.retry.title, "Retry Recovery", "重试恢复"),
+            (RecoveryRetryButton.runHint, "Click Run to try recovery and start debugging", "点运行按钮，可尝试恢复并启动"),
+            ("Copy Logs", "Copy Logs", "复制日志"),
+            ("Clear Logs", "Clear Logs", "清空日志"),
+            (MainWindowView.collapseLogsTitle, "Collapse Logs", "折叠日志"),
+            (MainWindowView.expandLogsTitle, "Expand Logs", "展开日志")
+        ]
+        for (title, english, chinese) in names {
+            XCTAssertEqual(Locale(identifier: "en").appString(title), english)
+            XCTAssertEqual(Locale(identifier: "zh-Hans").appString(title), chinese)
+        }
+    }
+
     func testExactDebugFlagReturnsCompleteReadySelection() {
         XCTAssertEqual(
             LaunchPresentation.resolve(arguments: ["--unrelated", "--g1-ready"]),

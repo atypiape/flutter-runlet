@@ -388,7 +388,7 @@ struct FlutterRunletApp: App {
                 observedWindow = window
                 if let window {
                     window.identifier = FlutterRunletApp.mainWindowIdentifier
-                    debugKeys.register(window)
+                    debugKeys.register(window, source: .mainWindow)
                     notifications.addObserver(
                         self, selector: #selector(windowWillClose),
                         name: NSWindow.willCloseNotification, object: window
@@ -437,7 +437,7 @@ struct FlutterRunletApp: App {
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
-                if let window { debugKeys.register(window) }
+                if let window { debugKeys.register(window, source: .menuBar) }
             }
         }
     }
@@ -446,13 +446,17 @@ struct FlutterRunletApp: App {
 @MainActor
 private final class DebugKeys {
     private weak var session: SessionController?
-    private let windows = NSHashTable<NSWindow>.weakObjects()
+    private let mainWindows = NSHashTable<NSWindow>.weakObjects()
+    private let menuPanels = NSHashTable<NSWindow>.weakObjects()
     private var monitor: Any?
 
     init(session: SessionController?) { self.session = session }
 
-    func register(_ window: NSWindow) {
-        windows.add(window)
+    func register(_ window: NSWindow, source: DebugActionSource) {
+        switch source {
+        case .mainWindow: mainWindows.add(window)
+        case .menuBar: menuPanels.add(window)
+        }
         guard monitor == nil, session != nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.dispatchDebugKey(event) == true }
@@ -467,12 +471,14 @@ private final class DebugKeys {
     private func dispatchDebugKey(_ event: NSEvent) -> Bool {
         guard let session, NSApp.modalWindow == nil, let window = NSApp.keyWindow,
               event.window == nil || event.window === window,
-              window.isVisible, window.attachedSheet == nil, windows.contains(window),
+              window.isVisible, window.attachedSheet == nil,
               let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
                                        isRepeat: event.isARepeat) else {
             return false
         }
-        return session.performDebugAction(action)
+        if mainWindows.contains(window) { return session.performDebugAction(action, source: .mainWindow) }
+        if menuPanels.contains(window) { return session.performDebugAction(action, source: .menuBar) }
+        return false
     }
 }
 
@@ -525,6 +531,7 @@ private final class AppTermination: NSObject, NSApplicationDelegate {
             replying = false
             return .terminateCancel
         }
+        session.beginFinishingTermination()
         Task {
             let completed = await session.finishForTermination()
             sender.reply(toApplicationShouldTerminate: completed)

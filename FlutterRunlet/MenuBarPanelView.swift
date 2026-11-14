@@ -15,9 +15,9 @@ struct MenuBarPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("FlutterRunlet")
-                    .font(.headline)
+                SessionBrand()
                 Spacer(minLength: 4)
+                if let session { RecoveryRetryButton(session: session) }
                 SessionStatusLabel(session: session, hasDemo: presentation.selection != nil)
                 SessionSettingsButton(open: openSettings)
             }
@@ -30,7 +30,7 @@ struct MenuBarPanelView: View {
             BrowserControls(session: session)
             SessionFeedbackView(session: session)
             if let session {
-                RecoveryDetails(session: session)
+                RecoveryDetails(session: session, showRetry: session.status != .recoveryFailed)
             }
             if let session, session.recoveryMessage == nil, let reason = session.displayMessage {
                 Text(reason)

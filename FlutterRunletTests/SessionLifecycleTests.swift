@@ -29,14 +29,58 @@ final class SessionLifecycleTests: XCTestCase {
         session.runAfterRecovery()
         session.retryRecovery()
 
+        session.beginFinishingTermination()
         let quit = Task { await session.finishForTermination() }
-        // Let the quit task register its intent while the original task is paused.
-        try await Task.sleep(for: .milliseconds(50))
         XCTAssertNotNil(try store.read(project: fixture.project))
         try files.removeItem(at: pause)
         let exitedSafely = await quit.value
         XCTAssertTrue(exitedSafely)
         XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertFalse(files.fileExists(atPath: fixture.state("debug-started").path))
+    }
+
+    func testConfirmedQuitDuringRecoveryContinuationPreflightPreventsLaunch() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let files = FileManager.default
+        let executable = fixture.base.appending(path: "flutter")
+        try "#!/bin/sh\n: > .runlet-fixture/debug-started\n".write(to: executable, atomically: true, encoding: .utf8)
+        try files.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+        let sdk = FlutterSDK(executable: executable, flutterVersion: "test", dartVersion: "test")
+        let device = FlutterDevice(id: "fixture", name: "Fixture", platform: "ios", isSimulator: true)
+        var holdDiscovery = false
+        var continueDiscovery: CheckedContinuation<Void, Never>?
+        let toolchain = FlutterToolchain(resolve: { _, _, _ in sdk }, discover: { _, _ in
+            if holdDiscovery { await withCheckedContinuation { continueDiscovery = $0 } }
+            return [device]
+        })
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment,
+                                        toolchain: toolchain)
+        try fixture.select("prod", in: session)
+        let startDeadline = ContinuousClock.now + .seconds(5)
+        while !session.canRun, .now < startDeadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(session.canRun)
+        try Data().write(to: fixture.state("fail-before-test"))
+        session.run()
+        await session.waitUntilIdle()
+        try files.removeItem(at: fixture.state("debug-started"))
+        try files.removeItem(at: fixture.state("fail-before-test"))
+        session.select("sample-flutter-app(dev)")
+        holdDiscovery = true
+        session.runAfterRecovery()
+        let preflightDeadline = ContinuousClock.now + .seconds(5)
+        while continueDiscovery == nil, .now < preflightDeadline { try await Task.sleep(for: .milliseconds(20)) }
+        let resume = try XCTUnwrap(continueDiscovery)
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertThrowsError(try store.lease(for: fixture.project))
+        session.beginFinishingTermination()
+        let quit = Task { await session.finishForTermination() }
+        resume.resume()
+        let exitedSafely = await quit.value
+        XCTAssertTrue(exitedSafely)
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertFalse(files.fileExists(atPath: fixture.state("debug-started").path))
     }

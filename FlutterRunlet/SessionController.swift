@@ -52,6 +52,17 @@ enum DebugAction {
     case run, stop, reload, restart
 }
 
+enum DebugActionSource {
+    case mainWindow, menuBar
+}
+
+struct RecoveryFailure {
+    let taskLabel: String
+    let exit: SessionExit
+
+    var message: LocalizedStringResource { "Post-debug task \(taskLabel) failed (\(exit.detail))" }
+}
+
 struct ActiveLaunch {
     let configurationName: String
     let device: FlutterDevice
@@ -179,6 +190,7 @@ final class SessionController {
     private(set) var message: LocalizedStringResource?
     private(set) var taskIssue: LocalizedStringResource?
     private(set) var recovery: ProjectRecoveryRecord?
+    private(set) var recoveryFailure: RecoveryFailure?
     private var recoveryReason: LocalizedStringResource?
     private(set) var recoveryStoreIssue: LocalizedStringResource?
     private(set) var executionIsUnconfirmed = false
@@ -190,7 +202,7 @@ final class SessionController {
         return recoveryProjectIsOpen ? .retry : .openProject
     }
     var canPerformRecoveryAction: Bool {
-        recovery != nil && !isBusy && !executionIsUnconfirmed && recoveryStoreIssue == nil
+        recovery != nil && !isFinishingTermination && !isBusy && !executionIsUnconfirmed && recoveryStoreIssue == nil
     }
     var recoveryMessage: LocalizedStringResource? {
         recoveryStoreIssue ?? recoveryReason
@@ -202,26 +214,49 @@ final class SessionController {
     @ObservationIgnored private var pendingLogs = ""
     @ObservationIgnored private var logFlush: Task<Void, Never>?
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
-    var canRun: Bool {
-        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, !configurationIsStale, recovery == nil, recoveryStoreIssue == nil,
+    var canRun: Bool { recovery == nil && canStartSelectedConfiguration }
+
+    var canRunAfterRecovery: Bool {
+        status == .recoveryFailed && recoveryProjectIsOpen && canStartSelectedConfiguration
+    }
+
+    func canChangeConfiguration(source: DebugActionSource) -> Bool {
+        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, recoveryStoreIssue == nil else { return false }
+        return recovery == nil || (source == .mainWindow && status == .recoveryFailed && recoveryProjectIsOpen)
+    }
+
+    var recoveryRunBlocker: LocalizedStringResource? {
+        guard !canRunAfterRecovery, !isBusy else { return nil }
+        if let recoveryStoreIssue { return recoveryStoreIssue }
+        guard !executionIsUnconfirmed, recoveryProjectIsOpen else { return nil }
+        if !runner.isAvailable { return "The session supervisor is unavailable" }
+        if configurationIsStale { return "Configuration Out of Date" }
+        if selection == nil { return "Select a configuration" }
+        return selection?.issue ?? sdkStatusIssue ?? deviceSelectionIssue ?? taskIssue
+    }
+
+    private var canStartSelectedConfiguration: Bool {
+        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, !configurationIsStale, recoveryStoreIssue == nil,
               let launch = selection?.launch, store != nil, runner.isAvailable else { return false }
         if toolchain == nil { return debugCommand != nil }
         return !isCheckingSDKSelection && !isRefreshingDevices && sdk != nil && selectedDevice != nil && deviceSelectionIssue == nil &&
             launch.applicationArguments.isEmpty
     }
-    func canPerformDebugAction(_ action: DebugAction) -> Bool {
+    func canPerformDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
         switch action {
-        case .run: canRun
+        case .run: canRun || (source == .mainWindow && canRunAfterRecovery)
         case .stop: canStop
         case .reload, .restart: canHotOperate
         }
     }
 
     @discardableResult
-    func performDebugAction(_ action: DebugAction) -> Bool {
-        guard canPerformDebugAction(action) else { return false }
+    func performDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
+        guard canPerformDebugAction(action, source: source) else { return false }
         switch action {
-        case .run: run()
+        case .run:
+            if source == .mainWindow && canRunAfterRecovery { runAfterRecovery() }
+            else { run() }
         case .stop: stop()
         case .reload: hotOperation(.reload)
         case .restart: hotOperation(.restart)
@@ -518,6 +553,7 @@ final class SessionController {
             } else if recovery != nil {
                 recovery = nil
                 recoveryReason = nil
+                recoveryFailure = nil
             }
             recoveryStoreIssue = nil
         } catch {
@@ -541,7 +577,14 @@ final class SessionController {
         }
     }
 
-    func retryRecovery() {
+    func retryRecovery() { beginRecovery(thenRun: nil) }
+
+    func runAfterRecovery() {
+        guard canRunAfterRecovery, let selection else { return }
+        beginRecovery(thenRun: selection)
+    }
+
+    private func beginRecovery(thenRun selection: LaunchChoice?) {
         guard canPerformRecoveryAction, recoveryAction == .retry, let expected = recovery,
               let project, let store else { return }
         guard runner.isAvailable else {
@@ -554,6 +597,7 @@ final class SessionController {
             guard let record = try store.read(project: canonical) else {
                 recovery = nil
                 recoveryReason = nil
+                recoveryFailure = nil
                 status = .ready
                 message = "The current project has no pending recovery record"
                 discoverRecovery()
@@ -567,17 +611,43 @@ final class SessionController {
                 try store.verifyDefinition(definition, environment: environment, record: record)
             }
             try store.verifyExecution(task, record: record)
+            let deviceID = selectedDeviceID
+            let options = sdkOptions
+            cancelEnvironmentCheck()
             isBusy = true
+            canStop = false
+            stopRequested = false
+            status = .restoringEnvironment
             message = nil
             operation = Task { [self] in
-                await restore(task, record: record, project: canonical, store: store, lease: lease)
-                active = nil
-                isBusy = false
-                operation = nil
+                defer { finishOperation() }
+                guard await restore(task, record: record, project: canonical, store: store, lease: lease),
+                      let selection, canContinueAfterRecovery(in: canonical),
+                      self.selection == selection, selectedDeviceID == deviceID else { return }
+                if let toolchain, let deviceID {
+                    await runOnFlutter(project: canonical, selection: selection, deviceID: deviceID, options: options,
+                                       store: store, lease: lease, toolchain: toolchain, resumedAfterRecovery: true)
+                } else if let debugCommand {
+                    do {
+                        guard let launch = try revalidate(selection, project: canonical, lease: lease, store: store),
+                              let command = debugCommand(launch) else { return }
+                        canStop = true
+                        await execute(launch, command: command, store: store, lease: lease)
+                    } catch {
+                        message = .appIssue(error)
+                    }
+                }
             }
         } catch {
             markRecovery(expected, .appIssue(error))
         }
+    }
+
+    private func canContinueAfterRecovery(in project: URL) -> Bool {
+        guard !stopRequested, !isFinishingTermination, !executionIsUnconfirmed, self.project == project else { return false }
+        // This also checks risks for other projects and fails closed if their records cannot be read.
+        discoverRecovery()
+        return recovery == nil && recoveryStoreIssue == nil
     }
 
     func performRecoveryAction() {
@@ -863,7 +933,8 @@ final class SessionController {
     }
 
     func run() {
-        guard !isBusy, !executionIsUnconfirmed, !configurationIsStale, recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
+        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, !configurationIsStale,
+              recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
         guard let store, (debugCommand != nil || toolchain != nil), runner.isAvailable else {
             message = "The Flutter debug process or recovery storage is unavailable in this build"
             return
@@ -884,11 +955,8 @@ final class SessionController {
             stopRequested = false
             message = nil
             operation = Task { [self] in
+                defer { finishOperation() }
                 await execute(launch, command: command, store: store, lease: lease)
-                active = nil
-                canStop = false
-                isBusy = false
-                operation = nil
             }
         } catch {
             message = .appIssue(error)
@@ -924,45 +992,64 @@ final class SessionController {
         message = nil
         let options = sdkOptions
         operation = Task { [self] in
-            defer {
-                active = nil
-                debug = nil
-                vmConnected = false
-                canStop = false
-                isBusy = false
-                operation = nil
-                if status == .checkingToolchain || status == .stopping { status = .ready }
-            }
+            defer { finishOperation() }
             do {
                 guard !stopRequested else { return }
                 let current = try validate(project)
                 let lease = try store.lease(for: current)
-                let sdk: FlutterSDK
-                do {
-                    sdk = try await toolchain.resolve(current, environment, options)
-                } catch {
-                    if !stopRequested { updateSDK(nil, issue: .appIssue(error)) }
-                    throw error
-                }
-                guard !stopRequested else { return }
-                updateSDK(sdk, issue: nil)
-                let devices: [FlutterDevice]
-                do {
-                    devices = try await toolchain.discover(sdk, FlutterToolchain.probeEnvironment(environment, current))
-                } catch {
-                    if !stopRequested { updateDeviceIssue(error) }
-                    return
-                }
-                guard !stopRequested else { return }
-                applyDeviceSnapshot(devices, project: current)
-                guard let device = devices.first(where: { $0.id == deviceID }) else { return }
-                guard let launch = try revalidate(selection, project: current, lease: lease, store: store) else { return }
-                let command = try FlutterToolchain.command(sdk: sdk, device: device, launch: launch)
-                await execute(launch, command: command, store: store, lease: lease, device: device)
+                await runOnFlutter(project: current, selection: selection, deviceID: deviceID, options: options,
+                                   store: store, lease: lease, toolchain: toolchain)
             } catch {
                 if !stopRequested { message = .appIssue(error) }
             }
         }
+    }
+
+    private func runOnFlutter(project: URL, selection: LaunchChoice, deviceID: String, options: FlutterSDKOptions,
+                              store: ProjectRecoveryStore, lease: ProjectLease, toolchain: FlutterToolchain,
+                              resumedAfterRecovery: Bool = false) async {
+        canStop = true
+        status = .checkingToolchain
+        do {
+            let sdk: FlutterSDK
+            do {
+                sdk = try await toolchain.resolve(project, environment, options)
+            } catch {
+                if !stopRequested { updateSDK(nil, issue: .appIssue(error)) }
+                throw error
+            }
+            guard !stopRequested else { return }
+            updateSDK(sdk, issue: nil)
+            let devices: [FlutterDevice]
+            do {
+                devices = try await toolchain.discover(sdk, FlutterToolchain.probeEnvironment(environment, project))
+            } catch {
+                if !stopRequested { updateDeviceIssue(error) }
+                return
+            }
+            guard !stopRequested else { return }
+            if resumedAfterRecovery {
+                guard canContinueAfterRecovery(in: project), self.selection == selection,
+                      selectedDeviceID == deviceID else { return }
+            }
+            applyDeviceSnapshot(devices, project: project)
+            guard let device = devices.first(where: { $0.id == deviceID }) else { return }
+            guard let launch = try revalidate(selection, project: project, lease: lease, store: store) else { return }
+            let command = try FlutterToolchain.command(sdk: sdk, device: device, launch: launch)
+            await execute(launch, command: command, store: store, lease: lease, device: device)
+        } catch {
+            if !stopRequested { message = .appIssue(error) }
+        }
+    }
+
+    private func finishOperation() {
+        active = nil
+        debug = nil
+        vmConnected = false
+        canStop = false
+        isBusy = false
+        operation = nil
+        if status == .checkingToolchain || status == .stopping { status = .ready }
     }
 
     func stop() {
@@ -1063,10 +1150,14 @@ final class SessionController {
 
     func waitUntilIdle() async { await operation?.value }
 
-    func finishForTermination() async -> Bool {
+    func beginFinishingTermination() {
         isFinishingTermination = true
-        defer { isFinishingTermination = false }
         stop()
+    }
+
+    func finishForTermination() async -> Bool {
+        beginFinishingTermination()
+        defer { isFinishingTermination = false }
         let checks = Array(doctorTasks.values)
         for check in checks { check.cancel() }
         for check in checks { await check.value }
@@ -1162,27 +1253,29 @@ final class SessionController {
         }
         canStop = false
         if let record, let post = launch.post {
-            await restore(post, record: record, project: launch.project, store: store, lease: lease)
+            _ = await restore(post, record: record, project: launch.project, store: store, lease: lease)
         } else {
             status = .ready
         }
     }
 
     private func restore(_ post: PreparedTask, record: ProjectRecoveryRecord, project: URL,
-                         store: ProjectRecoveryStore, lease: ProjectLease) async {
+                         store: ProjectRecoveryStore, lease: ProjectLease) async -> Bool {
         status = .restoringEnvironment
+        recoveryFailure = nil
         do {
             try lease.verifyProject()
             try store.verifyProject(record, project)
             try validateFixtureExecution(post, in: project)
         } catch {
             markRecovery(record, .appIssue(error))
-            return
+            return false
         }
         let result = await execute(post.command, lease: lease)
         guard result == .exited(0) else {
-            markRecovery(record, "Post-debug task \(post.label) failed (\(result.detail))")
-            return
+            let failure = RecoveryFailure(taskLabel: post.label, exit: result)
+            markRecovery(record, failure.message, failure: failure)
+            return false
         }
         do {
             try store.remove(record, lease: lease)
@@ -1190,8 +1283,10 @@ final class SessionController {
             recoveryReason = nil
             status = .ready
             discoverRecovery()
+            return recovery == nil && recoveryStoreIssue == nil
         } catch {
             markRecovery(record, .appIssue(error))
+            return false
         }
     }
 
@@ -1329,8 +1424,10 @@ final class SessionController {
         logs = String(decoding: bytes[start...], as: UTF8.self)
     }
 
-    private func markRecovery(_ record: ProjectRecoveryRecord, _ reason: LocalizedStringResource, pending: Bool = false) {
+    private func markRecovery(_ record: ProjectRecoveryRecord, _ reason: LocalizedStringResource,
+                              pending: Bool = false, failure: RecoveryFailure? = nil) {
         recovery = record
+        recoveryFailure = failure
         status = pending ? .recoveryPending : .recoveryFailed
         recoveryReason = reason
         message = reason

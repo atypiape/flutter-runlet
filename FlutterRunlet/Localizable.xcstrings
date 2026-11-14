@@ -497,6 +497,38 @@
         }
       }
     },
+    "Click Run to try recovery and start debugging": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click Run to try recovery and start debugging"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点运行按钮，可尝试恢复并启动"
+          }
+        }
+      }
+    },
+    "Collapse Logs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse Logs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折叠日志"
+          }
+        }
+      }
+    },
     "Configuration": {
       "localizations": {
         "en": {
@@ -1549,6 +1581,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "执行阶段拒绝非 Debug 配置"
+          }
+        }
+      }
+    },
+    "Expand Logs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand Logs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开日志"
           }
         }
       }

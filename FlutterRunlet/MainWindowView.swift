@@ -15,8 +15,7 @@ struct MainWindowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("FlutterRunlet")
-                    .font(.headline)
+                SessionBrand()
                 Spacer(minLength: 12)
                 SessionStatusLabel(session: session, hasDemo: presentation.selection != nil)
                 SessionSettingsButton(open: openSettings)
@@ -24,7 +23,8 @@ struct MainWindowView: View {
             ProjectControls(session: session, demoName: presentation.selection?.project)
 
             HStack(spacing: 12) {
-                RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration, runDemo: run)
+                RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration,
+                                         runDemo: run, source: .mainWindow)
                 DebugControls(session: session)
             }
             HStack(alignment: .top, spacing: 12) {
@@ -44,6 +44,16 @@ struct MainWindowView: View {
     }
 
     private var sessionDetails: some View {
+        Group {
+            if let session, session.status == .recoveryFailed {
+                recoveryFailureDetails(session)
+            } else {
+                regularSessionDetails
+            }
+        }
+    }
+
+    private var regularSessionDetails: some View {
         GroupBox("Debug Session") {
             VStack(alignment: .leading, spacing: 8) {
                 if let selection = presentation.selection {
@@ -87,31 +97,71 @@ struct MainWindowView: View {
         }
     }
 
-    private var logs: some View {
-        DisclosureGroup(isExpanded: $isLogExpanded) {
-            SessionLogView(contents: logContents, trimmedUTF16: session?.logTrimmedUTF16 ?? 0)
-                .id(session?.logGeneration)
-                .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity)
-                .background(Color(nsColor: .textBackgroundColor), in: .rect(cornerRadius: 6))
-                .clipShape(.rect(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color(nsColor: .separatorColor))
-                        .allowsHitTesting(false)
+    private func recoveryFailureDetails(_ session: SessionController) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.recoveryFailure?.message ?? session.recoveryMessage ?? session.status.title)
+                    .fontWeight(.semibold)
+                if session.canRunAfterRecovery {
+                    Text(RecoveryRetryButton.runHint)
+                } else if let blocker = session.recoveryRunBlocker {
+                    Text(blocker).foregroundStyle(.secondary)
                 }
-                .padding(.top, 8)
-        } label: {
+                if session.recoveryAction == .openProject {
+                    RecoveryDetails(session: session, showMessage: false)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            RecoveryRetryButton(session: session)
+        }
+        .padding(10)
+        .background(.red.opacity(0.13), in: .rect(cornerRadius: 6))
+    }
+
+    private var logs: some View {
+        VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text("Run Logs")
                 Spacer(minLength: 0)
-                Button("Copy Logs") { session?.copyLogs() }
+                Button("Copy Logs", systemImage: "doc.on.doc") { session?.copyLogs() }
+                    .help("Copy Logs")
                     .disabled(session?.logs.isEmpty != false)
-                Button("Clear Logs") { session?.clearLogs() }
+                Button("Clear Logs", systemImage: "trash") { session?.clearLogs() }
+                    .help("Clear Logs")
                     .disabled(session?.logs.isEmpty != false)
+                let title = isLogExpanded ? Self.collapseLogsTitle : Self.expandLogsTitle
+                Button {
+                    isLogExpanded.toggle()
+                } label: {
+                    Label {
+                        Text(title)
+                    } icon: {
+                        Image(systemName: isLogExpanded ? "chevron.down" : "chevron.right")
+                    }
+                }
+                .help(Text(title))
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
+
+            if isLogExpanded {
+                SessionLogView(contents: logContents, trimmedUTF16: session?.logTrimmedUTF16 ?? 0)
+                    .id(session?.logGeneration)
+                    .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity)
+                    .background(Color(nsColor: .textBackgroundColor), in: .rect(cornerRadius: 6))
+                    .clipShape(.rect(cornerRadius: 6))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Color(nsColor: .separatorColor))
+                            .allowsHitTesting(false)
+                    }
+            }
         }
     }
+
+    static let collapseLogsTitle: LocalizedStringResource = "Collapse Logs"
+    static let expandLogsTitle: LocalizedStringResource = "Expand Logs"
 
     private var logContents: String {
         if let session, !session.logs.isEmpty { return session.logs }
@@ -123,6 +173,7 @@ struct MainWindowView: View {
 struct DeviceSelectionControls: View {
     @Environment(\.locale) private var locale
     @State private var isShowing = false
+    @FocusState private var isTriggerFocused: Bool
 
     let session: SessionController?
     let demoDevice: String?
@@ -157,8 +208,12 @@ struct DeviceSelectionControls: View {
             .accessibilityLabel("Device for Next Run")
             .accessibilityValue(summary(session.selectedDeviceChoice))
             .help(summary(session.selectedDeviceChoice))
+            .focused($isTriggerFocused)
             .popover(isPresented: $isShowing, arrowEdge: .bottom) {
                 choices(for: session)
+            }
+            .onChange(of: isShowing) { _, showing in
+                if !showing { isTriggerFocused = true }
             }
         } else {
             PresentationField(field: .device, value: session?.selection?.launch?.deviceID ?? demoDevice)
@@ -284,14 +339,16 @@ struct DeviceSelectionControls: View {
 
 struct RecoveryDetails: View {
     let session: SessionController
+    var showMessage = true
+    var showRetry = true
 
     var body: some View {
-        if let message = session.recoveryMessage {
+        if showMessage, let message = session.recoveryMessage {
             Text(message)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        if let record = session.recovery, let action = session.recoveryAction {
+        if let record = session.recovery, let action = session.recoveryAction, showRetry || action != .retry {
             Text(verbatim: "\(record.projectPath) · \(record.taskLabel)")
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -300,6 +357,36 @@ struct RecoveryDetails: View {
                 Text(action.title)
             }
             .disabled(!session.canPerformRecoveryAction)
+        }
+    }
+}
+
+struct RecoveryRetryButton: View {
+    let session: SessionController
+    static let runHint: LocalizedStringResource = "Click Run to try recovery and start debugging"
+
+    var body: some View {
+        if session.status == .recoveryFailed, session.recoveryAction == .retry {
+            Button("Retry Recovery", systemImage: "arrow.triangle.2.circlepath",
+                   action: session.retryRecovery)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.teal)
+                .help("Retry Recovery")
+                .disabled(!session.canPerformRecoveryAction)
+        }
+    }
+}
+
+struct SessionBrand: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Image("BrandGlyph")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 16)
+                .accessibilityHidden(true)
+            Text("FlutterRunlet").font(.headline)
         }
     }
 }
@@ -550,6 +637,7 @@ struct ProjectControls: View {
     @Environment(\.locale) private var locale
     @State private var isShowingHistory = false
     @FocusState private var isFolderFocused: Bool
+    @FocusState private var isHistoryFocused: Bool
 
     static let historyTitle: LocalizedStringResource = "Recent Projects"
     static let folderTitle: LocalizedStringResource = "Open Project"
@@ -587,9 +675,13 @@ struct ProjectControls: View {
                 .labelStyle(.iconOnly)
             }
             .help(Text(Self.historyTitle))
+            .focused($isHistoryFocused)
             .disabled(session?.canChangeProject != true)
             .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
                 if let session { history(session) }
+            }
+            .onChange(of: isShowingHistory) { _, showing in
+                if !showing { isHistoryFocused = session?.canChangeProject == true }
             }
 
             Button(action: openProject) {
@@ -633,7 +725,7 @@ struct ProjectControls: View {
                                 Button {
                                     session.removeRecentProject(project)
                                 } label: {
-                                    Image(systemName: "minus.circle")
+                                    Image(systemName: "trash")
                                 }
                                 .accessibilityLabel(Text(Self.removeTitle(name)))
                                 .help(Text(Self.removeTitle(name)))
@@ -669,12 +761,18 @@ struct SessionStatusLabel: View {
 
     var body: some View {
         let status = session?.status ?? (hasDemo ? .ready : .idle)
+        let color: Color = switch status {
+        case .running: .green
+        case .restoringEnvironment, .recoveryPending: .orange
+        case .recoveryFailed, .recoveryUnavailable, .processUnconfirmed: .red
+        default: .secondary
+        }
         Text(status.title)
             .lineLimit(1)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(.quaternary, in: Capsule())
+            .background(color.opacity(0.14), in: Capsule())
             .help(Text(status.title))
     }
 }
@@ -696,22 +794,27 @@ struct RunConfigurationControls: View {
     let session: SessionController?
     let demoConfiguration: String?
     let runDemo: () -> Void
+    var source: DebugActionSource = .menuBar
+
+    private var canRun: Bool {
+        session?.canPerformDebugAction(.run, source: source) ?? (demoConfiguration != nil)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
             Button {
                 if let session {
-                    session.performDebugAction(.run)
+                    session.performDebugAction(.run, source: source)
                 } else {
                     runDemo()
                 }
             } label: {
                 Image(systemName: "play.fill")
-                    .foregroundStyle((session?.canPerformDebugAction(.run) ?? (demoConfiguration != nil)) ? Color.green : .secondary)
+                    .foregroundStyle(canRun ? Color.green : .secondary)
             }
             .accessibilityLabel(Text(DebugControls.runAccessibilityLabel))
             .help(Text(DebugControls.runTitle))
-            .disabled(!(session?.canPerformDebugAction(.run) ?? (demoConfiguration != nil)))
+            .disabled(!canRun)
 
             if let session {
                 Picker("Configuration", selection: Binding(get: { session.selectedID }, set: session.select)) {
@@ -726,7 +829,7 @@ struct RunConfigurationControls: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity)
                 .help(session.selection.map { locale.appString($0.title) } ?? "")
-                .disabled(session.isBusy || session.configurationIsStale || session.choices.isEmpty)
+                .disabled(!session.canChangeConfiguration(source: source) || session.configurationIsStale || session.choices.isEmpty)
             } else {
                 Text(demoConfiguration ?? locale.appString("Select a configuration"))
                     .lineLimit(1)
@@ -738,7 +841,7 @@ struct RunConfigurationControls: View {
             if let session, session.project != nil {
                 Button("Reload Configuration", systemImage: "arrow.clockwise", action: session.reload)
                     .labelStyle(.iconOnly)
-                    .disabled(session.isBusy)
+                    .disabled(!session.canChangeConfiguration(source: source))
                     .help("Reload Configuration")
             }
         }
