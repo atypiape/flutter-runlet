@@ -151,6 +151,42 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testRecoveryContinuationRechecksConfigurationAndDeviceBeforeNewPreTask() async throws {
+        for change in ["configuration", "device"] {
+            let fixture = try SessionFixture()
+            defer { fixture.remove() }
+            let executable = try makeFlutter(in: fixture, script: ": > .runlet-fixture/debug-started")
+            let store = try ProjectRecoveryStore(directory: fixture.storage)
+            let discovery = DeviceDiscovery([device])
+            let session = controller(fixture, store: store, executable: executable, discovery: discovery) { _ in false }
+            try fixture.select("prod", in: session)
+            try await eventually { session.canRun }
+            try Data().write(to: fixture.state("fail-before-test"))
+            session.run()
+            await session.waitUntilIdle()
+            XCTAssertEqual(session.status, .recoveryFailed)
+            try FileManager.default.removeItem(at: fixture.state("debug-started"))
+            try FileManager.default.removeItem(at: fixture.state("fail-before-test"))
+            session.select("sample-flutter-app(dev)")
+            XCTAssertTrue(session.canRunAfterRecovery)
+
+            if change == "configuration" {
+                let url = fixture.config("launch")
+                let source = try String(contentsOf: url, encoding: .utf8)
+                try source.replacingOccurrences(of: "--dart-define=APP_ENV=dev", with: "--dart-define=APP_ENV=edited")
+                    .write(to: url, atomically: true, encoding: .utf8)
+            } else {
+                discovery.devices = []
+            }
+            session.runAfterRecovery()
+            await session.waitUntilIdle()
+            XCTAssertEqual(try fixture.marker(), "test\n", change)
+            XCTAssertNil(try store.read(project: fixture.project), change)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path), change)
+            XCTAssertNotNil(session.displayMessage, change)
+        }
+    }
+
     func testHotOperationsWaitForCurrentFlutterResultAndKeepStopAvailable() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
