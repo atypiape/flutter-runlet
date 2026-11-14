@@ -8,7 +8,7 @@
 
 确认的四个界面原型作为实现与验收基线。[需求与阶段追踪](REQUIREMENTS.md) · [Figma 交接说明](../docs/design/FIGMA-HANDOFF.md#v02-界面原型)
 
-- [ ] **Phase 06: 主窗口与菜单栏** - 交付共用调试控件、项目与设备选择、会话状态和日志体验。
+- [x] **Phase 06: 主窗口与菜单栏** - 交付共用调试控件、项目与设备选择、会话状态和日志体验。
 - [ ] **Phase 07: 设置、关于与更新** - 交付设置和关于窗口、共享版本与更新状态，并完成四处界面联验。
 
 ### Phase 06: 主窗口与菜单栏
@@ -40,7 +40,7 @@
 
 **Wave 4（依赖 06-03）**
 
-- [x] [06-04 Figma 对照与真实 Flutter 本地联验](phases/06-main-window-menu-bar/06-04-PLAN.md)（已执行，尚待补充联验证据）
+- [x] [06-04 Figma 对照与真实 Flutter 本地联验](phases/06-main-window-menu-bar/06-04-PLAN.md)（原生复验和本地联验通过）
 
 [验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md) · [本地联验](phases/06-main-window-menu-bar/06-ACCEPTANCE.md)
 

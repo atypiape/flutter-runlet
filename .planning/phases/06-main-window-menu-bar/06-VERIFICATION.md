@@ -2,8 +2,15 @@
 phase: 06-main-window-menu-bar
 verified: 2026-11-15
 candidate: f96a8d6096fccec5e1a8b5e7e93f6d36f670c105
-status: human_needed
-score: 10/14 must-haves verified
+status: passed
+score: 14/14 must-haves verified in approved scope
+prior_automated_verification:
+  candidate: f96a8d6096fccec5e1a8b5e7e93f6d36f670c105
+  passed_tests: 90
+  failures: 0
+  skipped: 0
+  release_build: passed
+  signature: passed
 covered_files: [
   ".planning/REQUIREMENTS.md",
   ".planning/ROADMAP.md",
@@ -81,29 +88,25 @@ covered_files: [
   "docs/examples/sample-flutter-app/scripts/simulate-firebase-switch.sh",
   "docs/examples/sample-flutter-app/tasks.jsonc"
 ]
-covered_digest: "v3:sha256:4bdd8841138e5259770d83a37eaab1f9815a6cb8eddfb55722b79265d5c7cbae"
+prior_covered_digest: "v3:sha256:4bdd8841138e5259770d83a37eaab1f9815a6cb8eddfb55722b79265d5c7cbae"
 behavior_unverified: 0
 overrides_applied: 0
 decision_coverage:
   honored: 6
   total: 6
   not_honored: []
-human_verification:
-  - test: "两处界面的双语、深浅外观和英文长状态辨识"
-    expected: "同一 Release 在中英文与深浅色下，两处尺寸、布局、状态和禁用语义符合画板。核对无项目、就绪、等待 VM、运行、恢复中和恢复失败。实测英文长状态标签若截断，记录正常阅读场景能否明确区分等待和恢复失败，以及现有提示、详情与辅助名称是否足够。"
-    why_human: "完整原生视觉矩阵未取齐。AX 全名与恢复详情不能证明胶囊截断对目视辨识无影响。"
-  - test: "跨入口同步逐行删除的项目历史"
-    expected: "以两个隔离项目建立历史，从一处逐条删除，在另一处依次看到仅对应条目消失和最终空态。删除当前项目条目不关闭它，重新启动后仍为空。运行和恢复期间尝试切换时仍保持原项目。"
-    why_human: "实测覆盖两处同步打开和主窗单删及重启。另一表面逐次观察删除结果缺同候选的直接证据。"
-  - test: "最终候选反向切换设备、两处离线复连和当前调试链接"
-    expected: "从菜单栏在 A 启动 prod，在主窗改选 B。两处下一次均显示 B，实际进程、当前会话、热操作、DevTools 和 Inspector 或其回退仍连接 A。停止后确认旧进程先退出，原后置恢复 test、风险为 0。断开 B 后两处显示名称、类型、红点和离线文字并阻止启动，复连后都显示绿点及在线，下一次实际使用 B。"
-    why_human: "最终候选已经实测由主窗运行 A、菜单栏改选 B。浏览器实连和主窗离线复连来自前一候选，反方向及两处同步观察尚无同一候选证据。"
-  - test: "最终候选主窗恢复故障矩阵和日志边界"
-    expected: "使用隔离样例制造原后置退出 1，主窗原位显示任务、实际退出码、运行提示和重试。故障保留时再次恢复继续阻断启动及退出。单独重试只恢复。另一次先清除旧风险再运行新前置与 Flutter。暂停原恢复时挡住运行、F5、重试与切换，确认退出会等待恢复且不会接续。复制、清空、收起再展开时没有旧日志，后续输出可追加，恢复详情独立可用。"
-    why_human: "最终候选有菜单栏退出 1、F5 阻断及单独重试。主窗完整故障序列和日志行为来自前一候选，需补同一二进制的完整路径。"
+human_verification: []
 ---
 
 # 阶段 06 · 验证报告
+
+## 2026-11-15 · 阶段签核通过
+
+最终 Release `f96a8d6` 已实际运行。同一候选完成两处各 24 张状态实拍，核对中英文、系统深浅、布局与启禁用语义。菜单栏 348 × 313 pt，主窗口 640 × 520 pt。英文等待、恢复中和失败标签均完整。历史、设备关联、真实浏览器连接、日志和恢复均通过同候选复验。Tab 焦点与 VoiceOver 专项按用户决定移出签核范围，Tab 蓝框有实拍并登记为后续变更。 [界面复核](06-UI-REVIEW.md) · [本地验收](06-UAT.md)
+
+UI-08、UI-09、UI-10、UI-11、UI-12、RUN-07、RUN-08、RUN-09 通过。UI-07 的主窗和菜单栏部分通过。设置和关于窗口尚待阶段 07 的四处界面联验。
+
+## 较早候选与独立验证记录
 
 2026-11-15 复验改用 `57fc4b3`。90 项 Debug、Release 构建和严格签名通过。已渲染两处六状态、双语和深浅外观，完成八张中文深色原稿的数值对照。该轮记录了系统控件差异及仍待补的菜单栏实机证据，判定仍为 **待验收**。本报告以下保留原候选的独立验证与需求追踪，新增候选及证据详见[逐张对照与修订候选](06-UI-REVIEW.md)。
 
@@ -177,7 +180,9 @@ human_verification:
 
 九项均由计划声明，无孤立需求。
 
-## 待人工验收
+## 原待人工验收清单
+
+最终判定见本页首节。
 
 | # | 操作与预期 |
 | --- | --- |

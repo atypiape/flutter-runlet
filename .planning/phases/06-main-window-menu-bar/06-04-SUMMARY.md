@@ -10,11 +10,13 @@ key-files:
   modified:
     - .planning/phases/06-main-window-menu-bar/06-VALIDATION.md
 requirements-completed: [UI-10, UI-11, UI-12]
-status: human_needed
+status: complete
 completed: 2026-11-14
 ---
 
 # 06-04 · Figma 与真实 Flutter 本地联验
+
+2026-11-15，同一最终 Release `f96a8d6` 通过 [原生界面复核](06-UI-REVIEW.md)和[本地验收](06-UAT.md)，阶段 06 已签核。下文保留 2026-11-14 四波执行记录。
 
 [本地联验](06-ACCEPTANCE.md)逐项记录实测结果和候选身份。前三波实现已提交；第四波完成实际调试、双模拟器验证、两处共享状态与恢复验证，保留尚未取证的验收项。
 
