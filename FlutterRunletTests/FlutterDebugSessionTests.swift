@@ -508,6 +508,102 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testChangingNextDeviceKeepsRunningSessionAndItsToolsOnOriginalDevice() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let next = FlutterDevice(id: "ios-next", name: "Next iPhone", platform: "ios", isSimulator: true)
+        let discovery = DeviceDiscovery([device, next])
+        let executable = try makeFlutter(in: fixture, script: #"""
+            case "$5" in
+              ios-fixture) app=first; port=8181 ;;
+              ios-next) app=second; port=8182 ;;
+              *) exit 2 ;;
+            esac
+            printf '%s\n' "$5" >> .runlet-fixture/launch-devices
+            printf '[{"event":"app.start","params":{"appId":"%s","deviceId":"%s","mode":"debug","supportsRestart":true}}]\n' "$app" "$5"
+            printf '[{"event":"app.debugPort","params":{"appId":"%s","wsUri":"ws://127.0.0.1:%s/private=/ws"}}]\n' "$app" "$port"
+            printf '[{"event":"app.devTools","params":{"appId":"%s","uri":"http://127.0.0.1:%s/private=/devtools/?uri=ws://127.0.0.1:%s/private=/ws"}}]\n' "$app" "$port" "$port"
+            while IFS= read -r command; do
+                case "$command" in
+                  *app.restart*)
+                    printf '%s\n' "$command" > .runlet-fixture/command-1
+                    while [ ! -f .runlet-fixture/reply-1 ]; do /bin/sleep .02; done
+                    /bin/cat .runlet-fixture/reply-1
+                    ;;
+                  *app.stop*) break ;;
+                esac
+            done
+            """#)
+        let clock = ControlledDebugClock()
+        var opened: [URL] = []
+        let session = controller(fixture, store: store, executable: executable, timing: clock.timing,
+                                 discovery: discovery, flutterVersion: "3.47.4", devToolsVersion: "2.61.0",
+                                 openURL: { opened.append($0); return true }) { _ in true }
+        try fixture.select("prod", in: session)
+        try await eventually { !session.isRefreshingDevices }
+        session.selectDevice(device.id)
+        XCTAssertTrue(session.canRun)
+        session.run()
+        session.selectDevice(next.id)
+        XCTAssertEqual(session.selectedDeviceID, device.id, "启动预检时仍锁定下次选择")
+        do {
+            try await eventually { session.canOpenBrowser && session.canHotOperate }
+            session.selectDevice(next.id)
+            XCTAssertEqual(session.selectedDeviceID, next.id)
+            XCTAssertEqual(session.activeLaunch?.device, device)
+            XCTAssertEqual(session.activeLaunch?.configurationName, "sample-flutter-app(prod)")
+
+            discovery.devices = [device]
+            discovery.shutdown = [FlutterSimulator(id: next.id, name: next.name)]
+            try await eventually { clock.hasSleeper(.seconds(5)) }
+            clock.advance(by: .seconds(5))
+            try await eventually { !session.canStop || clock.hasSleeper(.seconds(5)) }
+            XCTAssertTrue(session.canStop, "仅 B 关机时，A 的监测不能停止当前调试")
+            XCTAssertTrue(session.performDebugAction(.reload))
+            try await fixture.waitFor("command-1")
+            let request = try request(fixture, number: 1)
+            XCTAssertEqual(request.appID, "first")
+            XCTAssertEqual(request.fullRestart, false)
+            try reply(fixture, to: request.id, number: 1, code: 0)
+            try await eventually { session.canHotOperate }
+            session.openBrowser(.devTools)
+            session.openBrowser(.inspector)
+            XCTAssertEqual(opened.map(\.port), [8181, 8181])
+            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开当前会话的 DevTools，请选择 Inspector。")
+            session.stop()
+            await session.waitUntilIdle()
+            XCTAssertNil(session.activeLaunch)
+            XCTAssertEqual(session.selectedDeviceID, next.id)
+            XCTAssertEqual(try fixture.marker(), "test\n")
+
+            session.run()
+            await session.waitUntilIdle()
+            XCTAssertEqual(try fixture.marker(), "test\n", "重新发现 B 离线时不得运行 prod 前置")
+            XCTAssertNil(try store.read(project: fixture.project))
+            XCTAssertEqual(try String(contentsOf: fixture.state("launch-devices"), encoding: .utf8), "ios-fixture\n")
+            XCTAssertFalse(session.canRun)
+
+            discovery.devices = [device, next]
+            discovery.shutdown = []
+            session.refreshDevices()
+            try await eventually { session.canRun }
+            session.run()
+            try await eventually { session.canOpenBrowser }
+            XCTAssertEqual(session.activeLaunch?.device, next)
+            session.openBrowser(.devTools)
+            XCTAssertEqual(opened.last?.port, 8182)
+            XCTAssertEqual(try String(contentsOf: fixture.state("launch-devices"), encoding: .utf8), "ios-fixture\nios-next\n")
+            session.stop()
+            await session.waitUntilIdle()
+        } catch {
+            try? reply(fixture, to: 0, number: 1, code: 1)
+            session.stop()
+            await session.waitUntilIdle()
+            throw error
+        }
+    }
+
     func testUntestedInspectorVersionOpensConnectedDevToolsWithFallbackFeedback() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -579,6 +675,10 @@ final class FlutterDebugSessionTests: XCTestCase {
                                     discover: { _, _ in
                                         if discovery?.fails == true { throw SessionIssue("扫描失败") }
                                         return discovery?.devices ?? [device]
+                                    },
+                                    simulators: { _ in
+                                        guard let discovery else { return [] }
+                                        return discovery.shutdown
                                     }
                                  ), verifyVM: verify, debugTiming: timing, openURL: openURL)
     }
@@ -601,6 +701,7 @@ final class FlutterDebugSessionTests: XCTestCase {
     private final class DeviceDiscovery {
         var devices: [FlutterDevice]
         var fails = false
+        var shutdown: [FlutterSimulator] = []
         init(_ devices: [FlutterDevice]) { self.devices = devices }
     }
 

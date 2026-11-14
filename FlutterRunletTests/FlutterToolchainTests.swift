@@ -371,6 +371,8 @@ final class FlutterToolchainTests: XCTestCase {
         scanner.devices = [first, second]
         session.refreshDevices()
         try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .online)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.kind, .androidEmulator)
         let path = fixture.config("launch")
         let original = try String(contentsOf: path, encoding: .utf8)
         try original.replacingOccurrences(of: #""name": "sample-flutter-app(prod)","#,
@@ -388,6 +390,7 @@ final class FlutterToolchainTests: XCTestCase {
         await session.waitUntilIdle()
         XCTAssertEqual(session.selectedDeviceID, second.id)
         XCTAssertEqual(session.selectedDeviceName, second.name)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .offline)
         XCTAssertTrue(session.displayMessage.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("离线") == true)
         XCTAssertFalse(session.canRun)
         let sdk = try XCTUnwrap(session.sdk)
@@ -400,12 +403,14 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { !session.isRefreshingDevices }
         XCTAssertTrue(session.displayMessage.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("无法刷新设备") == true)
         XCTAssertEqual(session.selectedDeviceID, second.id)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .unknown)
 
         scanner.fails = false
         scanner.devices = [first, second]
         session.refreshDevices()
         try await eventually { session.canRun }
         XCTAssertEqual(session.selectedDeviceID, second.id)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .online)
         XCTAssertTrue(session.open(other.project))
         try await eventually { !session.isRefreshingDevices }
         XCTAssertNil(session.selectedDeviceID)
