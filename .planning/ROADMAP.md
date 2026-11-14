@@ -28,7 +28,7 @@
 
 **Wave 1**
 
-- [ ] [06-01 共用控件、项目历史与两处布局](phases/06-main-window-menu-bar/06-01-PLAN.md)
+- [x] [06-01 共用控件、项目历史与两处布局](phases/06-main-window-menu-bar/06-01-PLAN.md)
 
 **Wave 2（依赖 06-01）**
 
