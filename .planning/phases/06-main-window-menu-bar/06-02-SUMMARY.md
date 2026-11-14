@@ -44,7 +44,7 @@ status: complete
 
 运行边界测试记录 A 与 B 各自的 Flutter 参数、热重载请求和 DevTools 端口，验证 B 不可用时 A 的监测继续工作。停止 A 后，B 离线或重新发现失败均不触发新的前置任务或风险写入，B 恢复在线后从新会话启动。Inspector 的版本回退仍打开当前会话的 DevTools。
 
-全量结果位于阶段构建目录下的 `Logs/Test/Test-FlutterRunlet-2026.11.14_23-17-07-+0800.xcresult`。两处原生键盘交互和真实 Flutter 设备切换由 06-04 验收。
+全量结果位于阶段构建目录下的 Xcode 测试结果包 `Test-FlutterRunlet-2026.11.14_23-17-07-+0800.xcresult`。两处原生键盘交互和真实 Flutter 设备切换由 06-04 验收。
 
 ## Task Commits
 
