@@ -5,20 +5,33 @@ repo_root="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
 output_root="$repo_root/.build/release"
 output_dir=
 version_pattern='^[0-9]+(\.[0-9]+){0,2}$'
+requested_version=
 
-if [[ "$#" -ne 0 && "$#" -ne 2 ]]; then
-  printf '用法：%s [版本号 构建号]\n示例：%s v0.1.1 2\n' "$0" "$0" >&2
+if [[ "$#" -gt 1 ]]; then
+  printf '用法：%s [版本号]\n示例：%s v0.1.1\n' "$0" "$0" >&2
   exit 2
 fi
 
-if [[ "$#" -eq 2 ]]; then
+if [[ "$#" -eq 1 ]]; then
   requested_version="${1#v}"
-  requested_build="$2"
-  if [[ ! "$requested_version" =~ $version_pattern || ! "$requested_build" =~ $version_pattern ]]; then
-    printf '版本号和构建号须为一至三段数字，版本号可带 v 前缀（例如 v0.1.1 2）。\n' >&2
+  if [[ ! "$requested_version" =~ $version_pattern ]]; then
+    printf '版本号须为一至三段数字，可带 v 前缀（例如 v0.1.1）。\n' >&2
     exit 2
   fi
-  set -- "MARKETING_VERSION=$requested_version" "CURRENT_PROJECT_VERSION=$requested_build"
+fi
+
+if ! shallow="$(git -C "$repo_root" rev-parse --is-shallow-repository)"; then
+  printf '请从 Git 仓库检出项目，以便计算构建号。\n' >&2
+  exit 1
+fi
+if [[ "$shallow" == true ]]; then
+  printf '浅克隆缺少完整提交历史。请先运行 git fetch --unshallow，再打包。\n' >&2
+  exit 1
+fi
+requested_build="$(git -C "$repo_root" rev-list --count HEAD)"
+set -- "CURRENT_PROJECT_VERSION=$requested_build"
+if [[ -n "$requested_version" ]]; then
+  set -- "$@" "MARKETING_VERSION=$requested_version"
 fi
 
 if ! xcodebuild -version >/dev/null; then
@@ -39,7 +52,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-printf '正在构建 FlutterRunlet Release（Apple Silicon 和 Intel）…\n'
+printf '正在构建 FlutterRunlet Release（构建 %s，Apple Silicon 和 Intel）…\n' "$requested_build"
 xcodebuild -quiet \
   -project "$repo_root/FlutterRunlet.xcodeproj" \
   -scheme FlutterRunlet \
@@ -52,12 +65,12 @@ xcodebuild -quiet \
 app="$work_dir/DerivedData/Build/Products/Release/FlutterRunlet.app"
 version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")"
 build="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Contents/Info.plist")"
-if [[ ! "$version" =~ $version_pattern || ! "$build" =~ $version_pattern ]]; then
-  printf 'App 的版本号或构建号无效（%s，构建 %s）。\n' "$version" "$build" >&2
+if [[ ! "$version" =~ $version_pattern ]]; then
+  printf 'App 的版本号无效（%s）。\n' "$version" >&2
   exit 1
 fi
-if [[ "$#" -eq 2 && ( "$version" != "$requested_version" || "$build" != "$requested_build" ) ]]; then
-  printf 'App 的版本号或构建号与输入不符（实际为 %s，构建 %s）。\n' "$version" "$build" >&2
+if [[ "$build" != "$requested_build" || ( -n "$requested_version" && "$version" != "$requested_version" ) ]]; then
+  printf 'App 的版本号或构建号与预期不符（实际为 %s，构建 %s）。\n' "$version" "$build" >&2
   exit 1
 fi
 

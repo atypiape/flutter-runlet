@@ -19,13 +19,13 @@ FlutterRunlet 是面向 macOS 的轻量 Flutter 调试工具。它读取 Flutter
 
 ## 打包 macOS 预发布版
 
-安装完整的 Xcode 后，在仓库根目录运行以下命令，即可打包 v0.1.1（构建 2）。
+安装完整的 Xcode 后，在仓库根目录运行以下命令，即可打包 v0.1.1。
 
 ```sh
-./scripts/package-release.sh v0.1.1 2
+./scripts/package-release.sh v0.1.1
 ```
 
-版本号也可写成 `0.1.1`。这两个参数只对本次构建生效。直接运行 `./scripts/package-release.sh` 时，使用项目的 Release 版本号和构建号。
+版本号也可写成 `0.1.1`，只对本次构建生效。省略版本号时，使用项目的 Release 默认版本。构建号始终取当前 Git 提交及其全部祖先的数量（`git rev-list --count HEAD`）。例如，结果为 125 时，包内 App 的版本就是 0.1.1（build 125）。浅克隆需要先用 `git fetch --unshallow` 补齐历史。
 
 脚本以 Release 配置构建 Apple Silicon 和 Intel 双架构应用，并在 `.build/release/` 下为每次打包生成独立目录。终端会显示 DMG 和对应的 `.dmg.sha256` 文件路径。
 
