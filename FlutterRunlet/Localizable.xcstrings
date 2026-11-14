@@ -2129,6 +2129,22 @@
         }
       }
     },
+    "No recent projects": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recent projects"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无历史项目"
+          }
+        }
+      }
+    },
     "No run logs yet. Output will appear here after debugging starts.": {
       "localizations": {
         "en": {
@@ -2657,6 +2673,22 @@
         }
       }
     },
+    "Recent Projects": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Projects"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "历史项目"
+          }
+        }
+      }
+    },
     "Refresh Devices": {
       "localizations": {
         "en": {
@@ -2749,6 +2781,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "重试"
+          }
+        }
+      }
+    },
+    "Remove %@ from Recent Projects": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@ from Recent Projects"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从历史项目中移除 %@"
           }
         }
       }

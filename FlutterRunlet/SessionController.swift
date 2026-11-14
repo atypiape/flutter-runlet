@@ -56,6 +56,10 @@ enum DebugAction {
 @Observable
 final class SessionController {
     private(set) var project: URL?
+    private(set) var recentProjects: [URL] = []
+    var canChangeProject: Bool {
+        !fixtureConfigurationFailed && !isBusy && !executionIsUnconfirmed && recovery == nil
+    }
     private(set) var choices: [LaunchChoice] = []
     private(set) var selectedID: Int?
     private(set) var configurationIsStale = false
@@ -197,6 +201,7 @@ final class SessionController {
     private static let rememberKey = "rememberRecentProject"
     private static let showMainWindowKey = "showMainWindowOnLaunch"
     private static let recentKey = "recentProjectPath"
+    private static let recentProjectsKey = "recentProjects"
     private static let preferFVMKey = "preferProjectFVM"
     private static let manualSDKKey = "manualFlutterSDKPath"
     private struct DevicePreference {
@@ -281,7 +286,17 @@ final class SessionController {
         showMainWindowOnLaunch = preferences?.object(forKey: Self.showMainWindowKey) as? Bool ?? true
         preferProjectFVM = preferences?.object(forKey: Self.preferFVMKey) as? Bool ?? true
         manualSDKPath = preferences?.string(forKey: Self.manualSDKKey)
-        if rememberRecentProject, let path = preferences?.string(forKey: Self.recentKey) {
+        let recentPath = preferences?.string(forKey: Self.recentKey)
+        if let paths = preferences?.stringArray(forKey: Self.recentProjectsKey) {
+            recentProjects = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        } else {
+            if let recentPath,
+               let canonical = try? validate(URL(fileURLWithPath: recentPath, isDirectory: true)) {
+                recentProjects = [canonical]
+            }
+            saveRecentProjects()
+        }
+        if rememberRecentProject, let path = recentPath {
             _ = loadProject(URL(fileURLWithPath: path, isDirectory: true), remember: false)
         }
         discoverRecovery()
@@ -366,14 +381,24 @@ final class SessionController {
     }
 
     func requestProjectChange() -> Bool {
-        guard !fixtureConfigurationFailed else { return false }
-        guard !isBusy, !executionIsUnconfirmed, recovery == nil else {
-            if recovery == nil {
-                message = "Stop the current session and finish any environment recovery before opening a project"
-            }
-            return false
+        if !canChangeProject, !fixtureConfigurationFailed, recovery == nil {
+            message = "Stop the current session and finish any environment recovery before opening a project"
         }
-        return true
+        return canChangeProject
+    }
+
+    func removeRecentProject(_ url: URL) {
+        guard recentProjects.contains(url) else { return }
+        recentProjects.removeAll { $0 == url }
+        saveRecentProjects()
+        if let path = preferences?.string(forKey: Self.recentKey),
+           path == url.path || (try? ProjectLocation.directory(URL(fileURLWithPath: path, isDirectory: true))) == url {
+            preferences?.removeObject(forKey: Self.recentKey)
+        }
+    }
+
+    private func saveRecentProjects() {
+        preferences?.set(recentProjects.map(\.path), forKey: Self.recentProjectsKey)
     }
 
     private func loadProject(_ url: URL, remember: Bool) -> Bool {
@@ -400,7 +425,12 @@ final class SessionController {
             hasLoadedConfiguration = false
             apply(configuration(canonical), preserving: nil)
             status = .ready
-            if remember { preferences?.set(canonical.path, forKey: Self.recentKey) }
+            if remember {
+                recentProjects.removeAll { $0 == canonical }
+                recentProjects.insert(canonical, at: 0)
+                saveRecentProjects()
+                preferences?.set(canonical.path, forKey: Self.recentKey)
+            }
             do {
                 if let record = try store?.read(project: canonical) {
                     markRecovery(record, "This project has a pending environment recovery", pending: true)

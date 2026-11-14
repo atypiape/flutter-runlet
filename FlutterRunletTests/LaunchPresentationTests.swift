@@ -238,6 +238,21 @@ final class LaunchPresentationTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testProjectAndSettingsIconNamesUseBothBundleLanguages() {
+        let names: [(LocalizedStringResource, String, String)] = [
+            (ProjectControls.historyTitle, "Recent Projects", "历史项目"),
+            (ProjectControls.folderTitle, "Open Project", "打开项目"),
+            (ProjectControls.removeTitle("App%2$@"), "Remove App%2$@ from Recent Projects", "从历史项目中移除 App%2$@"),
+            ("No recent projects", "No recent projects", "暂无历史项目"),
+            ("Settings", "Settings", "设置")
+        ]
+        for (title, english, chinese) in names {
+            XCTAssertEqual(Locale(identifier: "en").appString(title), english)
+            XCTAssertEqual(Locale(identifier: "zh-Hans").appString(title), chinese)
+        }
+    }
+
     func testOrdinaryArgumentsReturnEmpty() {
         XCTAssertEqual(LaunchPresentation.resolve(arguments: []), .empty)
         XCTAssertEqual(LaunchPresentation.resolve(arguments: ["--unrelated"]), .empty)

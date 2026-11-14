@@ -157,6 +157,40 @@ final class ProjectSelectionTests: XCTestCase {
         XCTAssertEqual(session.project, project)
         XCTAssertEqual(session.recentProjects, [try XCTUnwrap(project)])
     }
+
+    func testProjectSwitchRemainsBlockedWhileRunningAndAfterRecoveryFailure() async throws {
+        let fixture = try SessionFixture()
+        let other = try SessionFixture()
+        defer { fixture.remove(); other.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store, script: """
+            trap 'exit 0' TERM
+            : > .runlet-fixture/debug-started
+            while :; do /bin/sleep 0.05; done
+            """)
+        XCTAssertTrue(session.open(other.project))
+        try fixture.select("prod", in: session)
+        let project = try XCTUnwrap(session.project)
+        let history = session.recentProjects
+        try Data().write(to: fixture.state("fail-before-test"))
+        session.run()
+        try await fixture.waitFor("debug-started")
+
+        XCTAssertFalse(session.canChangeProject)
+        XCTAssertFalse(session.open(history[1]))
+        XCTAssertEqual(session.project, project)
+        session.stop()
+        await session.waitUntilIdle()
+
+        let risk = try XCTUnwrap(store.read(project: project))
+        XCTAssertFalse(session.canChangeProject)
+        XCTAssertFalse(session.open(history[1]))
+        XCTAssertEqual(session.recentProjects, history)
+        session.removeRecentProject(project)
+        XCTAssertEqual(session.project, project)
+        XCTAssertEqual(session.recentProjects, [history[1]])
+        XCTAssertEqual(try store.read(project: project), risk)
+    }
 }
 
 extension SessionFixture {

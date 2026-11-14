@@ -186,7 +186,6 @@ struct FlutterRunletApp: App {
                 session: liveSession,
                 run: { Self.showRunDemo(locale: language.locale) },
                 openSettings: showSettings,
-                openAbout: showAbout,
                 openFlutterSettings: showFlutterSettings
             )
             .frame(minWidth: 480, minHeight: 400)
@@ -195,7 +194,7 @@ struct FlutterRunletApp: App {
         } defaultValue: {
             Self.mainRoute
         }
-        .defaultSize(width: 640, height: 580)
+        .defaultSize(width: 640, height: 520)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
         .commands {
@@ -224,6 +223,10 @@ struct FlutterRunletApp: App {
                 openFlutterSettings: {
                     panelWindow.close()
                     showFlutterSettings()
+                },
+                prepareForProjectPicker: {
+                    panelWindow.close()
+                    Self.showMainWindow(openWindow: openWindow)
                 }
             )
             .background(PanelWindowAnchor(reference: panelWindow, debugKeys: debugKeys))

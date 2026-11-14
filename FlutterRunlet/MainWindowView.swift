@@ -8,101 +8,43 @@ struct MainWindowView: View {
     var session: SessionController? = nil
     let run: () -> Void
     let openSettings: (() -> Void)?
-    let openAbout: (() -> Void)?
     var openFlutterSettings: (() -> Void)? = nil
 
     @State private var isLogExpanded = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            PresentationField(field: .project, value: session?.project?.lastPathComponent ?? presentation.selection?.project,
-                              fallback: "No project selected")
-
-            HStack(alignment: .top, spacing: 16) {
-                if let session, session.project != nil {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Configuration").foregroundStyle(.secondary)
-                        HStack(spacing: 6) {
-                            Picker("Configuration", selection: Binding(get: { session.selectedID }, set: session.select)) {
-                                Text("Select a configuration").tag(nil as Int?)
-                                ForEach(session.choices) { choice in
-                                    Text(choice.issue.map { "\(choice.title) · \($0)" } ?? choice.title)
-                                        .tag(choice.id as Int?)
-                                }
-                            }
-                            .labelsHidden()
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .help(session.selection.map { locale.appString($0.title) } ?? "")
-                            .disabled(session.isBusy || session.configurationIsStale || session.choices.isEmpty)
-
-                            FullNameButton(field: .configuration, name: session.selection.map { locale.appString($0.title) })
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    PresentationField(field: .configuration, value: presentation.selection?.configuration)
-                }
-                Group {
-                    if let session, session.usesFlutterToolchain, session.project != nil {
-                        deviceField(session)
-                    } else {
-                        PresentationField(field: .device, value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
-                    }
-                }
-                .frame(maxWidth: 240)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("FlutterRunlet")
+                    .font(.headline)
+                Spacer(minLength: 12)
+                SessionStatusLabel(session: session, hasDemo: presentation.selection != nil)
+                SessionSettingsButton(open: openSettings)
             }
+            ProjectControls(session: session, demoName: presentation.selection?.project)
 
-            DebugControls(session: session, canRunDemo: presentation.selection != nil, runDemo: run)
+            HStack(spacing: 12) {
+                RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration, runDemo: run)
+                DebugControls(session: session)
+            }
+            HStack(alignment: .top, spacing: 12) {
+                if let session, session.usesFlutterToolchain, session.project != nil {
+                    deviceField(session)
+                } else {
+                    PresentationField(field: .device, value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
+                }
+                BrowserControls(session: session)
+            }
             sessionDetails
                 .layoutPriority(1)
             logs
-
             if !isLogExpanded {
                 Spacer(minLength: 0)
             }
-
-            Divider()
-            Text(session?.project == nil && presentation.selection == nil ? "No project selected" : "Project Selected")
-                .foregroundStyle(.secondary)
         }
         .font(.system(size: 13))
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button("Open Project", systemImage: "folder", action: openProject)
-                    .disabled(session == nil)
-                    .overlay {
-                        ProjectToolTip()
-                            .accessibilityHidden(true)
-                    }
-
-                if let session, session.project != nil {
-                    Button("Reload Configuration", systemImage: "arrow.clockwise", action: session.reload)
-                        .disabled(session.isBusy)
-                        .help("Reload Configuration")
-                }
-
-                Button {
-                    openSettings?()
-                } label: {
-                    Image(systemName: "gearshape")
-                }
-                .disabled(openSettings == nil)
-                .help("Settings")
-                .accessibilityLabel("Settings")
-
-                Button {
-                    openAbout?()
-                } label: {
-                    Image(systemName: "info.circle")
-                }
-                .disabled(openAbout == nil)
-                .help("About FlutterRunlet")
-                .accessibilityLabel("About FlutterRunlet")
-            }
-        }
     }
 
     private func deviceField(_ session: SessionController) -> some View {
@@ -156,19 +98,6 @@ struct MainWindowView: View {
         .help(session.selectedDeviceName ?? "")
     }
 
-    private func openProject() {
-        guard let session, session.requestProjectChange() else { return }
-        let panel = NSOpenPanel()
-        panel.title = locale.appString("Open Flutter Project")
-        panel.message = locale.appString("Select the folder for a Flutter project.")
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            session.open(url)
-        }
-    }
-
     private var sessionDetails: some View {
         GroupBox("Debug Session") {
             VStack(alignment: .leading, spacing: 8) {
@@ -207,7 +136,6 @@ struct MainWindowView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                BrowserControls(session: session)
                 SessionFeedbackView(session: session)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -435,22 +363,6 @@ final class SessionLogScrollView: NSScrollView {
     }
 }
 
-private struct ProjectToolTip: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        ToolTipView()
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        nsView.toolTip = context.environment.locale.appString("Open Project")
-    }
-
-    private final class ToolTipView: NSView {
-        override func hitTest(_ point: NSPoint) -> NSView? {
-            nil
-        }
-    }
-}
-
 enum SessionField {
     case project, configuration, device
 
@@ -527,53 +439,233 @@ private struct FullNameButton: View {
     }
 }
 
-struct DebugControls: View {
+struct ProjectControls: View {
+    @Environment(\.locale) private var locale
+    @State private var isShowingHistory = false
+    @FocusState private var isFolderFocused: Bool
+
+    static let historyTitle: LocalizedStringResource = "Recent Projects"
+    static let folderTitle: LocalizedStringResource = "Open Project"
+    static func removeTitle(_ name: String) -> LocalizedStringResource { "Remove \(name) from Recent Projects" }
+
+    let session: SessionController?
+    let demoName: String?
+    var prepareForPicker: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 8) {
+            let name = session?.project?.lastPathComponent ?? demoName
+            Group {
+                if let name {
+                    Text(verbatim: name)
+                } else {
+                    Text("No project selected")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fontWeight(.semibold)
+            .lineLimit(1)
+            .help(name ?? "")
+            FullNameButton(field: .project, name: name)
+            Spacer(minLength: 0)
+
+            Button {
+                isShowingHistory.toggle()
+            } label: {
+                Label {
+                    Text(Self.historyTitle)
+                } icon: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+                .labelStyle(.iconOnly)
+            }
+            .help(Text(Self.historyTitle))
+            .disabled(session?.canChangeProject != true)
+            .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
+                if let session { history(session) }
+            }
+
+            Button(action: openProject) {
+                Label {
+                    Text(Self.folderTitle)
+                } icon: {
+                    Image(systemName: "folder")
+                }
+                .labelStyle(.iconOnly)
+            }
+            .help(Text(Self.folderTitle))
+            .focused($isFolderFocused)
+            .disabled(session?.canChangeProject != true)
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private func history(_ session: SessionController) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Self.historyTitle)
+                .font(.headline)
+            if session.recentProjects.isEmpty {
+                Text("No recent projects")
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(session.recentProjects, id: \.self) { project in
+                            let name = project.lastPathComponent
+                            HStack(spacing: 8) {
+                                Button {
+                                    if session.open(project) { isShowingHistory = false }
+                                } label: {
+                                    Text(verbatim: name)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .help(project.path)
+                                .disabled(!session.canChangeProject)
+
+                                Button {
+                                    session.removeRecentProject(project)
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                }
+                                .accessibilityLabel(Text(Self.removeTitle(name)))
+                                .help(Text(Self.removeTitle(name)))
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 220)
+            }
+        }
+        .padding(12)
+        .frame(width: 280, alignment: .leading)
+    }
+
+    private func openProject() {
+        guard let session, session.requestProjectChange() else { return }
+        prepareForPicker?()
+        let panel = NSOpenPanel()
+        panel.title = locale.appString("Open Flutter Project")
+        panel.message = locale.appString("Select the folder for a Flutter project.")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        // Restore the SwiftUI folder button as the focus destination after AppKit closes.
+        if panel.runModal() == .OK, let url = panel.url { session.open(url) }
+        isFolderFocused = session.canChangeProject
+    }
+}
+
+struct SessionStatusLabel: View {
+    let session: SessionController?
+    let hasDemo: Bool
+
+    var body: some View {
+        let status = session?.status ?? (hasDemo ? .ready : .idle)
+        Text(status.title)
+            .lineLimit(1)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.quaternary, in: Capsule())
+            .help(Text(status.title))
+    }
+}
+
+struct SessionSettingsButton: View {
+    let open: (() -> Void)?
+
+    var body: some View {
+        Button("Settings", systemImage: "gearshape") { open?() }
+            .labelStyle(.iconOnly)
+            .help("Settings")
+            .disabled(open == nil)
+    }
+}
+
+struct RunConfigurationControls: View {
     @Environment(\.locale) private var locale
 
+    let session: SessionController?
+    let demoConfiguration: String?
+    let runDemo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button {
+                if let session {
+                    session.performDebugAction(.run)
+                } else {
+                    runDemo()
+                }
+            } label: {
+                Image(systemName: "play.fill")
+                    .foregroundStyle((session?.canPerformDebugAction(.run) ?? (demoConfiguration != nil)) ? Color.green : .secondary)
+            }
+            .accessibilityLabel(Text(DebugControls.runAccessibilityLabel))
+            .help(Text(DebugControls.runTitle))
+            .disabled(!(session?.canPerformDebugAction(.run) ?? (demoConfiguration != nil)))
+
+            if let session {
+                Picker("Configuration", selection: Binding(get: { session.selectedID }, set: session.select)) {
+                    Text("Select a configuration").tag(nil as Int?)
+                    ForEach(session.choices) { choice in
+                        Text(choice.issue.map { "\(choice.title) · \($0)" } ?? choice.title)
+                            .tag(choice.id as Int?)
+                    }
+                }
+                .labelsHidden()
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity)
+                .help(session.selection.map { locale.appString($0.title) } ?? "")
+                .disabled(session.isBusy || session.configurationIsStale || session.choices.isEmpty)
+            } else {
+                Text(demoConfiguration ?? locale.appString("Select a configuration"))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(.secondary)
+            }
+
+            FullNameButton(field: .configuration, name: session?.selection.map { locale.appString($0.title) } ?? demoConfiguration)
+            if let session, session.project != nil {
+                Button("Reload Configuration", systemImage: "arrow.clockwise", action: session.reload)
+                    .labelStyle(.iconOnly)
+                    .disabled(session.isBusy)
+                    .help("Reload Configuration")
+            }
+        }
+        .buttonStyle(.bordered)
+    }
+}
+
+struct DebugControls: View {
     static let runTitle: LocalizedStringResource = "Run"
     static let runAccessibilityLabel: LocalizedStringResource = "Run Current Debug Configuration"
 
     let session: SessionController?
-    let canRunDemo: Bool
-    let runDemo: () -> Void
-
-    private var canRun: Bool { session?.canPerformDebugAction(.run) ?? canRunDemo }
+    var equalWidths = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            if canRun {
-                runButton.buttonStyle(.borderedProminent)
-            } else {
-                runButton.buttonStyle(.bordered)
-            }
-
-            debugButton("Stop", action: .stop)
-            debugButton("Hot Reload", action: .reload)
-            debugButton("Hot Restart", action: .restart)
+        HStack(spacing: 6) {
+            debugButton("Hot Reload", icon: "bolt", action: .reload)
+            debugButton("Hot Restart", icon: "arrow.clockwise", action: .restart)
+            debugButton("Stop", icon: "stop", action: .stop)
         }
         .buttonStyle(.bordered)
-        .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var runButton: some View {
-        Button {
-            if let session {
-                session.performDebugAction(.run)
-            } else {
-                runDemo()
-            }
-        } label: {
-            Text(verbatim: locale.appString(Self.runTitle))
-        }
-        .accessibilityLabel(Text(verbatim: locale.appString(Self.runAccessibilityLabel)))
-        .disabled(!canRun)
-    }
-
-    private func debugButton(_ title: LocalizedStringResource, action: DebugAction) -> some View {
+    private func debugButton(_ title: LocalizedStringResource, icon: String, action: DebugAction) -> some View {
         Button {
             session?.performDebugAction(action)
         } label: {
-            Text(title)
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: icon)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: equalWidths ? .infinity : nil)
         }
         .disabled(session?.canPerformDebugAction(action) != true)
     }
@@ -621,12 +713,11 @@ struct BrowserControls: View {
 }
 
 #if DEBUG
-#Preview("G1 主窗长字段", traits: .fixedLayout(width: 640, height: 580)) {
+#Preview("G1 主窗长字段", traits: .fixedLayout(width: 640, height: 520)) {
     MainWindowView(
         presentation: .longFieldsPreview,
         run: {},
-        openSettings: {},
-        openAbout: {}
+        openSettings: {}
     )
 }
 #endif

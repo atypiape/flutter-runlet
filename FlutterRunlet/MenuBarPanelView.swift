@@ -11,30 +11,23 @@ struct MenuBarPanelView: View {
     let openSettings: (() -> Void)?
     let quit: () -> Void
     var openFlutterSettings: (() -> Void)? = nil
+    var prepareForProjectPicker: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("FlutterRunlet")
                     .font(.headline)
-
-                Spacer(minLength: 12)
-
-                Text((session?.status ?? (presentation.selection == nil ? .idle : .ready)).title)
-                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                SessionStatusLabel(session: session, hasDemo: presentation.selection != nil)
+                SessionSettingsButton(open: openSettings)
             }
 
-            PresentationField(field: .project, value: session?.project?.lastPathComponent ?? presentation.selection?.project,
-                              fallback: "No project selected")
-
-            HStack(alignment: .top, spacing: 12) {
-                PresentationField(field: .configuration, value: session?.selection.map { locale.appString($0.title) }
-                                  ?? presentation.selection?.configuration)
-                PresentationField(field: .device, value: deviceName, originalValue: session?.selectedDeviceName)
-            }
-
-            Divider()
-            DebugControls(session: session, canRunDemo: presentation.selection != nil, runDemo: run)
+            ProjectControls(session: session, demoName: presentation.selection?.project,
+                            prepareForPicker: prepareForProjectPicker)
+            DebugControls(session: session, equalWidths: true)
+            RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration, runDemo: run)
+            PresentationField(field: .device, value: deviceName, originalValue: session?.selectedDeviceName)
             BrowserControls(session: session)
             SessionFeedbackView(session: session)
             if let session {
@@ -52,8 +45,6 @@ struct MenuBarPanelView: View {
 
             HStack(spacing: 8) {
                 Button("Open Main Window") { openMainWindow(openWindow) }
-                Button("Settings") { openSettings?() }
-                    .disabled(openSettings == nil)
 
                 Spacer(minLength: 8)
 
@@ -63,7 +54,7 @@ struct MenuBarPanelView: View {
         }
         .font(.system(size: 13))
         .padding(16)
-        .frame(width: 404, alignment: .leading)
+        .frame(width: 348, alignment: .leading)
     }
 
     private var deviceName: String? {
@@ -76,7 +67,7 @@ struct MenuBarPanelView: View {
 }
 
 #if DEBUG
-#Preview("G1 菜单栏长字段", traits: .fixedLayout(width: 404, height: 278)) {
+#Preview("G1 菜单栏长字段", traits: .fixedLayout(width: 348, height: 320)) {
     MenuBarPanelView(
         presentation: .longFieldsPreview,
         run: {},
