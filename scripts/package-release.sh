@@ -4,10 +4,21 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
 output_root="$repo_root/.build/release"
 output_dir=
+version_pattern='^[0-9]+(\.[0-9]+){0,2}$'
 
-if [[ "$#" -ne 0 ]]; then
-  printf '用法：%s\n' "$0" >&2
+if [[ "$#" -ne 0 && "$#" -ne 2 ]]; then
+  printf '用法：%s [版本号 构建号]\n示例：%s v0.1.1 2\n' "$0" "$0" >&2
   exit 2
+fi
+
+if [[ "$#" -eq 2 ]]; then
+  requested_version="${1#v}"
+  requested_build="$2"
+  if [[ ! "$requested_version" =~ $version_pattern || ! "$requested_build" =~ $version_pattern ]]; then
+    printf '版本号和构建号须为一至三段数字，版本号可带 v 前缀（例如 v0.1.1 2）。\n' >&2
+    exit 2
+  fi
+  set -- "MARKETING_VERSION=$requested_version" "CURRENT_PROJECT_VERSION=$requested_build"
 fi
 
 if ! xcodebuild -version >/dev/null; then
@@ -36,13 +47,17 @@ xcodebuild -quiet \
   -destination 'generic/platform=macOS' \
   -derivedDataPath "$work_dir/DerivedData" \
   'ARCHS=arm64 x86_64' ONLY_ACTIVE_ARCH=NO 'CODE_SIGN_IDENTITY=-' \
-  build
+  "$@" build
 
 app="$work_dir/DerivedData/Build/Products/Release/FlutterRunlet.app"
 version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")"
 build="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Contents/Info.plist")"
-if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){0,2}$ || ! "$build" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+if [[ ! "$version" =~ $version_pattern || ! "$build" =~ $version_pattern ]]; then
   printf 'App 的版本号或构建号无效（%s，构建 %s）。\n' "$version" "$build" >&2
+  exit 1
+fi
+if [[ "$#" -eq 2 && ( "$version" != "$requested_version" || "$build" != "$requested_build" ) ]]; then
+  printf 'App 的版本号或构建号与输入不符（实际为 %s，构建 %s）。\n' "$version" "$build" >&2
   exit 1
 fi
 
