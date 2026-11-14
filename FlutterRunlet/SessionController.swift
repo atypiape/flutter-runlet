@@ -230,7 +230,7 @@ final class SessionController {
         if let recoveryStoreIssue { return recoveryStoreIssue }
         guard !executionIsUnconfirmed, recoveryProjectIsOpen else { return nil }
         if !runner.isAvailable { return "The session supervisor is unavailable" }
-        if configurationIsStale { return "Configuration Out of Date" }
+        if configurationIsStale { return message ?? "The previous launch configuration is no longer available" }
         if selection == nil { return "Select a configuration" }
         return selection?.issue ?? sdkStatusIssue ?? deviceSelectionIssue ?? taskIssue
     }
