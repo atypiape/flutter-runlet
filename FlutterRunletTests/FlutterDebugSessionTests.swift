@@ -95,7 +95,8 @@ final class FlutterDebugSessionTests: XCTestCase {
     }
 
     func testInvalidPreflightLeavesEnvironmentAndRiskUntouched() async throws {
-        for change in ["missing-sdk", "offline", "conflict", "non-debug", "edited", "application-args", "duplicate-machine"] {
+        for change in ["missing-sdk", "offline", "discovery-error", "conflict", "non-debug", "edited",
+                       "application-args", "duplicate-machine"] {
             let fixture = try SessionFixture()
             defer { fixture.remove() }
             let executable = try makeFlutter(in: fixture, script: ": > .runlet-fixture/debug-started")
@@ -106,7 +107,10 @@ final class FlutterDebugSessionTests: XCTestCase {
                     guard change != "missing-sdk" else { throw SessionIssue("SDK 不可用") }
                     return FlutterSDK(executable: executable, flutterVersion: "test", dartVersion: "test")
                 },
-                discover: { _, _ in discovery.devices }
+                discover: { _, _ in
+                    if discovery.fails { throw SessionIssue("扫描失败") }
+                    return discovery.devices
+                }
             )
             let session = SessionController(store: store, runner: .bundled, environment: fixture.environment,
                                             toolchain: toolchain)
@@ -127,10 +131,11 @@ final class FlutterDebugSessionTests: XCTestCase {
             try source.write(to: fixture.config("launch"), atomically: true, encoding: .utf8)
             try fixture.select("prod", in: session)
             if change != "missing-sdk" {
-                try await eventually { session.devices == [self.device] }
+                try await eventually { !session.isRefreshingDevices && session.devices == [self.device] }
                 session.selectDevice(device.id)
             }
             if change == "offline" { discovery.devices = [] }
+            if change == "discovery-error" { discovery.fails = true }
             if change == "edited" {
                 let changed = source.replacingOccurrences(of: "--dart-define=APP_ENV=prod", with: "--dart-define=APP_ENV=changed")
                 try changed.write(to: fixture.config("launch"), atomically: true, encoding: .utf8)

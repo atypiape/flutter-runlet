@@ -321,6 +321,38 @@
         }
       }
     },
+    "Android Emulator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android Emulator"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android 模拟器"
+          }
+        }
+      }
+    },
+    "Android Device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android Device"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android 实体设备"
+          }
+        }
+      }
+    },
     "Android Toolchain": {
       "localizations": {
         "en": {
@@ -1281,6 +1313,22 @@
         }
       }
     },
+    "Device for Next Run": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device for Next Run"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下次运行设备"
+          }
+        }
+      }
+    },
     "Dismiss": {
       "localizations": {
         "en": {
@@ -1921,6 +1969,38 @@
         }
       }
     },
+    "iOS Simulator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS Simulator"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 模拟器"
+          }
+        }
+      }
+    },
+    "iOS Device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS Device"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 实体设备"
+          }
+        }
+      }
+    },
     "Language": {
       "localizations": {
         "en": {
@@ -2157,6 +2237,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚无运行日志。启动调试后将在这里显示输出。"
+          }
+        }
+      }
+    },
+    "Online": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在线"
+          }
+        }
+      }
+    },
+    "Offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "离线"
           }
         }
       }
@@ -3137,6 +3249,22 @@
         }
       }
     },
+    "Showing the last device scan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing the last device scan."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示上次设备扫描结果。"
+          }
+        }
+      }
+    },
     "Signal %@": {
       "localizations": {
         "en": {
@@ -3581,6 +3709,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Flutter 探测超时，请检查 SDK 或设备后刷新"
+          }
+        }
+      }
+    },
+    "The selected device is used for the next run.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected device is used for the next run."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选设备用于下一次运行。"
           }
         }
       }

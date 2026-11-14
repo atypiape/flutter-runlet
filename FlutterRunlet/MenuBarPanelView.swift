@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.locale) private var locale
 
     let presentation: LaunchPresentation
     var session: SessionController? = nil
@@ -27,7 +26,7 @@ struct MenuBarPanelView: View {
                             prepareForPicker: prepareForProjectPicker)
             DebugControls(session: session, equalWidths: true)
             RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration, runDemo: run)
-            PresentationField(field: .device, value: deviceName, originalValue: session?.selectedDeviceName)
+            DeviceSelectionControls(session: session, demoDevice: presentation.selection?.device)
             BrowserControls(session: session)
             SessionFeedbackView(session: session)
             if let session {
@@ -57,13 +56,6 @@ struct MenuBarPanelView: View {
         .frame(width: 348, alignment: .leading)
     }
 
-    private var deviceName: String? {
-        if let session, session.usesFlutterToolchain {
-            guard let name = session.selectedDeviceName else { return nil }
-            return session.deviceIsOffline ? locale.appString("\(name) · Offline") : name
-        }
-        return session?.selection?.launch?.deviceID ?? presentation.selection?.device
-    }
 }
 
 #if DEBUG

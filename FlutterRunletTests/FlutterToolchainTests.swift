@@ -13,6 +13,25 @@ final class FlutterToolchainTests: XCTestCase {
         }
     }
 
+    func testNextDeviceAndAvailabilityLabelsInBothLanguages() throws {
+        let labels = [
+            "Device for Next Run": "下次运行设备",
+            "The selected device is used for the next run.": "所选设备用于下一次运行。",
+            "Showing the last device scan.": "显示上次设备扫描结果。",
+            "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
+            "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
+            "Online": "在线", "Offline": "离线", "Unknown": "未知"
+        ]
+        for language in ["en", "zh-Hans"] {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(url: url))
+            for (key, translation) in labels {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: "<missing>", table: nil),
+                               language == "en" ? key : translation)
+            }
+        }
+    }
+
     func testDoctorUsesResolvedSDKAndPreservesWarningsAndBothStreams() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -454,6 +473,8 @@ final class FlutterToolchainTests: XCTestCase {
         ))
         try fixture.select("prod", in: session)
         try await eventually { session.simulators.count == 2 && !session.isRefreshingDevices }
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.availability, .offline)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.kind, .iOSSimulator)
         session.startSimulator(other.id)
         try await eventually { session.simulatorIssue != nil }
         XCTAssertTrue(session.canStartSimulator)
@@ -465,6 +486,8 @@ final class FlutterToolchainTests: XCTestCase {
         bootDiscovery.release()
         try await eventually { session.canRun }
         XCTAssertEqual(session.selectedDeviceID, candidate.id)
+        XCTAssertEqual(session.deviceChoices.filter { $0.id == candidate.id }.count, 1)
+        XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.availability, .online)
         XCTAssertFalse(session.isStartingSimulator)
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))

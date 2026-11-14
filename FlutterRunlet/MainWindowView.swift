@@ -28,11 +28,7 @@ struct MainWindowView: View {
                 DebugControls(session: session)
             }
             HStack(alignment: .top, spacing: 12) {
-                if let session, session.usesFlutterToolchain, session.project != nil {
-                    deviceField(session)
-                } else {
-                    PresentationField(field: .device, value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
-                }
+                DeviceSelectionControls(session: session, demoDevice: presentation.selection?.device)
                 BrowserControls(session: session)
             }
             sessionDetails
@@ -45,57 +41,6 @@ struct MainWindowView: View {
         .font(.system(size: 13))
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-    }
-
-    private func deviceField(_ session: SessionController) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Device").foregroundStyle(.secondary)
-            HStack(spacing: 6) {
-                Picker("Device", selection: Binding(get: { session.selectedDeviceID }, set: session.selectDevice)) {
-                    Text("Select a debug device").tag(nil as String?)
-                    if let id = session.selectedDeviceID, session.selectedDevice == nil {
-                        let name = session.selectedDeviceName ?? id
-                        Text(verbatim: session.deviceIsOffline ? locale.appString("\(name) · Offline") : name)
-                            .tag(id as String?)
-                    }
-                    ForEach(session.devices) { device in
-                        Text(verbatim: device.name).tag(device.id as String?)
-                    }
-                }
-                .labelsHidden()
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .help(session.selectedDeviceName ?? "")
-                .disabled(session.isBusy || session.isStartingSimulator || session.isRefreshingDevices || session.devices.isEmpty)
-                FullNameButton(field: .device, name: session.selectedDeviceName)
-                Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
-                    .labelStyle(.iconOnly)
-                    .help("Refresh Devices")
-                    .disabled(!session.canRefreshDevices || session.isStartingSimulator || session.isRefreshingDevices)
-            }
-            if !session.simulators.isEmpty {
-                Menu("Start iOS Simulator", systemImage: "iphone") {
-                    ForEach(session.simulators) { simulator in
-                        Button {
-                            session.startSimulator(simulator.id)
-                        } label: {
-                            Text(verbatim: simulator.name)
-                        }
-                    }
-                }
-                .disabled(!session.canStartSimulator)
-            }
-            if session.isStartingSimulator {
-                ProgressView()
-                    .controlSize(.small)
-                    .accessibilityLabel("Starting iOS Simulator")
-            }
-            if let issue = session.simulatorIssue {
-                Text(issue).foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .help(session.selectedDeviceName ?? "")
     }
 
     private var sessionDetails: some View {
@@ -114,8 +59,8 @@ struct MainWindowView: View {
                         .foregroundStyle(.secondary)
                 } else if let session, session.project != nil || session.displayMessage != nil {
                     Text(session.status.title).fontWeight(.semibold)
-                    if session.isBusy, let configuration = session.selection?.name, let device = session.selectedDevice {
-                        Text(verbatim: "\(configuration) · \(device.name)")
+                    if let launch = session.activeLaunch {
+                        Text(verbatim: "\(launch.configurationName) · \(launch.device.name)")
                             .lineLimit(2)
                         Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected")
                             .foregroundStyle(.secondary)
@@ -172,6 +117,168 @@ struct MainWindowView: View {
         if let session, !session.logs.isEmpty { return session.logs }
         if session?.didClearLogs == true { return locale.appString("Logs cleared. New output will appear here.") }
         return locale.appString("No run logs yet. Output will appear here after debugging starts.")
+    }
+}
+
+struct DeviceSelectionControls: View {
+    @Environment(\.locale) private var locale
+    @State private var isShowing = false
+
+    let session: SessionController?
+    let demoDevice: String?
+
+    var body: some View {
+        if let session, session.usesFlutterToolchain, session.project != nil {
+            Button {
+                isShowing.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "iphone")
+                        .accessibilityHidden(true)
+                    if let device = session.selectedDeviceChoice {
+                        Text(verbatim: device.name)
+                        Text(device.kind.title)
+                            .foregroundStyle(.secondary)
+                            .layoutPriority(-1)
+                    } else {
+                        Text("Select a debug device")
+                    }
+                    Spacer(minLength: 4)
+                    if let device = session.selectedDeviceChoice {
+                        availabilityDot(device.availability)
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .accessibilityHidden(true)
+                }
+                .lineLimit(1)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Device for Next Run")
+            .accessibilityValue(summary(session.selectedDeviceChoice))
+            .help(summary(session.selectedDeviceChoice))
+            .popover(isPresented: $isShowing, arrowEdge: .bottom) {
+                choices(for: session)
+            }
+        } else {
+            PresentationField(field: .device, value: session?.selection?.launch?.deviceID ?? demoDevice)
+        }
+    }
+
+    private func choices(for session: SessionController) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Select a debug device")
+                    .font(.headline)
+                Spacer()
+                Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
+                    .labelStyle(.iconOnly)
+                    .help("Refresh Devices")
+                    .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
+            }
+            Text("The selected device is used for the next run.")
+                .foregroundStyle(.secondary)
+            if session.isBusy {
+                Text("Showing the last device scan.")
+                    .foregroundStyle(.secondary)
+            }
+            if session.isRefreshingDevices || session.isStartingSimulator {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text(session.isStartingSimulator ? "Starting iOS Simulator" : "Refreshing Devices")
+                }
+            }
+            if let issue = session.deviceIssue ?? session.sdkIssue ?? session.simulatorIssue {
+                Text(issue).foregroundStyle(.secondary)
+            }
+            if session.deviceChoices.isEmpty, !session.isRefreshingDevices {
+                Text("No debug devices found. Connect a device or start a simulator, then refresh devices.")
+                    .foregroundStyle(.secondary)
+            }
+            if !session.deviceChoices.isEmpty {
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(session.deviceChoices) { device in
+                            Button {
+                                if session.canSelectNextDevice {
+                                    session.selectDevice(device.id)
+                                    isShowing = false
+                                }
+                            } label: {
+                                deviceRow(device, selected: device.id == session.selectedDeviceID)
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityLabel(summary(device))
+                            .accessibilityAddTraits(device.id == session.selectedDeviceID ? .isSelected : [])
+                            .help(summary(device))
+                            .disabled(!session.canSelectNextDevice)
+                        }
+                    }
+                }
+                .frame(maxHeight: 224)
+            }
+            if !session.simulators.isEmpty {
+                Menu("Start iOS Simulator", systemImage: "iphone") {
+                    ForEach(session.simulators) { simulator in
+                        Button {
+                            session.startSimulator(simulator.id)
+                        } label: {
+                            Text(verbatim: simulator.name)
+                        }
+                    }
+                }
+                .disabled(!session.canStartSimulator)
+            }
+        }
+        .padding(12)
+        .frame(width: 316, alignment: .leading)
+    }
+
+    private func deviceRow(_ device: DeviceChoice, selected: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: selected ? "checkmark" : "iphone")
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: device.name)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(device.kind.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Text(availabilityTitle(device.availability))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            availabilityDot(device.availability)
+        }
+        .multilineTextAlignment(.leading)
+        .padding(.vertical, 3)
+    }
+
+    private func summary(_ device: DeviceChoice?) -> String {
+        guard let device else { return locale.appString("Select a debug device") }
+        return [device.name, locale.appString(device.kind.title), locale.appString(availabilityTitle(device.availability))]
+            .joined(separator: " · ")
+    }
+
+    private func availabilityTitle(_ availability: DeviceChoice.Availability) -> LocalizedStringResource {
+        switch availability {
+        case .online: "Online"
+        case .offline: "Offline"
+        case .unknown: "Unknown"
+        }
+    }
+
+    private func availabilityDot(_ availability: DeviceChoice.Availability) -> some View {
+        let color: Color = switch availability {
+        case .online: .green
+        case .offline: .red
+        case .unknown: .secondary
+        }
+        return Circle()
+            .fill(color)
+            .frame(width: 7, height: 7)
+            .accessibilityHidden(true)
     }
 }
 
