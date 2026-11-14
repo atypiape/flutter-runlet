@@ -97,6 +97,66 @@ final class ProjectSelectionTests: XCTestCase {
         XCTAssertNil(try store.read(project: fixture.project))
         XCTAssertEqual(try fixture.marker(), "test\n")
     }
+
+    func testRecentHistoryMigratesAndRemembersCanonicalProjectsInOpeningOrder() throws {
+        let fixture = try SessionFixture()
+        let other = try SessionFixture()
+        defer { fixture.remove(); other.remove() }
+        let suite = "FlutterRunletTests.History.\(UUID())"
+        let preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let alias = fixture.base.appending(path: "Project Alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: fixture.project)
+        let first = try ProjectLocation.directory(fixture.project)
+        let second = try ProjectLocation.directory(other.project)
+        preferences.set(false, forKey: "rememberRecentProject")
+        preferences.set(alias.path, forKey: "recentProjectPath")
+
+        func restart() -> SessionController {
+            SessionController(store: store, runner: .bundled, preferences: preferences)
+        }
+
+        let session = restart()
+        XCTAssertTrue(session.canChangeProject)
+        XCTAssertNil(session.project)
+        XCTAssertEqual(session.recentProjects.map(\.path), [first.path])
+        XCTAssertTrue(session.open(other.project))
+        XCTAssertTrue(session.open(alias))
+        XCTAssertEqual(session.recentProjects.map(\.path), [first.path, second.path])
+        XCTAssertTrue(session.open(session.recentProjects[1]))
+        XCTAssertEqual(session.project?.path, second.path)
+        XCTAssertEqual(session.recentProjects.map(\.path), [second.path, first.path])
+
+        let unremembered = restart()
+        XCTAssertNil(unremembered.project)
+        XCTAssertEqual(unremembered.recentProjects.map(\.path), [second.path, first.path])
+        unremembered.rememberRecentProject = true
+        XCTAssertEqual(restart().project?.path, second.path)
+
+        session.removeRecentProject(second)
+        XCTAssertEqual(session.project?.path, second.path)
+        XCTAssertEqual(session.recentProjects.map(\.path), [first.path])
+        XCTAssertNil(restart().project)
+        session.removeRecentProject(first)
+        XCTAssertEqual(session.project?.path, second.path)
+        XCTAssertTrue(restart().recentProjects.isEmpty)
+        XCTAssertNil(try store.read(project: first))
+        XCTAssertNil(try store.read(project: second))
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertEqual(try other.marker(), "test\n")
+    }
+
+    func testInvalidDirectoryDoesNotReplaceProjectOrEnterHistory() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let session = fixture.session(store: try ProjectRecoveryStore(directory: fixture.storage))
+        XCTAssertTrue(session.open(fixture.project))
+        let project = session.project
+        XCTAssertFalse(session.open(fixture.base))
+        XCTAssertEqual(session.project, project)
+        XCTAssertEqual(session.recentProjects, [try XCTUnwrap(project)])
+    }
 }
 
 extension SessionFixture {
