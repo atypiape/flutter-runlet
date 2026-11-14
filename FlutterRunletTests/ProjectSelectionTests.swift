@@ -158,6 +158,36 @@ final class ProjectSelectionTests: XCTestCase {
         XCTAssertEqual(session.recentProjects, [try XCTUnwrap(project)])
     }
 
+    func testUnavailableLegacyProjectMigratesWhenItsDirectoryReturns() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let suite = "FlutterRunletTests.History.\(UUID())"
+        let preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let canonical = try ProjectLocation.directory(fixture.project)
+        let displaced = fixture.base.appending(path: "Unmounted Project")
+        preferences.set(canonical.path, forKey: "recentProjectPath")
+        try FileManager.default.moveItem(at: canonical, to: displaced)
+
+        func restart() -> SessionController {
+            SessionController(store: store, runner: .bundled, preferences: preferences)
+        }
+
+        let unavailable = restart()
+        XCTAssertNil(unavailable.project)
+        XCTAssertTrue(unavailable.recentProjects.isEmpty)
+        try FileManager.default.moveItem(at: displaced, to: canonical)
+
+        let restored = restart()
+        XCTAssertEqual(restored.project, canonical)
+        XCTAssertEqual(restored.recentProjects, [canonical])
+        restored.removeRecentProject(canonical)
+        let afterRemoval = restart()
+        XCTAssertNil(afterRemoval.project)
+        XCTAssertTrue(afterRemoval.recentProjects.isEmpty)
+    }
+
     func testProjectSwitchRemainsBlockedWhileRunningAndAfterRecoveryFailure() async throws {
         let fixture = try SessionFixture()
         let other = try SessionFixture()
