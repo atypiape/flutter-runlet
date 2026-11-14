@@ -5,17 +5,17 @@ milestone_name: 界面与调试体验
 current_phase: 06
 current_phase_name: 主窗口与菜单栏
 status: executing
-stopped_at: 阶段 06 第 1 波已通过回归，正在执行第 2 波。公开发布继续暂缓。
-last_updated: "2026-11-14T23:12:02+08:00"
+stopped_at: 阶段 06 第 2 波已通过回归，正在执行第 3 波。公开发布继续暂缓。
+last_updated: "2026-11-14T23:19:22+08:00"
 last_activity: 2026-11-14
-last_activity_desc: 阶段 06 第 1 波完成
+last_activity_desc: 阶段 06 第 2 波完成
 state_head: ee40a61aa238e9828181b39b440ea21eee8c814e
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 ## Current Position
 
 Phase: 06 主窗口与菜单栏
-Plan: 4 份，1 份已执行
-Status: 第 2 波执行中
-Last activity: 2026-11-14 — 阶段 06 第 1 波完成
+Plan: 4 份，2 份已执行
+Status: 第 3 波执行中
+Last activity: 2026-11-14 — 阶段 06 第 2 波完成
 
 ## Session
 
-**Last session:** 2026-11-14T23:12:02+08:00
-**Stopped at:** 阶段 06 第 1 波完成，进入第 2 波。公开发布继续暂缓。
+**Last session:** 2026-11-14T23:19:22+08:00
+**Stopped at:** 阶段 06 第 2 波已通过回归，正在执行第 3 波。公开发布继续暂缓。
 **Resume file:** [阶段 06 计划](ROADMAP.md#phase-06-主窗口与菜单栏) · [验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)。
 
 ## Performance Metrics

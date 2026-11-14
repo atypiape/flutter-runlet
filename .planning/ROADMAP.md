@@ -32,7 +32,7 @@
 
 **Wave 2（依赖 06-01）**
 
-- [ ] [06-02 下次运行设备与当前调试会话](phases/06-main-window-menu-bar/06-02-PLAN.md)
+- [x] [06-02 下次运行设备与当前调试会话](phases/06-main-window-menu-bar/06-02-PLAN.md)
 
 **Wave 3（依赖 06-02）**
 
