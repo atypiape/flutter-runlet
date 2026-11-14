@@ -91,6 +91,8 @@ final class ProjectRecoveryTests: XCTestCase {
         await session.waitUntilIdle()
         XCTAssertEqual(try fixture.marker(), "prod\n")
         XCTAssertEqual(session.recovery?.taskLabel, "sample:select-test")
+        XCTAssertEqual(session.recoveryFailure?.taskLabel, "sample:select-test")
+        XCTAssertEqual(session.recoveryFailure?.exit, .exited(1))
         let recoveryReason = try XCTUnwrap(session.displayMessage)
         XCTAssertEqual(Locale(identifier: "zh-Hans").appString(recoveryReason), "后置任务 sample:select-test 失败（退出码 1）")
         XCTAssertEqual(Locale(identifier: "en").appString(recoveryReason), "Post-debug task sample:select-test failed (Exit code 1)")
@@ -135,6 +137,7 @@ final class ProjectRecoveryTests: XCTestCase {
         XCTAssertNil(restarted.recovery)
         XCTAssertNil(restarted.recoveryAction)
         XCTAssertNil(restarted.recoveryMessage)
+        XCTAssertNil(restarted.recoveryFailure)
         XCTAssertNil(try store.read(project: fixture.project))
     }
 
@@ -183,6 +186,67 @@ final class ProjectRecoveryTests: XCTestCase {
         await recovered.waitUntilIdle()
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(recovered.recovery)
+    }
+
+    func testMainRunKeepsOriginalRiskAfterAnotherRecoveryFailureThenRunsSelectedConfiguration() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let recordURL = try store.recordURL(for: fixture.project)
+        let session = fixture.session(store: store, script: """
+            if [ "$(cat .runlet-fixture/firebase-environment)" = dev ] && [ ! -e "$1" ]; then
+                : > .runlet-fixture/new-debug-started
+            fi
+            """, arguments: [recordURL.path])
+        try fixture.select("prod", in: session)
+        try Data().write(to: fixture.state("fail-before-test"))
+        session.run()
+        await session.waitUntilIdle()
+        let original = try XCTUnwrap(store.read(project: fixture.project))
+        session.select("sample-flutter-app(dev)")
+        XCTAssertFalse(session.performDebugAction(.run, source: .menuBar))
+        XCTAssertTrue(session.performDebugAction(.run, source: .mainWindow))
+        await session.waitUntilIdle()
+        XCTAssertEqual(try store.read(project: fixture.project), original)
+        XCTAssertEqual(session.recoveryFailure?.exit, .exited(1))
+        XCTAssertEqual(try fixture.marker(), "prod\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("new-debug-started").path))
+
+        try FileManager.default.removeItem(at: fixture.state("fail-before-test"))
+        session.runAfterRecovery()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "dev\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertNil(session.recoveryFailure)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.state("new-debug-started").path))
+    }
+
+    func testRunAfterRecoveryRequiresDurableRemovalAndReadableRiskStore() async throws {
+        for failRemoval in [true, false] {
+            let fixture = try SessionFixture()
+            defer { fixture.remove() }
+            let damaged = fixture.storage.appending(path: "damaged.risk")
+            let store = try ProjectRecoveryStore(directory: fixture.storage) { point in
+                if failRemoval && point == .removal { throw SessionIssue("清除失败") }
+                if !failRemoval && point == .removalCleanup { try Data("damaged".utf8).write(to: damaged) }
+            }
+            let session = fixture.session(store: store)
+            try fixture.select("prod", in: session)
+            try Data().write(to: fixture.state("fail-before-test"))
+            session.run()
+            await session.waitUntilIdle()
+            try FileManager.default.removeItem(at: fixture.state("debug-started"))
+            try FileManager.default.removeItem(at: fixture.state("fail-before-test"))
+            session.select("sample-flutter-app(dev)")
+            session.runAfterRecovery()
+            await session.waitUntilIdle()
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+            XCTAssertEqual(try fixture.marker(), "test\n")
+            XCTAssertEqual(try store.read(project: fixture.project) != nil, failRemoval)
+            XCTAssertEqual(session.recovery != nil, failRemoval)
+            XCTAssertEqual(session.recoveryStoreIssue != nil, !failRemoval)
+            XCTAssertFalse(session.canRun)
+        }
     }
 
     func testUnconfirmedCompletionDirectorySyncKeepsOriginalRiskAcrossRestart() async throws {

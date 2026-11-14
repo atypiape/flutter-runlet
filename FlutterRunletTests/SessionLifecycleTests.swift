@@ -4,6 +4,43 @@ import XCTest
 
 @MainActor
 final class SessionLifecycleTests: XCTestCase {
+    func testConfirmedQuitWaitsForPausedRecoveryAndCancelsContinuation() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        try fixture.select("prod", in: session)
+        try Data().write(to: fixture.state("fail-before-test"))
+        session.run()
+        await session.waitUntilIdle()
+        let files = FileManager.default
+        try files.removeItem(at: fixture.state("debug-started"))
+        try files.removeItem(at: fixture.state("fail-before-test"))
+        let pause = fixture.state("pause-after-test")
+        try Data().write(to: pause)
+        defer { try? files.removeItem(at: pause) }
+        session.select("sample-flutter-app(dev)")
+        session.runAfterRecovery()
+        try await fixture.waitFor("paused-after-test")
+        XCTAssertFalse(session.canChangeProject)
+        XCTAssertFalse(session.canRunAfterRecovery)
+        XCTAssertFalse(session.canPerformRecoveryAction)
+        XCTAssertThrowsError(try store.lease(for: fixture.project))
+        session.runAfterRecovery()
+        session.retryRecovery()
+
+        let quit = Task { await session.finishForTermination() }
+        // Let the quit task register its intent while the original task is paused.
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertNotNil(try store.read(project: fixture.project))
+        try files.removeItem(at: pause)
+        let exitedSafely = await quit.value
+        XCTAssertTrue(exitedSafely)
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertFalse(files.fileExists(atPath: fixture.state("debug-started").path))
+    }
+
     func testPublicProdRunsPreWaitsForGroupExitAndRestoresOriginalPost() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
