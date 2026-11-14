@@ -1,12 +1,13 @@
 ---
 phase: 06-main-window-menu-bar
 verified: 2026-11-15
-candidate: 57fc4b3332dae3bf9ceb6f44f3dbf694eb383be1
+candidate: f96a8d6096fccec5e1a8b5e7e93f6d36f670c105
 status: human_needed
 score: 10/14 must-haves verified
 covered_files: [
   ".planning/REQUIREMENTS.md",
   ".planning/ROADMAP.md",
+  ".planning/phases/06-main-window-menu-bar/.continue-here.md",
   ".planning/phases/06-main-window-menu-bar/06-01-PLAN.md",
   ".planning/phases/06-main-window-menu-bar/06-01-SUMMARY.md",
   ".planning/phases/06-main-window-menu-bar/06-02-PLAN.md",
@@ -22,6 +23,7 @@ covered_files: [
   ".planning/phases/06-main-window-menu-bar/06-REVIEW-DISPOSITION.md",
   ".planning/phases/06-main-window-menu-bar/06-REVIEW.md",
   ".planning/phases/06-main-window-menu-bar/06-SECURITY.md",
+  ".planning/phases/06-main-window-menu-bar/06-UAT.md",
   ".planning/phases/06-main-window-menu-bar/06-UI-REVIEW.md",
   ".planning/phases/06-main-window-menu-bar/06-UI-SPEC.md",
   ".planning/phases/06-main-window-menu-bar/06-VALIDATION.md",
@@ -79,7 +81,7 @@ covered_files: [
   "docs/examples/sample-flutter-app/scripts/simulate-firebase-switch.sh",
   "docs/examples/sample-flutter-app/tasks.jsonc"
 ]
-covered_digest: "v3:sha256:1d45c91e269b018376aa936bbe01f0525cf37b94c0ceb9b389a873835294894d"
+covered_digest: "v3:sha256:4bdd8841138e5259770d83a37eaab1f9815a6cb8eddfb55722b79265d5c7cbae"
 behavior_unverified: 0
 overrides_applied: 0
 decision_coverage:
@@ -90,9 +92,6 @@ human_verification:
   - test: "两处界面的双语、深浅外观和英文长状态辨识"
     expected: "同一 Release 在中英文与深浅色下，两处尺寸、布局、状态和禁用语义符合画板。核对无项目、就绪、等待 VM、运行、恢复中和恢复失败。实测英文长状态标签若截断，记录正常阅读场景能否明确区分等待和恢复失败，以及现有提示、详情与辅助名称是否足够。"
     why_human: "完整原生视觉矩阵未取齐。AX 全名与恢复详情不能证明胶囊截断对目视辨识无影响。"
-  - test: "主窗和菜单栏的 VoiceOver、Return 与目录 Escape 回焦"
-    expected: "VoiceOver 读出图标动作、状态与不可用语义。Tab 和 Shift-Tab 能逐项移动，Return 触发焦点动作，Escape 从历史或设备弹层及系统目录对话框返回原触发项。目录 Escape 保留原项目，下一次 Tab 从原入口继续。"
-    why_human: "已记录辅助功能树、部分 Tab 动作和图形取消后的焦点。缺真实朗读及两处原生按键专项。"
   - test: "跨入口同步逐行删除的项目历史"
     expected: "以两个隔离项目建立历史，从一处逐条删除，在另一处依次看到仅对应条目消失和最终空态。删除当前项目条目不关闭它，重新启动后仍为空。运行和恢复期间尝试切换时仍保持原项目。"
     why_human: "实测覆盖两处同步打开和主窗单删及重启。另一表面逐次观察删除结果缺同候选的直接证据。"
@@ -106,7 +105,9 @@ human_verification:
 
 # 阶段 06 · 验证报告
 
-2026-11-15 复验改用 `57fc4b3`。90 项 Debug、Release 构建和严格签名通过。已渲染两处六状态、双语和深浅外观，完成八张中文深色原稿的数值对照。系统控件差异已取图供用户复核，菜单栏实机和 VoiceOver 尚未闭环，判定仍为 **待验收**。本报告以下保留原候选的独立验证与需求追踪，新增候选及证据详见[逐张对照与修订候选](06-UI-REVIEW.md)。
+2026-11-15 复验改用 `57fc4b3`。90 项 Debug、Release 构建和严格签名通过。已渲染两处六状态、双语和深浅外观，完成八张中文深色原稿的数值对照。该轮记录了系统控件差异及仍待补的菜单栏实机证据，判定仍为 **待验收**。本报告以下保留原候选的独立验证与需求追踪，新增候选及证据详见[逐张对照与修订候选](06-UI-REVIEW.md)。
+
+最新候选 `f96a8d6` 的 Debug 90 项、Release 构建和严格签名通过。用户接受目录选择器、标题栏窗口按钮及弹层外框的原生差异，取消 Tab 焦点和 VoiceOver 专项。下面较早的证据按原取证身份保留。最终真实菜单栏逐状态取证及其他待验项目见[交接](.continue-here.md)。
 
 ## 2026-11-14 · 原候选验证
 

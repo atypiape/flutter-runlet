@@ -3,7 +3,7 @@ status: testing
 phase: 06-main-window-menu-bar
 source: [06-VERIFICATION.md]
 started: 2026-11-14T23:56:43+08:00
-updated: 2026-11-14T23:56:43+08:00
+updated: 2026-11-15T00:57:11+08:00
 ---
 
 # 阶段 06 · 待补本地验收
@@ -16,7 +16,7 @@ number: 1
 name: 两处界面的双语、深浅外观和英文长状态辨识
 expected: |
   同一 Release 在中英文与深浅色下，两处尺寸、布局、状态和禁用语义符合画板。核对无项目、就绪、等待 VM、运行、恢复中和恢复失败。实测英文长状态标签若截断，记录正常阅读场景能否明确区分等待和恢复失败，以及现有提示、详情与辅助名称是否足够。
-awaiting: 用户核对系统差异，并补齐实机菜单栏证据
+awaiting: 用最终 Release 补齐真实系统菜单栏逐状态证据。用户已接受目录选择器、标题栏按钮和弹层外框差异。
 
 ## Tests
 
@@ -25,10 +25,9 @@ expected: 同一 Release 在中英文与深浅色下，两处尺寸、布局、�
 result: [pending]
 progress: 已渲染两处、六个状态、四种语言主题组合共 48 张。原稿与应用尺寸核对，中文深色有逐像素差异图。系统外框、目录对话框与弹层差异另图，尚未签核。
 
-### 2. 主窗和菜单栏的 VoiceOver、Return 与目录 Escape 回焦
-expected: VoiceOver 读出图标动作、状态与不可用语义。Tab 和 Shift-Tab 能逐项移动，Return 触发焦点动作，Escape 从历史或设备弹层及系统目录对话框返回原触发项。目录 Escape 保留原项目，下一次 Tab 从原入口继续。
-result: [pending]
-progress: 主窗实测 Return 打开历史，Escape 关闭历史和原生目录且回焦。真实菜单栏按键与 VoiceOver 朗读待验。
+### 2. Tab 焦点和 VoiceOver 专项
+result: skipped
+reason: 用户于 2026-11-15 要求废弃这两项专项，不计入阶段 06 签核。
 
 ### 3. 跨入口同步逐行删除的项目历史
 expected: 以两个隔离项目建立历史，从一处逐条删除，在另一处依次看到仅对应条目消失和最终空态。删除当前项目条目不关闭它，重新启动后仍为空。运行和恢复期间尝试切换时仍保持原项目。
@@ -50,8 +49,8 @@ progress: 已复验主窗后置退出 1、重复恢复失败、退出阻止、�
 total: 5
 passed: 0
 issues: 0
-pending: 5
-skipped: 0
+pending: 4
+skipped: 1
 blocked: 0
 
 ## Gaps
