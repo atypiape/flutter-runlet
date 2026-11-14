@@ -17,12 +17,32 @@
 
 **Depends on**: Phase 05（已归档）
 
-**需求** UI-07、UI-08、UI-09、UI-10、UI-11、UI-12、RUN-07、RUN-08、RUN-09
+**Requirements**: UI-07, UI-08, UI-09, UI-10, UI-11, UI-12, RUN-07, RUN-08, RUN-09
 
 1. 对照确认的原型验证两处布局和控件状态，包括中英文、深浅外观和键盘操作。
 2. 验证历史项目打开、逐条清除和系统目录选择。运行中切换下次运行设备时，当前进程与 DevTools 仍绑定原会话。
 3. 用真实工程验证选配置、启动、热操作、日志复制与清空、停止和恢复。
 4. 模拟后置任务失败，验证重试仅恢复，运行先恢复后启动，恢复再次失败时保持阻断。
+
+**Plans**: 4 份，4 个波次，按依赖顺序执行。
+
+**Wave 1**
+
+- [ ] [06-01 共用控件、项目历史与两处布局](phases/06-main-window-menu-bar/06-01-PLAN.md)
+
+**Wave 2（依赖 06-01）**
+
+- [ ] [06-02 下次运行设备与当前调试会话](phases/06-main-window-menu-bar/06-02-PLAN.md)
+
+**Wave 3（依赖 06-02）**
+
+- [ ] [06-03 恢复、重试与主窗口日志](phases/06-main-window-menu-bar/06-03-PLAN.md)
+
+**Wave 4（依赖 06-03）**
+
+- [ ] [06-04 Figma 对照与真实 Flutter 本地联验](phases/06-main-window-menu-bar/06-04-PLAN.md)
+
+[验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)
 
 ### Phase 07: 设置、关于与更新
 

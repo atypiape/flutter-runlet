@@ -2,13 +2,18 @@
 gsd_state_version: "1.0"
 milestone: v0.2
 milestone_name: 界面与调试体验
+current_phase: 06
+current_phase_name: 主窗口与菜单栏
 status: planning
-last_updated: "2026-11-14T14:15:40.718Z"
+stopped_at: 阶段 06 的四份计划已核验，待用户审阅。公开发布继续暂缓。
+last_updated: "2026-11-14T14:41:00.129Z"
 last_activity: 2026-11-14
+last_activity_desc: 阶段 06 计划完成并通过核验
+state_head: ee40a61aa238e9828181b39b440ea21eee8c814e
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -18,15 +23,15 @@ progress:
 ## Current Position
 
 Phase: 06 主窗口与菜单栏
-Plan: —
-Status: 需求与路线图已记录，待规划
-Last activity: 2026-11-14 — 已确认四个界面原型并记录 v0.2 路线图
+Plan: 4 份，0 份已执行
+Status: 计划已核验，待用户审阅
+Last activity: 2026-11-14 — 阶段 06 计划完成并通过核验
 
 ## Session
 
-**Last session:** 2026-11-14T22:16:23+08:00
-**Stopped at:** v0.2 需求和路线图已记录，下一步规划阶段 06。公开发布继续暂缓。
-**Resume file:** [v0.2 路线图](ROADMAP.md) · 本地 Figma 与公开发布交接。
+**Last session:** 2026-11-14T22:41:00+08:00
+**Stopped at:** 阶段 06 的四份计划已核验，待用户审阅。公开发布继续暂缓。
+**Resume file:** [阶段 06 计划](ROADMAP.md#phase-06-主窗口与菜单栏) · [验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)。
 
 ## Performance Metrics
 
@@ -53,4 +58,4 @@ Last activity: 2026-11-14 — 已确认四个界面原型并记录 v0.2 路线�
 
 ## Operator Next Steps
 
-- 规划阶段 06 主窗口与菜单栏，按需用 `$gsd-plan-phase 06`。
+- 审阅阶段 06 的 4 份计划。收到用户执行指令后按波次推进。
