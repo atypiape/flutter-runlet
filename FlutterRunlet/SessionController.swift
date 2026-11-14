@@ -377,14 +377,18 @@ final class SessionController {
         showMainWindowOnLaunch = preferences?.object(forKey: Self.showMainWindowKey) as? Bool ?? true
         preferProjectFVM = preferences?.object(forKey: Self.preferFVMKey) as? Bool ?? true
         manualSDKPath = preferences?.string(forKey: Self.manualSDKKey)
-        let recentPath = preferences?.string(forKey: Self.recentKey)
+        var recentPath = preferences?.string(forKey: Self.recentKey)
         if let paths = preferences?.stringArray(forKey: Self.recentProjectsKey) {
             recentProjects = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
-        } else {
-            if let recentPath,
-               let canonical = try? validate(URL(fileURLWithPath: recentPath, isDirectory: true)) {
+        } else if let legacyPath = recentPath {
+            // Leave migration pending when the legacy volume is temporarily unavailable.
+            if let canonical = try? validate(URL(fileURLWithPath: legacyPath, isDirectory: true)) {
                 recentProjects = [canonical]
+                saveRecentProjects()
+                preferences?.set(canonical.path, forKey: Self.recentKey)
+                recentPath = canonical.path
             }
+        } else {
             saveRecentProjects()
         }
         if rememberRecentProject, let path = recentPath {
