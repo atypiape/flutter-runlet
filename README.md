@@ -17,6 +17,18 @@ FlutterRunlet 是面向 macOS 的轻量 Flutter 调试工具。它读取 Flutter
 
 配置支持范围见技术契约。Profile、Release、后台常驻任务、复杂交互任务和部分 VS Code 扩展变量会显示不可用原因。[技术契约](docs/02-TECHNICAL.md)
 
+## 打包 macOS 预发布版
+
+在 Xcode 的 FlutterRunlet App target 下更新 **Version** 和 **Build**（Release 配置），然后在仓库根目录运行。打包需要完整的 Xcode。
+
+```sh
+./scripts/package-release.sh
+```
+
+脚本以 Release 配置构建 Apple Silicon 和 Intel 双架构应用，自动读取版本号，并在 `.build/release/` 下为每次打包生成独立目录。终端会显示 DMG 和对应的 `.dmg.sha256` 文件路径。
+
+双击 DMG，把 FlutterRunlet 拖进「应用程序」，确认能打开后，将两个文件一起上传到 GitHub Release 并勾选 **This is a pre-release**。包使用临时签名，未经 Apple 公证。首次启动若被拦截，确认来源和校验值后，可尝试在「系统设置 → 隐私与安全性」选择「仍要打开」。
+
 ## 配置示例与设计
 
 - 示例用本地文件模拟 Firebase 环境切换，可以单独运行脚本查看结果。[VS Code 配置示例](docs/examples/sample-flutter-app/README.md)

@@ -23,3 +23,6 @@ firebase-adminsdk*.json
 
 # Phase 01 本地构建、审计与验收记录
 /.build/phase-01/
+
+# 本地 DMG 打包产物
+/.build/release/
