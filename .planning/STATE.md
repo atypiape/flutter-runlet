@@ -28,9 +28,9 @@ Last activity: 2026-11-14 — Milestone v0.1 completed and archived
 
 ## Session
 
-**Last session:** 2026-11-13T18:39:05.900Z
-**Stopped at:** Phase 05 complete — all phases complete
-**Resume file:** None
+**Last session:** 2026-11-14T07:48:14Z
+**Stopped at:** 已复核 v0.1.0 本地 Release ZIP 的校验值、解包签名、双架构和部署目标。公开发布等待正式签名与公证。
+**Resume file:** 本地公开发布交接（见 AGENTS.local.md）
 
 ## Performance Metrics
 
