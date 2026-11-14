@@ -17,13 +17,13 @@ final class SessionLifecycleTests: XCTestCase {
             """, "fixture", try store.recordURL(for: fixture.project).path], directory: fixture.project.path, environment: fixture.environment)
         let session = SessionController(store: store, runner: .bundled, debugCommand: { _ in debug })
         try fixture.select("prod", in: session)
-        XCTAssertTrue(session.canRun, session.displayMessage ?? "无有效配置")
+        XCTAssertTrue(session.canRun, session.displayMessage.map { Locale(identifier: "zh-Hans").appString($0) } ?? "无有效配置")
         session.run()
         session.run()
         do {
             try await fixture.waitFor("debug-started")
         } catch {
-            XCTFail("\(session.status) / \(session.displayMessage ?? "") / \(session.logs)")
+            XCTFail("\(session.status) / \(session.displayMessage.map { Locale(identifier: "zh-Hans").appString($0) } ?? "") / \(session.logs)")
             session.stop()
             await session.waitUntilIdle()
             return
@@ -96,7 +96,7 @@ final class SessionLifecycleTests: XCTestCase {
         debug.run()
         await debug.waitUntilIdle()
         XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
-        XCTAssertEqual(debug.message, "调试进程：退出码 19")
+        XCTAssertEqual(debug.message.map { Locale(identifier: "zh-Hans").appString($0) }, "调试进程：退出码 19")
         XCTAssertNil(try store.read(project: fixture.project))
 
         let missing = SessionController(store: store, runner: .bundled) { launch in
@@ -107,7 +107,7 @@ final class SessionLifecycleTests: XCTestCase {
         try fixture.select("prod", in: missing)
         missing.run()
         await missing.waitUntilIdle()
-        XCTAssertTrue(missing.message?.contains("进程启动失败") == true)
+        XCTAssertTrue(missing.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("进程启动失败") == true)
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
     }
@@ -123,7 +123,7 @@ final class SessionLifecycleTests: XCTestCase {
         await session.waitUntilIdle()
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
-        XCTAssertTrue(session.message?.contains("退出码 1") == true)
+        XCTAssertTrue(session.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("退出码 1") == true)
         try Data().write(to: fixture.state("fail-after-prod"))
         session.select("sample-flutter-app(prod)")
         session.run()
@@ -140,7 +140,7 @@ final class SessionLifecycleTests: XCTestCase {
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = fixture.session(store: store, root: fixture.base)
         try fixture.select("prod", in: session)
-        XCTAssertTrue(session.canRun, session.displayMessage ?? "")
+        XCTAssertTrue(session.canRun, session.displayMessage.map { Locale(identifier: "zh-Hans").appString($0) } ?? "")
         session.run()
         await session.waitUntilIdle()
         XCTAssertEqual(try fixture.marker(), "test\n")
@@ -178,6 +178,50 @@ final class SessionLifecycleTests: XCTestCase {
         XCTAssertNil(session.project)
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
+    }
+
+    func testRestrictedFixturePausesAfterBothWritesBeforeAcknowledgingSuccess() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let files = FileManager.default
+        let prePause = fixture.state("pause-after-prod")
+        let postPause = fixture.state("pause-after-test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store, script: """
+            trap 'exit 0' TERM
+            : > .runlet-fixture/debug-started
+            while :; do /bin/sleep 0.05; done
+            """, root: fixture.base)
+        try fixture.select("prod", in: session)
+        try Data().write(to: prePause)
+        try Data().write(to: postPause)
+        session.run()
+        do {
+            try await fixture.waitFor("paused-after-prod")
+            XCTAssertEqual(session.status, .runningPreTask)
+            XCTAssertEqual(try fixture.marker(), "prod\n")
+            XCTAssertFalse(files.fileExists(atPath: fixture.state("debug-started").path))
+            XCTAssertEqual(try store.read(project: fixture.project)?.taskLabel, "sample:select-test")
+            try files.removeItem(at: prePause)
+            try await fixture.waitFor("debug-started")
+
+            session.stop()
+            try await fixture.waitFor("paused-after-test")
+            XCTAssertEqual(session.status, .restoringEnvironment)
+            XCTAssertEqual(try fixture.marker(), "test\n")
+            XCTAssertNotNil(try store.read(project: fixture.project))
+            try files.removeItem(at: postPause)
+        } catch {
+            try? files.removeItem(at: prePause)
+            try? files.removeItem(at: postPause)
+            session.stop()
+            await session.waitUntilIdle()
+            throw error
+        }
+        await session.waitUntilIdle()
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertEqual(session.status, .ready)
     }
 }
 

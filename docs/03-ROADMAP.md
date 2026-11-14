@@ -1,6 +1,6 @@
-# 03 · FlutterRunlet v0.1 · Figma → GSD 交接与分阶段路线
+# 03 · FlutterRunlet v0.1 历史路线图
 
-状态为 **G0 最终视觉验收已通过，v0.1 待 GSD 初始化**。正式应用尚未开发。本文提供里程碑输入和建议 Phase，正式计划及状态由 GSD 生成和维护。
+本文保留 v0.1 从 Figma 交接到 GSD 实施的初始规划。v0.1 已于 2026-11-14 完成本地验收并归档。实际阶段记录见 [v0.1 路线图档案](../.planning/milestones/v0.1-ROADMAP.md)，后续工作以 [GSD 当前状态](../.planning/STATE.md)和 [GSD 路线图](../.planning/ROADMAP.md)为准。
 
 ## 0. 总原则
 
@@ -23,8 +23,10 @@
 
 ## 2. v0.1 里程碑输入与建议初始化步骤
 
+以下步骤记录 v0.1 开发前的初始化方案，供回溯。
+
 1. 核对目标运行环境的 GSD Core 版本和技能入口。交接时本机确认的 Core 为 1.18.0，运行环境标记为 Kimi。若在 Codex 初始化，先确认 Codex 环境能加载对应的 GSD 技能和工作流。
-2. 当前仓库没有 `.planning/PROJECT.md`。首次初始化使用本机的 `gsd-new-project` 入口，以 **FlutterRunlet v0.1** 为首个里程碑。已初始化且完成上一里程碑后，才用 `gsd-new-milestone` 开启后续版本。Codex 的技能调用形式为 `$gsd-new-project`，以本机实际安装为准。
+2. 交接时仓库尚无 `.planning/PROJECT.md`。首次初始化计划使用本机的 `gsd-new-project` 入口，以 **FlutterRunlet v0.1** 为首个里程碑。Codex 的技能调用形式为 `$gsd-new-project`，以本机实际安装为准。
 3. 输入 [README](../README.md)、[协作约束](../AGENTS.md)、[PRD](01-PRODUCT.md)、[技术契约](02-TECHNICAL.md)、[设计交接](design/FIGMA-HANDOFF.md)、[UI 规格](design/UI-SPEC.md)、[设计系统](design/DESIGN-SYSTEM.md)、本路线图和[验收矩阵](04-ACCEPTANCE.md)。项目目标是在不启动 VS Code 的情况下，利用现有 `.vscode` 配置完成 Flutter Debug、环境恢复和浏览器检查。正式应用的上游代码导入安排在 P1。
 4. 由 GSD 生成 `.planning/PROJECT.md`、`REQUIREMENTS.md`、`ROADMAP.md`、`STATE.md` 及工作流配置。先核对需求、验收条目和下面的 Phase 边界，再讨论并规划 P1。GSD 管理实际的阶段状态。
 
@@ -55,7 +57,7 @@ G1 → G2 → G3 保持顺序。G2 后由用户决定是否进行有限视觉精
 
 ## 5. 起点到开发结束的停点
 
-- **当前交接**。G0 已通过，记录基线、待处理项和里程碑输入。
+- **设计交接**。G0 通过后，记录基线、待处理项和里程碑输入。
 - **启动开发**。GSD 正式初始化，审阅路线和验收目标，再按 Phase 实施并验收。
 - **所有 Phase 完成之后**：milestone audit → complete milestone → Git tag `v0.1.0`（前提是符合真正的发布条件；不要仅因 roadmap 完成就打标）。
 - **下一期**：如需 UI/功能细调，另建 `v0.2` milestone，不把尚未批准的追加想法塞回 v0.1。

@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E04100000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E04100000000000000000002 /* Localizable.xcstrings */; };
+		E03100000000000000000006 /* FlutterDebugSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000004 /* FlutterDebugSession.swift */; };
+		E03100000000000000000005 /* FlutterToolchain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000003 /* FlutterToolchain.swift */; };
+		E03100000000000000000001 /* FlutterDebugSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000002 /* FlutterDebugSessionTests.swift */; };
+		E03300000000000000000001 /* SessionLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03300000000000000000002 /* SessionLogTests.swift */; };
+		E03200000000000000000001 /* FlutterToolchainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03200000000000000000002 /* FlutterToolchainTests.swift */; };
 		2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */; };
 		36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */; };
 		3879F0059D3D0FC10CA242CB /* MenuBarPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */; };
@@ -49,6 +55,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E04100000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		E03100000000000000000004 /* FlutterDebugSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterDebugSession.swift; sourceTree = "<group>"; };
+		E03100000000000000000003 /* FlutterToolchain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterToolchain.swift; sourceTree = "<group>"; };
+		E03100000000000000000002 /* FlutterDebugSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterDebugSessionTests.swift; sourceTree = "<group>"; };
+		E03300000000000000000002 /* SessionLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLogTests.swift; sourceTree = "<group>"; };
+		E03200000000000000000002 /* FlutterToolchainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterToolchainTests.swift; sourceTree = "<group>"; };
 		02D25D26C5A0C44305018722 /* flutterrunlet-menubar-template@2x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "flutterrunlet-menubar-template@2x.png"; sourceTree = "<group>"; };
 		19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentation.swift; sourceTree = "<group>"; };
 		408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentationTests.swift; sourceTree = "<group>"; };
@@ -103,6 +115,9 @@
 				5F831607A2F937D2017E1214 /* ProjectSelectionTests.swift */,
 				D783B63D50F2B3AAFC2488CA /* ProjectConfigurationTests.swift */,
 				FB3AD3C5D3510CAD525D46EA /* SessionLifecycleTests.swift */,
+				E03100000000000000000002 /* FlutterDebugSessionTests.swift */,
+				E03300000000000000000002 /* SessionLogTests.swift */,
+				E03200000000000000000002 /* FlutterToolchainTests.swift */,
 				408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */,
 			);
 			name = FlutterRunletTests;
@@ -137,11 +152,14 @@
 				9B2198DCFDD8449DF1CE2E0F /* ProjectConfiguration.swift */,
 				63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */,
 				203B8524D266CF1B1089DC86 /* SessionProcess.swift */,
+				E03100000000000000000004 /* FlutterDebugSession.swift */,
+				E03100000000000000000003 /* FlutterToolchain.swift */,
 				668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */,
 				19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */,
 				69E2E0A5310F8BBD3F7FC248 /* MainWindowView.swift */,
 				CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */,
 				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
+				E04100000000000000000002 /* Localizable.xcstrings */,
 				C468FE71AFE64B16AD2909BD /* Assets.xcassets */,
 			);
 			name = FlutterRunlet;
@@ -250,6 +268,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = A30EFD4670AE6AAE32AE7125;
@@ -280,6 +299,7 @@
 			files = (
 				5331C6AEA9946F5D853D4C83 /* flutterrunlet-menubar-template@1x.png in Resources */,
 				2FBD7BD6E1C8299849C38EBC /* flutterrunlet-menubar-template@2x.png in Resources */,
+				E04100000000000000000001 /* Localizable.xcstrings in Resources */,
 				BC4D97D449AB42DF9A8EC25F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -296,6 +316,8 @@
 				B2CA859CB69A73B428E24E4B /* ProjectConfiguration.swift in Sources */,
 				11F933C4B0A08EEA0EE34810 /* SessionController.swift in Sources */,
 				C5291B88C5812805202EDBA2 /* SessionProcess.swift in Sources */,
+				E03100000000000000000006 /* FlutterDebugSession.swift in Sources */,
+				E03100000000000000000005 /* FlutterToolchain.swift in Sources */,
 				6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */,
 				36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */,
 				4E024139E2EEC87B2A9E0709 /* MainWindowView.swift in Sources */,
@@ -313,6 +335,9 @@
 				3399A15A06279A6E54BAB204 /* ProjectSelectionTests.swift in Sources */,
 				0A3EEDD74CA3F441FA9F2390 /* ProjectConfigurationTests.swift in Sources */,
 				32D6F60700ED82D96F33D424 /* SessionLifecycleTests.swift in Sources */,
+				E03100000000000000000001 /* FlutterDebugSessionTests.swift in Sources */,
+				E03300000000000000000001 /* SessionLogTests.swift in Sources */,
+				E03200000000000000000001 /* FlutterToolchainTests.swift in Sources */,
 				80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -342,6 +367,7 @@
 		1AA6A625FBE7A48E6F5A17AB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;
@@ -422,6 +448,7 @@
 		ABA24AE3FFA523B8C27E5D8E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;

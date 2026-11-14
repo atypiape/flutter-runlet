@@ -1,5 +1,141 @@
 import AppKit
+import Carbon.HIToolbox
+import Observation
+import ServiceManagement
 import SwiftUI
+
+enum AppLanguage: String, CaseIterable {
+    case system
+    case simplifiedChinese = "zh-Hans"
+    case english = "en"
+
+    var label: LocalizedStringResource {
+        switch self {
+        case .system: "Follow System"
+        case .simplifiedChinese: "简体中文"
+        case .english: "English"
+        }
+    }
+
+    func resolve(preferredLanguages: [String]) -> Self {
+        guard self == .system else { return self }
+        for identifier in preferredLanguages {
+            let language = Locale(identifier: identifier).language
+            switch language.languageCode?.identifier {
+            case "en": return .english
+            case "zh" where language.script?.identifier == "Hans": return .simplifiedChinese
+            default: continue
+            }
+        }
+        return .english
+    }
+}
+
+@MainActor
+@Observable
+final class AppLanguageSettings {
+    static let preferenceKey = "appLanguage"
+
+    private let defaults: UserDefaults
+    private let preferredLanguages: () -> [String]
+    var selection: AppLanguage {
+        didSet { defaults.set(selection.rawValue, forKey: Self.preferenceKey) }
+    }
+
+    init(defaults: UserDefaults = .standard, preferredLanguages: @escaping () -> [String] = { Locale.preferredLanguages }) {
+        self.defaults = defaults
+        self.preferredLanguages = preferredLanguages
+        selection = defaults.string(forKey: Self.preferenceKey).flatMap(AppLanguage.init(rawValue:)) ?? .system
+    }
+
+    var locale: Locale { Locale(identifier: selection.resolve(preferredLanguages: preferredLanguages()).rawValue) }
+}
+
+extension Locale {
+    func appString(_ resource: LocalizedStringResource) -> String {
+        var resource = resource
+        resource.locale = self
+        return String(localized: resource)
+    }
+}
+
+@MainActor
+@Observable
+final class LoginItemSettings {
+    private let readStatus: () -> SMAppService.Status
+    private let register: () throws -> Void
+    private let unregister: () throws -> Void
+
+    private(set) var status: SMAppService.Status
+    private(set) var issue: LocalizedStringResource?
+
+    convenience init() {
+        let service = SMAppService.mainApp
+        self.init(readStatus: { service.status }, register: { try service.register() },
+                  unregister: { try service.unregister() })
+    }
+
+    init(readStatus: @escaping () -> SMAppService.Status, register: @escaping () throws -> Void,
+         unregister: @escaping () throws -> Void) {
+        self.readStatus = readStatus
+        self.register = register
+        self.unregister = unregister
+        status = readStatus()
+    }
+
+    var isRegistered: Bool { status == .enabled || status == .requiresApproval }
+    var canChange: Bool {
+        switch status {
+        case .enabled, .requiresApproval, .notRegistered, .notFound: true
+        @unknown default: false
+        }
+    }
+    var statusMessage: LocalizedStringResource? {
+        switch status {
+        case .enabled, .notRegistered, .notFound: nil
+        case .requiresApproval: "Allow FlutterRunlet to launch at login in System Settings."
+        @unknown default: "The login item status is unavailable. Check Login Items in System Settings."
+        }
+    }
+
+    func refresh() {
+        let current = readStatus()
+        if current != status { issue = nil }
+        status = current
+    }
+
+    func setRegistered(_ enabled: Bool) {
+        refresh()
+        guard canChange, enabled != isRegistered else { return }
+        issue = nil
+        do {
+            if enabled { try register() }
+            else { try unregister() }
+        } catch {
+            status = readStatus()
+            issue = "Could not change the login item: \(LocalizedStringResource.appIssue(error)). Check Login Items in System Settings and try again."
+            return
+        }
+        refresh()
+    }
+
+    func openSystemSettings() {
+        SMAppService.openSystemSettingsLoginItems()
+    }
+}
+
+extension DebugAction {
+    init?(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isRepeat: Bool) {
+        guard keyCode == kVK_F5, !isRepeat else { return nil }
+        switch modifiers.intersection([.shift, .control, .option, .command]) {
+        case []: self = .run
+        case [.shift]: self = .stop
+        case [.option]: self = .reload
+        case [.shift, .command]: self = .restart
+        default: return nil
+        }
+    }
+}
 
 @main
 struct FlutterRunletApp: App {
@@ -11,17 +147,34 @@ struct FlutterRunletApp: App {
     @NSApplicationDelegateAdaptor(AppTermination.self) private var termination
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
-    @State private var panelWindow = PanelWindowReference()
+    @State private var panelWindow: PanelWindowReference
+    @State private var settingsPage: SettingsView.Page? = .general
+    @State private var language: AppLanguageSettings
+    @State private var loginItem: LoginItemSettings
+    @State private var debugKeys: DebugKeys
 
     private let presentation: LaunchPresentation
+    private let presentsMainWindowOnLaunch: Bool
     @State private var session: SessionController
 
     init() {
         let arguments = Array(CommandLine.arguments.dropFirst())
         presentation = SessionController.fixtureEnabled(arguments: arguments) ? .empty : LaunchPresentation.resolve(arguments: arguments)
         let controller = SessionController.app(arguments: arguments)
+        let presentsMainWindow = presentation.selection != nil || controller.shouldPresentMainWindowOnLaunch
+        presentsMainWindowOnLaunch = presentsMainWindow
         _session = State(initialValue: controller)
+        let language = AppLanguageSettings()
+        _language = State(initialValue: language)
+        let loginItem = LoginItemSettings()
+        _loginItem = State(initialValue: loginItem)
+        let panelWindow = PanelWindowReference()
+        _panelWindow = State(initialValue: panelWindow)
+        _debugKeys = State(initialValue: DebugKeys(session: presentation.selection == nil ? controller : nil))
         termination.session = presentation.selection == nil ? controller : nil
+        termination.language = language
+        termination.loginItem = loginItem
+        termination.launchActivationPolicy = presentsMainWindow ? .regular : .accessory
     }
 
     private var liveSession: SessionController? { presentation.selection == nil ? session : nil }
@@ -31,20 +184,26 @@ struct FlutterRunletApp: App {
             MainWindowView(
                 presentation: presentation,
                 session: liveSession,
-                run: Self.showRunDemo,
+                run: { Self.showRunDemo(locale: language.locale) },
                 openSettings: showSettings,
-                openAbout: showAbout
+                openAbout: showAbout,
+                openFlutterSettings: showFlutterSettings
             )
             .frame(minWidth: 480, minHeight: 400)
-            .background(MainWindowIdentity())
+            .background(MainWindowIdentity(debugKeys: debugKeys))
+            .environment(\.locale, language.locale)
         } defaultValue: {
             Self.mainRoute
         }
         .defaultSize(width: 640, height: 580)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(replacing: .appInfo) {
-                Button("关于 FlutterRunlet", action: showAbout)
+                Button(action: showAbout) {
+                    Text(verbatim: language.locale.appString("About FlutterRunlet"))
+                }
             }
         }
 
@@ -52,7 +211,7 @@ struct FlutterRunletApp: App {
             MenuBarPanelView(
                 presentation: presentation,
                 session: liveSession,
-                run: Self.showRunDemo,
+                run: { Self.showRunDemo(locale: language.locale) },
                 openMainWindow: { action in
                     panelWindow.close()
                     Self.showMainWindow(openWindow: action)
@@ -61,28 +220,53 @@ struct FlutterRunletApp: App {
                     panelWindow.close()
                     showSettings()
                 },
-                quit: { NSApp.terminate(nil) }
+                quit: { NSApp.terminate(nil) },
+                openFlutterSettings: {
+                    panelWindow.close()
+                    showFlutterSettings()
+                }
             )
-            .background(PanelWindowAnchor(reference: panelWindow))
+            .background(PanelWindowAnchor(reference: panelWindow, debugKeys: debugKeys))
+            .environment(\.locale, language.locale)
         } label: {
             Image(nsImage: makeMenuBarTemplate())
                 .accessibilityLabel("FlutterRunlet")
+                .onAppear {
+                    termination.installMainWindowHandler(presentOnLaunch: presentsMainWindowOnLaunch) {
+                        Self.showMainWindow(openWindow: openWindow, activatesApp: false)
+                    }
+                }
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(session: liveSession)
+            SettingsView(session: liveSession, selection: $settingsPage, language: language, loginItem: loginItem)
+                .background(WindowTitle(title: language.locale.appString("FlutterRunlet Settings")))
+                .environment(\.locale, language.locale)
         }
         .defaultSize(width: 672, height: 520)
+        .restorationBehavior(.disabled)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(action: showSettings) {
+                    Text(verbatim: language.locale.appString("Settings…"))
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
 
-        Window("关于 FlutterRunlet", id: Self.aboutSceneID) {
+        Window(language.locale.appString("About FlutterRunlet"), id: Self.aboutSceneID) {
             AboutView()
+                .background(WindowTitle(title: language.locale.appString("About FlutterRunlet")))
+                .environment(\.locale, language.locale)
         }
         .defaultSize(width: 440, height: 480)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
         .commandsRemoved()
     }
 
-    private static func showMainWindow(openWindow: OpenWindowAction) {
+    private static func showMainWindow(openWindow: OpenWindowAction, activatesApp: Bool = true) {
         setActivationPolicy(.regular)
         if let window = NSApp.windows.first(where: {
             $0.identifier == mainWindowIdentifier && ($0.isVisible || $0.isMiniaturized)
@@ -95,19 +279,24 @@ struct FlutterRunletApp: App {
             openWindow(id: mainSceneID, value: mainRoute)
         }
 
-        activateAppIfNeeded()
+        if activatesApp { activateAppIfNeeded() }
     }
 
     private func showSettings() {
         openSettings()
-        Self.activateAppIfNeeded()
+        if !NSApp.isActive { NSApp.activate() }
+    }
+
+    private func showFlutterSettings() {
+        settingsPage = .flutter
+        showSettings()
     }
 
     private func showAbout() {
         openWindow(id: Self.aboutSceneID)
     }
 
-    private static func setActivationPolicy(_ policy: NSApplication.ActivationPolicy) {
+    fileprivate static func setActivationPolicy(_ policy: NSApplication.ActivationPolicy) {
         if NSApp.activationPolicy() != policy, !NSApp.setActivationPolicy(policy) {
             NSLog("FlutterRunlet could not change the application activation policy.")
         }
@@ -129,24 +318,61 @@ struct FlutterRunletApp: App {
         }
     }
 
-    private static func showRunDemo() {
+    private static func showRunDemo(locale: Locale) {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "演示模式"
-        alert.informativeText = "当前为运行演示。"
-        alert.addButton(withTitle: "关闭提示")
+        alert.messageText = locale.appString("Demo Mode")
+        alert.informativeText = locale.appString("This is a run demonstration.")
+        alert.addButton(withTitle: locale.appString("Dismiss"))
         alert.runModal()
     }
 
+    private struct WindowTitle: NSViewRepresentable {
+        let title: String
+
+        func makeNSView(context: Context) -> TitleView { TitleView() }
+
+        func updateNSView(_ view: TitleView, context: Context) {
+            view.title = title
+        }
+
+        final class TitleView: NSView {
+            var title = "" {
+                didSet { updateTitle() }
+            }
+
+            override func viewDidMoveToWindow() {
+                super.viewDidMoveToWindow()
+                updateTitle()
+            }
+
+            private func updateTitle() {
+                guard !title.isEmpty else { return }
+                window?.title = title
+            }
+        }
+    }
+
     private struct MainWindowIdentity: NSViewRepresentable {
+        let debugKeys: DebugKeys
+
         func makeNSView(context: Context) -> NSView {
-            WindowMarker()
+            WindowMarker(debugKeys: debugKeys)
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
 
         private final class WindowMarker: NSView {
             private weak var observedWindow: NSWindow?
+            private let debugKeys: DebugKeys
+
+            init(debugKeys: DebugKeys) {
+                self.debugKeys = debugKeys
+                super.init(frame: .zero)
+            }
+
+            @available(*, unavailable)
+            required init?(coder: NSCoder) { fatalError() }
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
@@ -159,6 +385,7 @@ struct FlutterRunletApp: App {
                 observedWindow = window
                 if let window {
                     window.identifier = FlutterRunletApp.mainWindowIdentifier
+                    debugKeys.register(window)
                     notifications.addObserver(
                         self, selector: #selector(windowWillClose),
                         name: NSWindow.willCloseNotification, object: window
@@ -184,37 +411,114 @@ struct FlutterRunletApp: App {
 
     private struct PanelWindowAnchor: NSViewRepresentable {
         let reference: PanelWindowReference
+        let debugKeys: DebugKeys
 
         func makeNSView(context: Context) -> NSView {
-            let anchor = NSView()
+            let anchor = PanelAnchorView(debugKeys: debugKeys)
             reference.anchor = anchor
             return anchor
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
+
+        private final class PanelAnchorView: NSView {
+            private let debugKeys: DebugKeys
+
+            init(debugKeys: DebugKeys) {
+                self.debugKeys = debugKeys
+                super.init(frame: .zero)
+            }
+
+            @available(*, unavailable)
+            required init?(coder: NSCoder) { fatalError() }
+
+            override func viewDidMoveToWindow() {
+                super.viewDidMoveToWindow()
+                if let window { debugKeys.register(window) }
+            }
+        }
+    }
+}
+
+@MainActor
+private final class DebugKeys {
+    private weak var session: SessionController?
+    private let windows = NSHashTable<NSWindow>.weakObjects()
+    private var monitor: Any?
+
+    init(session: SessionController?) { self.session = session }
+
+    func register(_ window: NSWindow) {
+        windows.add(window)
+        guard monitor == nil, session != nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.dispatchDebugKey(event) == true }
+            return handled ? nil : event
+        }
+    }
+
+    isolated deinit {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+    }
+
+    private func dispatchDebugKey(_ event: NSEvent) -> Bool {
+        guard let session, NSApp.modalWindow == nil, let window = NSApp.keyWindow,
+              event.window == nil || event.window === window,
+              window.isVisible, window.attachedSheet == nil, windows.contains(window),
+              let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
+                                       isRepeat: event.isARepeat) else {
+            return false
+        }
+        return session.performDebugAction(action)
     }
 }
 
 @MainActor
 private final class AppTermination: NSObject, NSApplicationDelegate {
     var session: SessionController?
+    var language: AppLanguageSettings?
+    var loginItem: LoginItemSettings?
+    var launchActivationPolicy: NSApplication.ActivationPolicy = .regular
+    private var reopenMainWindow: (() -> Void)?
     private var replying = false
+
+    private var locale: Locale { language?.locale ?? .current }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        FlutterRunletApp.setActivationPolicy(launchActivationPolicy)
+    }
+
+    func installMainWindowHandler(presentOnLaunch: Bool, open: @escaping () -> Void) {
+        let firstAppearance = reopenMainWindow == nil
+        reopenMainWindow = open
+        guard firstAppearance, presentOnLaunch else { return }
+        // The menu bar scene can appear at login even when SwiftUI skips its default window.
+        Task { @MainActor in
+            reopenMainWindow?()
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard let reopenMainWindow else { return true }
+        reopenMainWindow()
+        return false
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        loginItem?.refresh()
+        session?.recheckInvalidFlutterSDK()
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let session else { return .terminateNow }
         guard !replying else { return .terminateLater }
-        if session.canTerminate { return .terminateNow }
-        guard session.isBusy else {
+        if session.canTerminate && !session.hasPendingEnvironmentChecks { return .terminateNow }
+        guard session.isBusy || session.canTerminate else {
             showBlocked(session)
             return .terminateCancel
         }
         replying = true
-        let alert = NSAlert()
-        alert.messageText = "停止会话并退出 FlutterRunlet？"
-        alert.informativeText = "应用会等待受管进程退出，并完成项目配置中的后置恢复。"
-        alert.addButton(withTitle: "停止并退出")
-        alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else {
+        if session.isBusy && !confirmStoppingSession() {
             replying = false
             return .terminateCancel
         }
@@ -227,12 +531,21 @@ private final class AppTermination: NSObject, NSApplicationDelegate {
         return .terminateLater
     }
 
+    private func confirmStoppingSession() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = locale.appString("Stop the session and quit FlutterRunlet?")
+        alert.informativeText = locale.appString("FlutterRunlet will wait for managed processes to exit and run the project’s recovery task.")
+        alert.addButton(withTitle: locale.appString("Stop and Quit"))
+        alert.addButton(withTitle: locale.appString("Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func showBlocked(_ session: SessionController) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "当前无法退出 FlutterRunlet"
-        alert.informativeText = session.displayMessage ?? "请先在主窗口完成环境恢复。"
-        alert.addButton(withTitle: "关闭提示")
+        alert.messageText = locale.appString("FlutterRunlet Cannot Quit Right Now")
+        alert.informativeText = locale.appString(session.displayMessage ?? "Finish environment recovery in the main window first.")
+        alert.addButton(withTitle: locale.appString("Dismiss"))
         alert.runModal()
     }
 }

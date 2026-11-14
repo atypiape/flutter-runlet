@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.locale) private var locale
 
     let presentation: LaunchPresentation
     var session: SessionController? = nil
@@ -9,6 +10,7 @@ struct MenuBarPanelView: View {
     let openMainWindow: (OpenWindowAction) -> Void
     let openSettings: (() -> Void)?
     let quit: () -> Void
+    var openFlutterSettings: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,44 +20,58 @@ struct MenuBarPanelView: View {
 
                 Spacer(minLength: 12)
 
-                Text(session?.status ?? (presentation.selection == nil ? "无调试会话" : "就绪"))
+                Text((session?.status ?? (presentation.selection == nil ? .idle : .ready)).title)
                     .foregroundStyle(.secondary)
             }
 
-            PresentationField(title: "项目", value: session?.project?.lastPathComponent ?? presentation.selection?.project, fallback: "未选择项目")
+            PresentationField(field: .project, value: session?.project?.lastPathComponent ?? presentation.selection?.project,
+                              fallback: "No project selected")
 
             HStack(alignment: .top, spacing: 12) {
-                PresentationField(title: "配置", value: session?.selection?.name ?? presentation.selection?.configuration)
-                PresentationField(title: "设备", value: session?.selection?.launch?.deviceID ?? presentation.selection?.device)
+                PresentationField(field: .configuration, value: session?.selection.map { locale.appString($0.title) }
+                                  ?? presentation.selection?.configuration)
+                PresentationField(field: .device, value: deviceName, originalValue: session?.selectedDeviceName)
             }
 
             Divider()
-            DebugControls(canRun: session?.canRun ?? (presentation.selection != nil),
-                          run: session.map { $0.run } ?? run, canStop: session?.canStop ?? false,
-                          stop: { session?.stop() })
-            BrowserControls()
-            if let session, session.recovery != nil || session.recoveryStoreIssue != nil,
-               let reason = session.displayMessage {
-                Text(verbatim: reason)
+            DebugControls(session: session, canRunDemo: presentation.selection != nil, runDemo: run)
+            BrowserControls(session: session)
+            SessionFeedbackView(session: session)
+            if let session {
+                RecoveryDetails(session: session)
+            }
+            if let session, session.recoveryMessage == nil, let reason = session.displayMessage {
+                Text(reason)
                     .lineLimit(2)
                     .foregroundStyle(.secondary)
+            }
+            if session?.sdkIssue != nil, let openFlutterSettings {
+                Button("Open Flutter Settings", action: openFlutterSettings)
             }
             Divider()
 
             HStack(spacing: 8) {
-                Button("打开主窗口") { openMainWindow(openWindow) }
-                Button("设置") { openSettings?() }
+                Button("Open Main Window") { openMainWindow(openWindow) }
+                Button("Settings") { openSettings?() }
                     .disabled(openSettings == nil)
 
                 Spacer(minLength: 8)
 
-                Button("退出", action: quit)
+                Button("Quit", action: quit)
             }
             .buttonStyle(.bordered)
         }
         .font(.system(size: 13))
         .padding(16)
         .frame(width: 404, alignment: .leading)
+    }
+
+    private var deviceName: String? {
+        if let session, session.usesFlutterToolchain {
+            guard let name = session.selectedDeviceName else { return nil }
+            return session.deviceIsOffline ? locale.appString("\(name) · Offline") : name
+        }
+        return session?.selection?.launch?.deviceID ?? presentation.selection?.device
     }
 }
 

@@ -13,4 +13,6 @@
 | `fail-before-test` | prod 运行后停止 | 后置恢复失败，保留 prod 标记和风险记录。移除故障标记后重试，成功恢复 test |
 | `fail-after-prod` | 启动 prod | 前置任务写入后失败，Flutter 不启动，进入需恢复状态。重试恢复后标记变为 test |
 
+强退验收在隔离样例中使用 `pause-after-prod` 或 `pause-after-test`。脚本写入目标环境并通过故障检查后，创建对应的 `paused-after-prod` 或 `paused-after-test`，此时任务仍在运行。移除本轮 `pause-after-*` 可放行任务，等待约 30 秒仍未移除则任务以退出码 1 结束。每轮开始前清除本轮使用的旧就绪文件，结束后清理本轮暂停和就绪文件。强退后从应用的恢复入口重试原任务。
+
 单独运行 `/bin/sh scripts/simulate-firebase-switch.sh test --quiet` 可在测试项目目录核对本地脚本。Flutter Debug、设备、DevTools 及应用重启后的风险检测仍按验收矩阵实测。

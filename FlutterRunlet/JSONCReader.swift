@@ -7,7 +7,7 @@ enum JSONCReader {
             bytes.replaceSubrange(0..<3, with: [32, 32, 32])
         }
         guard String(bytes: bytes, encoding: .utf8) != nil else {
-            throw SessionIssue("\(file) 必须使用 UTF-8 编码")
+            throw SessionIssue(localized: "\(file) must use UTF-8 encoding")
         }
 
         var index = 0
@@ -30,7 +30,7 @@ enum JSONCReader {
                         index += 1
                     }
                     guard index + 1 < bytes.count else {
-                        throw issue(file, source: data, offset: start, reason: "块注释未闭合")
+                        throw issue(file, source: data, offset: start, reason: "Unterminated block comment")
                     }
                     index += 2
                 }
@@ -49,15 +49,17 @@ enum JSONCReader {
             return try JSONSerialization.jsonObject(with: Data(bytes), options: [.fragmentsAllowed])
         } catch {
             let offset = (error as NSError).userInfo["NSJSONSerializationErrorIndex"] as? Int ?? data.count
-            throw issue(file, source: data, offset: offset, reason: "JSONC 语法错误")
+            throw issue(file, source: data, offset: offset, reason: "Invalid JSONC syntax")
         }
     }
 
-    private static func issue(_ file: String, source: Data, offset: Int, reason: String) -> SessionIssue {
+    private static func issue(_ file: String, source: Data, offset: Int, reason: LocalizedStringResource) -> SessionIssue {
         var prefix = String(decoding: source.prefix(max(0, offset)), as: UTF8.self)
         if prefix.first == "\u{feff}" { prefix.removeFirst() }
         let lines = prefix.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
-        return SessionIssue("\(file) 第 \(lines.count) 行第 \((lines.last?.unicodeScalars.count ?? 0) + 1) 列：\(reason)")
+        let line = String(lines.count)
+        let column = String((lines.last?.unicodeScalars.count ?? 0) + 1)
+        return SessionIssue(localized: "\(file), line \(line), column \(column): \(reason)")
     }
 }

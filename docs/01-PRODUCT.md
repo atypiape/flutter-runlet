@@ -13,7 +13,7 @@ FlutterRunlet 是一个无需启动 VS Code / Android Studio 的轻量 Flutter �
 | ID | 需求 / 决策 | 说明 |
 |---|---|---|
 | P-01 | `flutter-runlet` / FlutterRunlet | 仓库/显示名已定 |
-| P-02 | macOS 原生 Swift | SwiftUI 优先，AppKit 按需补充。基于 Flutter GUI Runner 做精简二次开发 |
+| P-02 | macOS 原生 Swift | SwiftUI 优先，AppKit 按需补充。参考 Flutter GUI Runner 的共享场景设计，独立实现 |
 | P-03 | 从 `.vscode/launch.json` 加载配置 | 按 `name` 原样显示，来源单一 |
 | P-04 | 从 `.vscode/tasks.json` 执行任务 | 服从 `preLaunchTask`、`postDebugTask`，特别是 Firebase 任务 |
 | P-05 | 选择 Flutter 设备 | iOS Simulator / Android Emulator / 真机在可用时显示 |
@@ -96,10 +96,11 @@ FlutterRunlet 是一个无需启动 VS Code / Android Studio 的轻量 Flutter �
 5. 手动切换语言后，所有 UI 文案立即切换；恢复「跟随系统」后生效；项目名/设备名/日志保持原文。
 6. 关闭主窗口后菜单栏仍可管理运行会话；退出 App 时明确处理运行中会话及后置任务。
 
-## 7. 开发阶段待验证的实现细节
+最低部署目标为 macOS 15.0。按[验收矩阵](04-ACCEPTANCE.md) A31 审查 API 可用性并核对最终 Release 主程序及内嵌 worker 的最低部署版本。2026-11-14 经用户确认，取消 macOS 15 实机和虚拟机运行验收，该系统的运行兼容性未验证。
 
-- 暂以 macOS 15 为最低版本目标，待 API 兼容性审查和实机验证。快捷键方案及登录时启动默认值仍待确认。
-- DevTools Inspector 在 Flutter SDK 各版本下可用的稳定直达路由；不可用时退回 DevTools 主页。
-- 进程强制终止后的恢复交互细节、SDK 无法解析时的交互文案。
+## 7. 实施阶段确认的交互
 
-这些事项在对应开发 Phase 验证。完整的开发待处理项见 [G0 设计交接](design/FIGMA-HANDOFF.md#开发待处理项)。
+- 登录时启动默认关闭。启动后显示主窗口、记住最近打开的项目默认开启。启动检测到待恢复记录时显示主窗口和处理入口，由用户触发恢复。
+- 应用内使用 F5 运行、Shift+F5 停止、Option+F5 热重载、Shift+Command+F5 热重启。快捷键与按钮共用当前会话及启用条件，仅在受管界面取得焦点时生效。[P4 验收记录](../.planning/milestones/v0.1-phases/04-macos/04-P4-ACCEPTANCE.md)
+- DevTools 与 Inspector 由用户手动打开。Inspector 直达按已验证的 Flutter 与 DevTools 版本启用，其他版本打开已连接当前会话的 DevTools。
+- 强退后如有未完成的环境恢复，保留风险记录并提供恢复入口。项目所需的 Flutter SDK 无法解析时提示原因并阻止启动。

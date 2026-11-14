@@ -5,19 +5,19 @@ import Foundation
 
 enum ProjectLocation {
     // SHA-256 of the checked-in public fixture script.
-    private static let fixtureScriptDigest = "2d07516e06a3fdab9a13fe9015d1f1d35ef952dc88732ae9f142019e6d44f154"
+    private static let fixtureScriptDigest = "4172fdee6bb993e6a23acc6ab6a95702ecf0deca97c127568bd83e78682165ad"
 
     static func project(_ url: URL, inside root: URL? = nil) throws -> URL {
-        guard url.isFileURL else { throw SessionIssue("请选择本地 Flutter 项目目录") }
+        guard url.isFileURL else { throw SessionIssue(localized: "Select a local Flutter project directory") }
         let project = try directory(url)
         if let root, !contains(project, in: try directory(root)) {
-            throw SessionIssue("请选择验收目录内的 Flutter 项目")
+            throw SessionIssue(localized: "Select a Flutter project inside the acceptance directory")
         }
         let pubspec = try file("pubspec.yaml", in: project, restricted: root != nil)
         guard let contents = try? String(contentsOf: pubspec, encoding: .utf8),
               contents.range(of: #"(?m)^\s+sdk:[ \t]*flutter(?:[ \t]*#.*)?[ \t]*$"#,
                              options: .regularExpression) != nil else {
-            throw SessionIssue("所选目录缺少有效的 Flutter pubspec.yaml")
+            throw SessionIssue(localized: "The selected directory has no valid Flutter pubspec.yaml")
         }
         if root != nil { try validateFixtureState(project) }
         return project
@@ -28,12 +28,12 @@ enum ProjectLocation {
         var info = stat()
         if lstat(state.path, &info) != 0 && errno == ENOENT { return }
         guard info.st_mode & S_IFMT == S_IFDIR, info.st_uid == geteuid() else {
-            throw SessionIssue("验收项目的状态目录无效")
+            throw SessionIssue(localized: "The acceptance project state directory is invalid")
         }
         for file in try FileManager.default.contentsOfDirectory(atPath: state.path) {
             guard lstat(state.appending(path: file).path, &info) == 0,
                   info.st_mode & S_IFMT == S_IFREG, info.st_uid == geteuid(), info.st_nlink == 1 else {
-                throw SessionIssue("验收项目的状态文件无效")
+                throw SessionIssue(localized: "The acceptance project state file is invalid")
             }
         }
     }
@@ -47,19 +47,19 @@ enum ProjectLocation {
               cwd.path == project.path, ["dev", "test", "prod"].contains(arguments[1]), arguments[2] == "--quiet",
               let script = try? Data(contentsOf: URL(fileURLWithPath: arguments[0])),
               SHA256.hash(data: script).map({ String(format: "%02x", $0) }).joined() == fixtureScriptDigest else {
-            throw SessionIssue("验收模式仅支持公开样例的环境切换任务")
+            throw SessionIssue(localized: "Acceptance mode only supports environment-switching tasks from the public sample")
         }
         try validateFixtureState(project)
     }
 
     static func directory(_ url: URL) throws -> URL {
         let fd = open(url.path, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
-        guard fd >= 0 else { throw SessionIssue("项目或工作目录不可用") }
+        guard fd >= 0 else { throw SessionIssue(localized: "The project or working directory is unavailable") }
         defer { close(fd) }
         var bytes = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         guard fcntl(fd, F_GETPATH, &bytes) == 0,
               let path = bytes.withUnsafeBufferPointer({ String(validatingCString: $0.baseAddress!) }) else {
-            throw SessionIssue("无法确定目录的规范路径")
+            throw SessionIssue(localized: "Could not determine the canonical directory path")
         }
         return URL(fileURLWithPath: path, isDirectory: true)
     }
@@ -67,14 +67,14 @@ enum ProjectLocation {
     static func identity(_ url: URL) throws -> String {
         var info = stat()
         guard stat(url.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else {
-            throw SessionIssue("无法确认项目目录身份")
+            throw SessionIssue(localized: "Could not verify the project directory identity")
         }
         return "\(info.st_dev)-\(info.st_ino)"
     }
 
     static func file(_ name: String, in project: URL, restricted: Bool) throws -> URL {
         let file = project.appending(path: name).resolvingSymlinksInPath()
-        if restricted && !contains(file, in: project) { throw SessionIssue("项目文件超出验收目录") }
+        if restricted && !contains(file, in: project) { throw SessionIssue(localized: "The project file is outside the acceptance directory") }
         return file
     }
 
@@ -123,9 +123,14 @@ struct PreparedLaunch: Codable, Equatable, Sendable {
 
 struct LaunchChoice: Identifiable, Equatable {
     let id: Int
-    let name: String
+    let name: String?
     let launch: PreparedLaunch?
-    let issue: String?
+    let issue: LocalizedStringResource?
+
+    var title: LocalizedStringResource {
+        if let name { return .verbatim(name) }
+        return "Unnamed Configuration \(String(id + 1))"
+    }
 }
 
 struct ProjectConfiguration {
@@ -133,8 +138,8 @@ struct ProjectConfiguration {
     let environment: [String: String]
     let restricted: Bool
     let choices: [LaunchChoice]
-    let launchIssue: String?
-    let taskIssue: String?
+    let launchIssue: LocalizedStringResource?
+    let taskIssue: LocalizedStringResource?
     private let tasks: [[String: Any]]
 
     init(project: URL, environment: [String: String], restricted: Bool) {
@@ -150,9 +155,9 @@ struct ProjectConfiguration {
         let names = source.compactMap { $0["name"] as? String }
         let nameCounts = Dictionary(grouping: names, by: { $0 }).mapValues(\.count)
         choices = source.enumerated().map { index, entry in
-            let name = entry["name"] as? String ?? "配置 \(index + 1)"
-            if nameCounts[name, default: 0] > 1 {
-                return LaunchChoice(id: index, name: name, launch: nil, issue: "启动配置重名，请在 launch.json 中改名")
+            let name = entry["name"] as? String
+            if let name, nameCounts[name, default: 0] > 1 {
+                return LaunchChoice(id: index, name: name, launch: nil, issue: "Duplicate launch configuration name. Rename it in launch.json")
             }
             let result = Result {
                 try Self.prepare(entry, project: project, tasks: (try? taskResult.get()) ?? [],
@@ -170,29 +175,29 @@ struct ProjectConfiguration {
     }
 
     private static func prepare(
-        _ entry: [String: Any], project: URL, tasks: [[String: Any]], taskIssue: String?,
+        _ entry: [String: Any], project: URL, tasks: [[String: Any]], taskIssue: LocalizedStringResource?,
         environment: [String: String], restricted: Bool
     ) throws -> PreparedLaunch {
-        guard let name = entry["name"] as? String, !name.isEmpty else { throw SessionIssue("配置缺少名称") }
+        guard let name = entry["name"] as? String, !name.isEmpty else { throw SessionIssue(localized: "The configuration has no name") }
         guard entry["type"] as? String == "dart", entry["request"] as? String == "launch" else {
-            throw SessionIssue("仅支持 Dart Flutter 启动配置")
+            throw SessionIssue(localized: "Only Dart Flutter launch configurations are supported")
         }
         let mode = try string(entry, key: "flutterMode", default: "debug")
-        guard mode == "debug" else { throw SessionIssue("仅支持 Debug 模式（当前为 \(mode)）") }
+        guard mode == "debug" else { throw SessionIssue(localized: "Only Debug mode is supported (current mode: \(mode))") }
         var variables = ConfigVariables(project: project, environment: environment)
         let program = try resolve(variables.expand(string(entry, key: "program", default: "lib/main.dart")), in: project)
         var fileInfo = stat()
         guard program.pathExtension == "dart", stat(program.path, &fileInfo) == 0,
               fileInfo.st_mode & S_IFMT == S_IFREG else {
-            throw SessionIssue("Dart 入口文件不可用")
+            throw SessionIssue(localized: "The Dart entry point is unavailable")
         }
         let cwd = try ProjectLocation.directory(resolve(variables.expand(string(entry, key: "cwd", default: project.path)), in: project))
         if restricted && (!ProjectLocation.contains(program, in: project) || !insideProject(cwd, project)) {
-            throw SessionIssue("Dart 入口或工作目录超出验收项目")
+            throw SessionIssue(localized: "The Dart entry point or working directory is outside the acceptance project")
         }
         let options = try dictionary(entry, "osx")
         guard options.keys.allSatisfy({ $0 == "env" }) else {
-            throw SessionIssue("暂不支持 osx.env 以外的 macOS 启动覆盖")
+            throw SessionIssue(localized: "macOS launch overrides other than osx.env are unsupported")
         }
         var env = try dictionary(entry, "env")
         env.merge(try dictionary(options, "env"), uniquingKeysWith: { _, macOS in macOS })
@@ -205,11 +210,11 @@ struct ProjectConfiguration {
         for argument in arguments {
             if argument.hasPrefix(define) {
                 let key = try defineKey(String(argument.dropFirst(define.count)))
-                guard keys.insert(key).inserted else { throw SessionIssue("Dart define 冲突，请在 toolArgs 中保留唯一声明") }
+                guard keys.insert(key).inserted else { throw SessionIssue(localized: "Conflicting Dart defines. Keep one declaration in toolArgs") }
                 tool.append(argument)
             } else if argument == "--dart-define" || argument == "--dart-define-from-file" ||
                         argument.hasPrefix("--dart-define-from-file=") {
-                throw SessionIssue("旧 Dart define 格式无法兼容，请移到 toolArgs")
+                throw SessionIssue(localized: "The legacy Dart define format is unsupported. Move it to toolArgs")
             } else {
                 application.append(argument)
             }
@@ -226,24 +231,24 @@ struct ProjectConfiguration {
     }
 
     private static func prepareTask(
-        _ label: String, tasks: [[String: Any]], taskIssue: String?, project: URL,
+        _ label: String, tasks: [[String: Any]], taskIssue: LocalizedStringResource?, project: URL,
         environment: [String: String], restricted: Bool,
         verify: (PreparedTask.Definition) throws -> Void = { _ in }
     ) throws -> PreparedTask {
-        if let taskIssue { throw SessionIssue(taskIssue) }
+        if let taskIssue { throw SessionIssue(localized: taskIssue) }
         let matches = tasks.filter { $0["label"] as? String == label }
-        guard let entry = matches.first else { throw SessionIssue("找不到任务 \(label)") }
-        guard matches.count == 1 else { throw SessionIssue("任务标签重复：\(label)") }
+        guard let entry = matches.first else { throw SessionIssue(localized: "Could not find task \(label)") }
+        guard matches.count == 1 else { throw SessionIssue(localized: "Duplicate task label: \(label)") }
         let type = try string(entry, key: "type")
         guard ["shell", "process"].contains(type),
               entry["dependsOn"] == nil, entry["runOptions"] == nil, entry["osx"] == nil,
               isAbsentOrFalse(entry["isBackground"]),
               entry["problemMatcher"] == nil || (entry["problemMatcher"] as? [Any])?.isEmpty == true else {
-            throw SessionIssue("暂不支持任务 \(label) 的类型、依赖或后台设置")
+            throw SessionIssue(localized: "Task \(label) uses an unsupported type, dependency, or background setting")
         }
         let options = try dictionary(entry, "options")
         guard options.keys.allSatisfy({ ["cwd", "env"].contains($0) }) else {
-            throw SessionIssue("暂不支持任务 \(label) 的执行选项")
+            throw SessionIssue(localized: "Task \(label) uses unsupported execution options")
         }
         let rawEnvironment = try dictionary(options, "env")
         let rawCommand = try string(entry, key: "command")
@@ -252,20 +257,20 @@ struct ProjectConfiguration {
         let definition = PreparedTask.Definition(
             type: type, command: rawCommand, arguments: rawArguments, directory: rawDirectory,
             environment: try rawEnvironment.mapValues {
-                guard let value = $0 as? String else { throw SessionIssue("任务环境值必须是字符串") }
+                guard let value = $0 as? String else { throw SessionIssue(localized: "Task environment values must be strings") }
                 return value
             }
         )
         try verify(definition)
         var variables = ConfigVariables(project: project, environment: environment)
         let cwd = try ProjectLocation.directory(resolve(variables.expand(rawDirectory), in: project))
-        if restricted && !insideProject(cwd, project) { throw SessionIssue("任务工作目录超出验收项目") }
+        if restricted && !insideProject(cwd, project) { throw SessionIssue(localized: "The task working directory is outside the acceptance project") }
         let taskEnvironment = try variables.apply(rawEnvironment)
         let command = try variables.expand(rawCommand)
         var argv = try rawArguments.map { try variables.expand($0) }
         let executable: String
         if restricted {
-            guard rawEnvironment.isEmpty else { throw SessionIssue("验收任务不支持额外环境变量") }
+            guard rawEnvironment.isEmpty else { throw SessionIssue(localized: "Acceptance tasks do not support extra environment variables") }
             try ProjectLocation.validateFixtureTask(executable: command, arguments: argv, cwd: cwd, project: project)
             executable = "/bin/sh"
         } else if let path = executablePath(command, directory: cwd, environment: taskEnvironment) {
@@ -275,7 +280,7 @@ struct ProjectConfiguration {
             executable = "/bin/sh"
             argv = ["-c", command]
         } else {
-            throw SessionIssue("任务 \(label) 的命令不可执行或引用方式暂不支持")
+            throw SessionIssue(localized: "The command for task \(label) is not executable or uses unsupported quoting")
         }
         return PreparedTask(label: label,
                             command: SessionCommand(executable: executable, arguments: argv, directory: cwd.path,
@@ -303,22 +308,22 @@ struct ProjectConfiguration {
             if flags.contains(token) { continue }
             let parts = token.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             guard let option = parts.first.map(String.init), options.contains(option) else {
-                throw SessionIssue("toolArgs 含无法确认保持 Debug 模式、入口或设备的参数")
+                throw SessionIssue(localized: "toolArgs contains an argument that may override Debug mode, the entry point, or the device")
             }
             let value: String
             if parts.count == 2 {
                 value = String(parts[1])
             } else {
                 guard index < arguments.count, !arguments[index].hasPrefix("-") else {
-                    throw SessionIssue("toolArgs 中的 \(option) 缺少参数值")
+                    throw SessionIssue(localized: "\(option) in toolArgs requires a value")
                 }
                 value = arguments[index]
                 index += 1
             }
-            guard !value.isEmpty else { throw SessionIssue("toolArgs 中的 \(option) 缺少参数值") }
+            guard !value.isEmpty else { throw SessionIssue(localized: "\(option) in toolArgs requires a value") }
             if option == "--dart-define" {
                 let key = try defineKey(value)
-                guard keys.insert(key).inserted else { throw SessionIssue("toolArgs 中的 Dart define 重复") }
+                guard keys.insert(key).inserted else { throw SessionIssue(localized: "Duplicate Dart define in toolArgs") }
             }
         }
         return keys
@@ -326,11 +331,11 @@ struct ProjectConfiguration {
 
     private static func defineKey(_ assignment: String) throws -> String {
         guard let separator = assignment.firstIndex(of: "="), separator != assignment.startIndex else {
-            throw SessionIssue("Dart define 必须为 KEY=VALUE，请检查 toolArgs")
+            throw SessionIssue(localized: "Dart defines must use KEY=VALUE. Check toolArgs")
         }
         let key = String(assignment[..<separator])
         guard !key.hasPrefix("-"), !key.contains(where: \.isWhitespace) else {
-            throw SessionIssue("Dart define 的名称无效，请检查 toolArgs")
+            throw SessionIssue(localized: "The Dart define name is invalid. Check toolArgs")
         }
         return key
     }
@@ -341,14 +346,14 @@ struct ProjectConfiguration {
         let data: Data
         do {
             let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-            guard values.isRegularFile == true else { throw SessionIssue("配置必须为普通文件") }
+            guard values.isRegularFile == true else { throw SessionIssue(localized: "The configuration must be a regular file") }
             data = try Data(contentsOf: url)
         } catch {
-            throw SessionIssue("\(name) 缺失或无法读取")
+            throw SessionIssue(localized: "\(name) is missing or unreadable")
         }
         let object = try JSONCReader.decode(data, file: name)
         guard let entries = (object as? [String: Any])?[key] as? [[String: Any]] else {
-            throw SessionIssue("\(name) 的 \(key) 必须是对象数组")
+            throw SessionIssue(localized: "\(key) in \(name) must be an array of objects")
         }
         return entries
     }
@@ -384,7 +389,7 @@ struct ProjectConfiguration {
     private static func string(_ object: [String: Any], key: String, default fallback: String? = nil) throws -> String {
         if object[key] == nil, let fallback { return fallback }
         guard let value = object[key] as? String, !value.isEmpty, !value.utf8.contains(0) else {
-            throw SessionIssue("\(key) 必须是非空字符串")
+            throw SessionIssue(localized: "\(key) must be a nonempty string")
         }
         return value
     }
@@ -392,14 +397,14 @@ struct ProjectConfiguration {
     private static func strings(_ object: [String: Any], _ key: String) throws -> [String] {
         guard let value = object[key] else { return [] }
         guard let strings = value as? [String], strings.allSatisfy({ !$0.utf8.contains(0) }) else {
-            throw SessionIssue("\(key) 必须是字符串数组")
+            throw SessionIssue(localized: "\(key) must be an array of strings")
         }
         return strings
     }
 
     private static func dictionary(_ object: [String: Any], _ key: String) throws -> [String: Any] {
         guard let value = object[key] else { return [:] }
-        guard let dictionary = value as? [String: Any] else { throw SessionIssue("\(key) 必须是对象") }
+        guard let dictionary = value as? [String: Any] else { throw SessionIssue(localized: "\(key) must be an object") }
         return dictionary
     }
 }
@@ -415,22 +420,22 @@ private struct ConfigVariables {
         while let opening = rest.range(of: "$" + "{") {
             output += rest[..<opening.lowerBound]
             rest = rest[opening.upperBound...]
-            guard let end = rest.firstIndex(of: "}") else { throw SessionIssue("配置变量未闭合") }
+            guard let end = rest.firstIndex(of: "}") else { throw SessionIssue(localized: "Unterminated configuration variable") }
             let variable = String(rest[..<end])
             if variable == "workspaceFolder" {
                 output += project.path
             } else if variable.hasPrefix("env:") {
                 let name = String(variable.dropFirst(4))
-                guard let value = environment[name] else { throw SessionIssue("环境变量 \(name) 未设置") }
+                guard let value = environment[name] else { throw SessionIssue(localized: "Environment variable \(name) is not set") }
                 references[name] = value
                 output += value
             } else {
-                throw SessionIssue("暂不支持配置变量 \(variable)")
+                throw SessionIssue(localized: "Unsupported configuration variable \(variable)")
             }
             rest = rest[rest.index(after: end)...]
         }
         output += rest
-        guard !output.utf8.contains(0) else { throw SessionIssue("参数含无效字符") }
+        guard !output.utf8.contains(0) else { throw SessionIssue(localized: "An argument contains an invalid character") }
         return output
     }
 
@@ -438,7 +443,7 @@ private struct ConfigVariables {
         var values = environment
         for (name, raw) in overrides {
             guard !name.isEmpty, !name.contains("="), !name.utf8.contains(0), let text = raw as? String else {
-                throw SessionIssue("环境变量定义无效")
+                throw SessionIssue(localized: "The environment variable definition is invalid")
             }
             values[name] = try expand(text)
         }
@@ -447,8 +452,8 @@ private struct ConfigVariables {
 }
 
 private extension Result where Failure == Error {
-    var issue: String? {
-        if case .failure(let error) = self { return error.localizedDescription }
+    var issue: LocalizedStringResource? {
+        if case .failure(let error) = self { return .appIssue(error) }
         return nil
     }
 }

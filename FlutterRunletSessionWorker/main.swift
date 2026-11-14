@@ -1,7 +1,8 @@
 import Darwin
 import Foundation
 
-private func run(_ command: SessionCommand, lease: Int32, directory: Int32) -> SessionExit {
+private func run(_ command: SessionCommand, lease: Int32, directory: Int32, machineInput: Int32?,
+                 report: FileHandle) -> SessionExit {
     guard command.executable.hasPrefix("/"), fchdir(directory) == 0 else {
         return .launchFailed(ENOENT)
     }
@@ -17,18 +18,24 @@ private func run(_ command: SessionCommand, lease: Int32, directory: Int32) -> S
         command.executable, arguments: command.arguments, environment: command.environment,
         flags: Int16(POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETPGROUP)
     ) { actions in
-        let nullInput = posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
-        guard nullInput == 0 else { return nullInput }
+        let stdin = machineInput.map { posix_spawn_file_actions_adddup2(&actions, $0, STDIN_FILENO) }
+            ?? posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
+        guard stdin == 0 else { return stdin }
         for fd in [STDOUT_FILENO, STDERR_FILENO, lease] {
             let code = posix_spawn_file_actions_addinherit_np(&actions, fd)
             if code != 0 { return code }
         }
         return 0
     }
+    if let machineInput { close(machineInput) }
     let pid: pid_t
     switch spawn {
     case .failure(let error): return .launchFailed(error.code)
-    case .success(let child): pid = child
+    case .success(let child):
+        pid = child
+        // The trusted report pipe carries the actual spawn time before the exit report.
+        let started = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+        try? report.write(contentsOf: Data("\(started)\n".utf8))
     }
 
     var leader: SessionExit?
@@ -66,7 +73,8 @@ private func run(_ command: SessionCommand, lease: Int32, directory: Int32) -> S
 
 private func main() -> Int32 {
     let args = CommandLine.arguments.dropFirst().compactMap(Int32.init)
-    guard args.count == 4, CommandLine.arguments.count == 5, Set(args).count == 4,
+    guard [4, 5].contains(args.count), CommandLine.arguments.count == args.count + 1,
+          Set(args).count == args.count,
           args.allSatisfy({ $0 > STDERR_FILENO }) else { return 64 }
     let lease = args[0]
     let input = FileHandle(fileDescriptor: args[1], closeOnDealloc: true)
@@ -76,7 +84,8 @@ private func main() -> Int32 {
           let payload = try? input.readToEnd(),
           let command = try? JSONDecoder().decode(SessionCommand.self, from: payload) else { return 65 }
     try? input.close()
-    let result = run(command, lease: lease, directory: args[3])
+    let result = run(command, lease: lease, directory: args[3], machineInput: args.count == 5 ? args[4] : nil,
+                     report: report)
     guard let data = try? JSONEncoder().encode(result) else { return 66 }
     // The app can be gone by the time the worker finishes draining its group.
     try? report.write(contentsOf: data)

@@ -23,3 +23,21 @@ if [ -f "$state_dir/fail-after-$environment" ]; then
     printf 'Sample Firebase switch to %s failed after writing.\n' "$environment" >&2
     exit 1
 fi
+
+case "$environment" in
+    prod|test)
+        pause="$state_dir/pause-after-$environment"
+        if [ -f "$pause" ]; then
+            (set -C; : > "$state_dir/paused-after-$environment")
+            remaining=300
+            while [ -f "$pause" ]; do
+                if [ "$remaining" -eq 0 ]; then
+                    printf 'Sample Firebase switch to %s timed out waiting for the pause marker to be removed.\n' "$environment" >&2
+                    exit 1
+                fi
+                /bin/sleep 0.1
+                remaining=$((remaining - 1))
+            done
+        fi
+        ;;
+esac

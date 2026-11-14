@@ -2,16 +2,20 @@
 
 <img src="docs/design/assets/flutterrunlet-dock-128.png" alt="FlutterRunlet 应用图标" width="72" height="72">
 
-FlutterRunlet 是一个面向 macOS 的轻量 Flutter 调试工具，专为习惯用终端或其他编辑器写代码的开发者设计。它将复用 Flutter 项目里的 `.vscode/launch.json` 和 `.vscode/tasks.json`，让开发者无需打开 VS Code 或 Android Studio 就能启动和调试 Flutter 应用。
+FlutterRunlet 是面向 macOS 的轻量 Flutter 调试工具。它读取 Flutter 项目里的 `.vscode/launch.json` 和 `.vscode/tasks.json`，可以从原生主窗口或菜单栏启动和调试 Flutter 应用。
 
-**当前进度**　v0.1 的界面原型已通过设计验收，应用开发尚未开始，暂无可下载的安装包。最低系统版本暂定为 macOS 15，待实机验证。[开发路线图](docs/03-ROADMAP.md)
+**当前进度**　v0.1.0 已通过 G3 本地验收并归档，公开发布暂缓。最低部署目标为 macOS 15.0，实测环境为 macOS 26.7.1。macOS 15 运行兼容性未验证。[发布说明](docs/RELEASE-NOTES.md) · [本地归档](.planning/MILESTONES.md) · [v0.1 历史路线图](docs/03-ROADMAP.md)
 
-## v0.1 计划
+## 使用
 
 - 打开 Flutter 项目，从现有配置中选启动环境，再选模拟器或真机。支持选择 Flutter SDK 和使用项目的 FVM 配置。
 - 按项目配置执行启动前和调试后的任务。例如，启动时切换 Firebase 环境，停止后恢复，并在恢复失败时提示重试。
 - 运行、停止、热重载或热重启 Debug 会话，查看状态和日志，并在默认浏览器中打开当前会话的 Flutter DevTools 或 Inspector。
 - 从原生主窗口或 macOS 菜单栏操作同一个会话。界面提供简体中文和 English，并适配系统深浅色。
+
+在 Flutter 设置中确认 SDK 和设备工具链。打开项目后选择 Debug 配置和可用设备，点击「运行」。结束 prod 会话后，等应用确认原后置任务完成。若应用提示环境仍需恢复，打开待恢复项目并重试原任务。
+
+配置支持范围见技术契约。Profile、Release、后台常驻任务、复杂交互任务和部分 VS Code 扩展变量会显示不可用原因。[技术契约](docs/02-TECHNICAL.md)
 
 ## 配置示例与设计
 
@@ -21,4 +25,4 @@ FlutterRunlet 是一个面向 macOS 的轻量 Flutter 调试工具，专为习�
 
 ## 许可证
 
-本仓库采用 MIT 许可证。应用计划在审查后复用 Flutter GUI Runner 的部分实现，并保留相应的许可证和版权声明。[许可证](LICENSE) · [上游项目](https://github.com/huseyiniriss/flutter-gui-runner)
+本仓库采用 MIT 许可证。应用关于窗口列出 Flutter GUI Runner 的上游归属和版权。[许可证](LICENSE) · [上游项目](https://github.com/huseyiniriss/flutter-gui-runner)

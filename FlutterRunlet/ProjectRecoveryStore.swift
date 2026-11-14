@@ -31,20 +31,20 @@ struct ProjectRecoveryStore: Sendable {
         self.check = check
         let installationLock = open(self.directory.appending(path: "installation.lock").path,
                                     O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0o600)
-        guard installationLock >= 0 else { throw SessionIssue("无法打开恢复存储安装锁") }
+        guard installationLock >= 0 else { throw SessionIssue(localized: "Could not open the recovery storage installation lock") }
         defer { close(installationLock) }
         var status: Int32
         repeat { status = flock(installationLock, LOCK_EX) } while status != 0 && errno == EINTR
-        guard status == 0 else { throw SessionIssue("无法锁定恢复存储") }
+        guard status == 0 else { throw SessionIssue(localized: "Could not lock the recovery storage") }
 
         let keyURL = self.directory.appending(path: "authentication.key")
         if let bytes = try Self.privateData(keyURL) {
-            guard bytes.count == 32 else { throw SessionIssue("恢复记录密钥损坏") }
+            guard bytes.count == 32 else { throw SessionIssue(localized: "The recovery record key is damaged") }
             key = SymmetricKey(data: bytes)
         } else {
             let records = try FileManager.default.contentsOfDirectory(atPath: self.directory.path)
             guard !records.contains(where: { $0.hasSuffix(".risk") }) else {
-                throw SessionIssue("待恢复记录缺少原安装密钥")
+                throw SessionIssue(localized: "Pending recovery records have no original installation key")
             }
             let newKey = SymmetricKey(size: .bits256)
             try Self.replace(keyURL, data: newKey.withUnsafeBytes { Data($0) })
@@ -52,7 +52,7 @@ struct ProjectRecoveryStore: Sendable {
         }
         // Also validate durability if an earlier instance created the key but its sync failed.
         let keyFD = open(keyURL.path, O_RDWR | O_NOFOLLOW | O_CLOEXEC)
-        guard keyFD >= 0 else { throw SessionIssue("无法重新打开恢复密钥") }
+        guard keyFD >= 0 else { throw SessionIssue(localized: "Could not reopen the recovery key") }
         defer { close(keyFD) }
         try Self.syncDirectory(self.directory)
         try Self.syncFile(keyFD)
@@ -62,12 +62,12 @@ struct ProjectRecoveryStore: Sendable {
         let parent = url.deletingLastPathComponent().resolvingSymlinksInPath()
         let target = parent.appending(path: url.lastPathComponent)
         guard mkdir(target.path, 0o700) == 0 || errno == EEXIST else {
-            throw SessionIssue("无法创建私有恢复目录")
+            throw SessionIssue(localized: "Could not create the private recovery directory")
         }
         var info = stat()
         guard lstat(target.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR,
               info.st_uid == geteuid(), info.st_mode & 0o077 == 0 else {
-            throw SessionIssue("私有目录的身份或权限无效")
+            throw SessionIssue(localized: "The private directory identity or permissions are invalid")
         }
         try syncDirectory(parent)
         return target
@@ -124,7 +124,7 @@ struct ProjectRecoveryStore: Sendable {
         try verifyProject(expected, lease.project)
         let url = recordURL(forRecordedPath: expected.projectPath)
         guard try read(url) == expected else {
-            throw SessionIssue("待清除的恢复记录缺失或已变化")
+            throw SessionIssue(localized: "The recovery record to clear is missing or has changed")
         }
 
         // Leave the original record in place until the authenticated completion is durable.
@@ -177,7 +177,7 @@ struct ProjectRecoveryStore: Sendable {
             guard let record = try read(url) else { return nil }
             let expected = recordURL(forRecordedPath: record.projectPath)
             guard url.lastPathComponent == expected.lastPathComponent else {
-                throw SessionIssue("恢复记录文件名与项目不匹配")
+                throw SessionIssue(localized: "The recovery record filename does not match the project")
             }
             return record
         }
@@ -194,41 +194,42 @@ struct ProjectRecoveryStore: Sendable {
             let envelope = try JSONDecoder().decode(Envelope.self, from: data)
             guard HMAC<SHA256>.isValidAuthenticationCode(
                 envelope.authentication, authenticating: Data("record\0".utf8) + envelope.payload, using: key
-            ) else { throw SessionIssue("恢复记录认证失败") }
+            ) else { throw SessionIssue(localized: "Recovery record authentication failed") }
             let record = try JSONDecoder().decode(ProjectRecoveryRecord.self, from: envelope.payload)
             guard record.version == 1, record.projectPath.hasPrefix("/"), !record.taskLabel.isEmpty else {
-                throw SessionIssue("恢复记录格式或版本无效")
+                throw SessionIssue(localized: "The recovery record format or version is invalid")
             }
             return hasDurableCompletion(for: record, at: url) ? nil : record
         } catch {
-            throw SessionIssue("恢复记录损坏或认证失败")
+            throw SessionIssue(localized: "The recovery record is damaged or failed authentication")
         }
     }
 
     func verifyProject(_ record: ProjectRecoveryRecord, _ project: URL) throws {
         guard record.projectPath == (try ProjectLocation.directory(project)).path,
               record.projectIdentity == (try ProjectLocation.identity(project)) else {
-            throw SessionIssue("恢复记录的项目目录已移动或身份已变化")
+            throw SessionIssue(localized: "The project directory in the recovery record moved or changed identity")
         }
     }
 
     func verifyDefinition(_ definition: PreparedTask.Definition, environment: [String: String],
                           record: ProjectRecoveryRecord) throws {
         guard authenticate(try encoded(definition), scope: "definition") == record.definition else {
-            throw SessionIssue("原恢复任务定义已变化。请还原命令、参数、工作目录和任务环境后重试")
+            throw SessionIssue(localized: "The original recovery task changed. Restore its command, arguments, working directory and task environment, then try again")
         }
         let changed = record.variables.keys.sorted().filter { name in
             guard let value = environment[name] else { return true }
             return authenticate(Data(value.utf8), scope: "variable:\(name)") != record.variables[name]
         }
         if !changed.isEmpty {
-            throw SessionIssue("恢复任务引用的环境变量已变化：\(changed.joined(separator: "、"))")
+            let variableNames = changed.joined(separator: ", ")
+            throw SessionIssue(localized: "Environment variables referenced by the recovery task changed: \(variableNames)")
         }
     }
 
     func verifyExecution(_ task: PreparedTask, record: ProjectRecoveryRecord) throws {
         guard authenticate(try execution(task), scope: "execution") == record.execution else {
-            throw SessionIssue("原恢复任务的可执行文件、参数或工作目录解析结果已变化")
+            throw SessionIssue(localized: "The executable, arguments, or working directory resolved by the original recovery task changed")
         }
     }
 
@@ -255,12 +256,12 @@ struct ProjectRecoveryStore: Sendable {
         let access = writable ? O_RDWR : O_RDONLY
         let fd = open(url.path, access | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
         if fd == -1 && errno == ENOENT { return nil }
-        guard fd >= 0 else { throw SessionIssue("无法读取私有恢复文件") }
+        guard fd >= 0 else { throw SessionIssue(localized: "Could not read the private recovery file") }
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_uid == geteuid(),
               info.st_mode & 0o077 == 0, info.st_nlink == 1, info.st_size <= 1_048_576 else {
-            throw SessionIssue("私有恢复文件身份或长度无效")
+            throw SessionIssue(localized: "The private recovery file identity or length is invalid")
         }
         return handle
     }
@@ -272,7 +273,7 @@ struct ProjectRecoveryStore: Sendable {
         let parent = url.deletingLastPathComponent()
         let temporary = parent.appending(path: ".\(UUID().uuidString).tmp")
         let fd = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0o600)
-        guard fd >= 0 else { throw SessionIssue("无法创建临时恢复文件") }
+        guard fd >= 0 else { throw SessionIssue(localized: "Could not create the temporary recovery file") }
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         defer {
             try? handle.close()
@@ -281,7 +282,7 @@ struct ProjectRecoveryStore: Sendable {
         try handle.write(contentsOf: data)
         try beforeDataSync()
         try syncFile(fd)
-        guard rename(temporary.path, url.path) == 0 else { throw SessionIssue("无法原子提交恢复文件") }
+        guard rename(temporary.path, url.path) == 0 else { throw SessionIssue(localized: "Could not atomically save the recovery file") }
         try beforeDirectorySync()
         try syncDirectory(parent)
         try syncFile(fd)
@@ -289,16 +290,16 @@ struct ProjectRecoveryStore: Sendable {
 
     private static func syncDirectory(_ url: URL) throws {
         let fd = open(url.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard fd >= 0 else { throw SessionIssue("无法打开待同步的目录") }
+        guard fd >= 0 else { throw SessionIssue(localized: "Could not open the directory for syncing") }
         defer { close(fd) }
         var result: Int32
         repeat { result = fsync(fd) } while result == -1 && errno == EINTR
-        guard result == 0 else { throw SessionIssue("恢复目录项同步失败") }
+        guard result == 0 else { throw SessionIssue(localized: "Could not sync the recovery directory entry") }
     }
 
     private static func syncFile(_ fd: Int32) throws {
         var result: Int32
         repeat { result = fcntl(fd, F_FULLFSYNC, 0) } while result == -1 && errno == EINTR
-        guard result == 0 else { throw SessionIssue("恢复文件持久同步失败") }
+        guard result == 0 else { throw SessionIssue(localized: "Could not persist the recovery file to disk") }
     }
 }

@@ -1,6 +1,6 @@
 # 02 · 技术设计与 VS Code 配置兼容
 
-状态为 **G0 通过后的实施契约**。正式应用尚未验证。P1 审查 Flutter GUI Runner、可复用边界、许可证、macOS 15 API 兼容性和 Xcode 工具链。
+本文记录 v0.1 的实施契约。应用已通过 G3 本地验收。最低部署目标为 macOS 15.0，macOS 15 运行兼容性未验证。[G3 验收记录](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
 ## 1. 架构原则
 
@@ -20,8 +20,7 @@ flowchart LR
 
 - 使用 Swift 6，SwiftUI 优先，AppKit 按需补充。主窗口与菜单栏复用同一个会话状态对象，使用原生窗口和控件。系统控件与画板有差异时遵循 macOS 原生行为，并在对应 Phase 的验收记录中注明差异与验证结果。
 - 不使用 VS Code Extension Host，不引入 Dart/Flutter VS Code 插件运行时；底层调用 Flutter SDK、Dart SDK、shell 任务与系统浏览器。
-- 复用上游已有的 `flutter run`、设备选择、PID/信号热重载、日志截流、DevTools 打开能力。**先确认其可靠性，不仅凭 README 假设功能无误。**
-- 导入前核查 Flutter GUI Runner 源码和所用依赖的许可证。复用上游代码时须保留原 MIT 许可证和版权声明。
+- P1 审计了 Flutter GUI Runner 的实现和许可证。FlutterRunlet 参考其共享场景结构并独立实现，实际导入清单无上游源码、资源或依赖。今后若导入上游代码，须保留原 MIT 许可证和版权声明。[P1 上游审计](../.planning/milestones/v0.1-phases/01-upstream-audit-ui-shell/01-UPSTREAM-AUDIT.md)
 - 禁止用户项目配置的隐式修改。选择项（最近项目/设备/界面语言）是应用偏好，不是第二套 dev/test/prod 配置。
 
 ## 2. `launch.json` 基本契约（v0.1）
@@ -119,7 +118,7 @@ stateDiagram-v2
 
 - Firebase 配置是项目级共享可变状态。每个项目至多一个活跃的、受 FlutterRunlet 管理的会话与环境切换操作（项目路径规范化后加锁）。项目切换、启动新环境及退出应用都必须先解决前一会话的终止/后置恢复。
 - `prod` 启动前记录「可能需要恢复 test」的**持久风险标记**；脚本成功/失败、进程崩溃或 App 退出时按规则清除或保留。恢复完成之前不可报“已安全结束”。
-- 正常 Stop：优雅结束进程（可优先复用上游实现），等待退出，再运行 `postDebugTask`。异常终止也应尝试恢复；App 被 `kill -9` 或断电时做不到立即执行，**下次启动检测风险标记并提供明确恢复入口**。
+- 正常停止时，优雅结束受管会话，确认进程组退出后再运行 `postDebugTask`。异常终止也应尝试恢复。App 被 `kill -9` 或断电后，下次启动检测风险标记并提供明确恢复入口。
 - 对于明确指定的 `postDebugTask`，不得私自换成其他任务；项目指定的 prod → test 恢复必须按原任务执行。
 - 会话日志中敏感 VM Service URL 含 token；不应默认长期持久化未遮罩的完整 URL。日志内容和折叠状态分别管理。清空后折叠、展开时，旧日志保持清空，新收到的输出可正常显示。
 
@@ -129,12 +128,12 @@ SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FV
 
 - 项目 `.fvmrc` 与 `.fvm/flutter_sdk` 的存在不等于 SDK 可用；执行 `flutter --version` 验证真实路径，必要时支持 `fvm flutter`。
 - 有明确的项目 SDK 约束但该 SDK 缺失时，应提示并阻止启动，不能静默切换到另一版本。
-- 设备通过 `flutter devices` 等官方 CLI 获取；设备名称展示原样。支持从列表刷新并选择可用设备；模拟器未启动时可提供启动入口（以审查上游实现为准）。
+- 设备通过 `flutter devices` 获取，名称原样展示。支持刷新和选择可用设备，并从设备选择入口启动可用的 iOS 模拟器。
 - `sample-flutter-app(physical)` 是**普通命名配置**，由用户实际选择设备；不从字符串推断必须真机。
 
 ## 6. `flutter run` / DevTools
 
-- 主运行方式：`flutter run` Debug，并复用上游管理子进程、PID 文件与 `SIGUSR1`/`SIGUSR2` 的能力（以实际审查为准）。
+- 内嵌 worker 启动并管理 `flutter run --machine --debug` 进程。热重载和热重启通过当前 Flutter 进程的 machine 协议发送 `app.restart`，由 `fullRestart` 区分。停止时在取得当前 `appId` 后通过同一通道请求 `app.stop`。
 - Run/Stop/Reload/Restart 的启用条件与同一会话状态一致，重复点击不得产生两个运行进程。
 - 从已启动实例的输出中提取 VM Service / DevTools URL，浏览器打开的 URL 连接**当前会话**；新会话必须重新绑定。
 - Inspector 直达链接需要在目标 Flutter/DevTools 版本实测；若不可靠，打开已连接的 DevTools 并提示用户进入 Inspector，不能伪造一个固定路由。
@@ -142,9 +141,9 @@ SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FV
 
 ## 7. 设置、语言和图标
 
-- 「通用」：语言、登录时启动、启动后显示主窗口、记住最近项目和 DevTools 自动打开。只为已实现的功能提供开关。界面默认跟随系统语言，手动切换后整个界面一致更新。深浅色随系统外观切换。
+- 「通用」：语言、登录时启动、启动后显示主窗口、记住最近项目。启动偏好默认值见 [UI 规格](design/UI-SPEC.md#3-设置窗口通用)。通过会话中的按钮手动打开 DevTools 或 Inspector。界面默认跟随系统语言，手动切换后整个界面一致更新。深浅色随系统外观切换。
 - 「Flutter」：SDK 来源、路径、当前 Flutter/Dart 版本、FVM 优先、`flutter doctor` 简要诊断；不负责安装/升级 SDK。
-- 「关于」：应用身份、真实版本及构建号、项目链接、许可证和上游版权。项目主页、文档和项目许可证地址确认后配置，未配置时显示明确占位。
+- 「关于」：显示应用身份、实际版本及构建号、许可证和上游版权。项目主页、README 和项目许可证链接交给默认浏览器打开。G3 已核对三个目标，匿名访问在公开发布时复验。
 - app icon 与 status-bar icon 从同一 Figma 主 glyph 分别导出；后者采用 macOS template image，不直接使用带底色的方形位图。
 
 ## 8. 测试重点（Phase 设计依据）

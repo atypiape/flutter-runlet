@@ -4,6 +4,8 @@ import XCTest
 
 @MainActor
 final class ProjectConfigurationTests: XCTestCase {
+    private let chinese = Locale(identifier: "zh-Hans")
+
     func testPublicLaunchesKeepNamesArgumentsAndSeparateEnvironments() throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -41,9 +43,19 @@ final class ProjectConfigurationTests: XCTestCase {
             ("{\r\n  /* 未闭合", "第 2 行第 3 列"),
         ] {
             try writeLaunch(source, fixture)
-            let issue = configuration(fixture).launchIssue ?? ""
+            let issue = configuration(fixture).launchIssue.map { chinese.appString($0) } ?? ""
             XCTAssertTrue(issue.contains("launch.json") && issue.contains(location), issue)
         }
+    }
+
+    func testLoadedJSONCErrorUsesCurrentLanguageAndOriginalLocation() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        try writeLaunch("{\r\n  /* unfinished", fixture)
+        let issue = try XCTUnwrap(configuration(fixture).launchIssue)
+        let english = Locale(identifier: "en")
+        XCTAssertEqual(chinese.appString(issue), "launch.json 第 2 行第 3 列：块注释未闭合")
+        XCTAssertEqual(english.appString(issue), "launch.json, line 2, column 3: Unterminated block comment")
     }
 
     func testDefineConflictModesAndOverridesRemainVisibleButUnavailable() throws {
@@ -74,7 +86,7 @@ final class ProjectConfigurationTests: XCTestCase {
         XCTAssertEqual(usable.deviceID, "设备 1")
         XCTAssertEqual(choices.compactMap(\.launch).map(\.name), ["可用"])
         XCTAssertEqual(choices.suffix(2).map(\.name), ["重名", "重名"])
-        XCTAssertTrue(choices.suffix(2).allSatisfy { $0.issue?.contains("重名") == true })
+        XCTAssertTrue(choices.suffix(2).allSatisfy { $0.issue.map { chinese.appString($0) }?.contains("重名") == true })
     }
 
     func testMacOSModeOverrideCannotDispatchPreTask() async throws {
@@ -90,7 +102,7 @@ final class ProjectConfigurationTests: XCTestCase {
         session.select("macOS Profile")
         XCTAssertEqual(session.selection?.name, "macOS Profile")
         XCTAssertFalse(session.canRun)
-        XCTAssertTrue(session.displayMessage?.contains("osx") == true)
+        XCTAssertTrue(session.displayMessage.map { chinese.appString($0) }?.contains("osx") == true)
         session.run()
         await session.waitUntilIdle()
         XCTAssertEqual(try fixture.marker(), "test\n")
@@ -171,7 +183,7 @@ final class ProjectConfigurationTests: XCTestCase {
         XCTAssertEqual(broken.choices.compactMap(\.launch).map(\.name), ["可用"])
         try FileManager.default.removeItem(at: fixture.config("tasks"))
         let missing = configuration(fixture)
-        XCTAssertTrue(missing.taskIssue?.contains("缺失") == true)
+        XCTAssertTrue(missing.taskIssue.map { chinese.appString($0) }?.contains("缺失") == true)
         XCTAssertEqual(missing.choices.compactMap(\.launch).map(\.name), ["可用"])
     }
 

@@ -40,22 +40,23 @@ Figma 的设备、任务、日志复制和浏览器操作使用演示反馈。�
 
 ### 原生控件实测要点
 
-在 macOS 26.7.1、Apple Silicon、macOS SDK 27.0 上运行独立 SwiftUI 实验，核对了以下行为。macOS 15 仍需实机验证。
+G0 在 macOS 26.7.1、Apple Silicon、macOS SDK 27.0 上运行独立 SwiftUI 实验，核对了以下行为。最终部署目标与运行验收范围见下表。
 
 - 原生窗口控制按钮和工具栏随窗口激活状态变化。Run 使用系统强调色，运行中禁用 Run、启用 Stop。
 - 菜单样式 Picker 的单项加 `.disabled()` 后曾仍可选中。不可用配置须可见并说明原因，执行层须复验。实验中原生 Menu 的禁用命令无法触发。
-- 普通锚定 Popover 可用 Escape 或点外部关闭，关闭后焦点是否返回锚点仍待验证。
+- 普通锚定 Popover 可用 Escape 或点外部关闭。G0 实验未核实关闭后焦点是否返回锚点。
 - `MenuBarExtra(.window)` 与主窗共享操作状态。实测点图标或面板外可关闭，面板外观跟随系统。Escape 关闭未确认为 v0.1 要求。
 
-## 开发待处理项
+## G0 交接事项及实施结果
 
-| 项目 | 处理与验收 |
+| 项目 | 实施与验收结果 |
 | --- | --- |
-| 日志清空状态 | P3 实现并验证清空后折叠、展开不会恢复旧日志，新输出正常追加。P5 回归。 |
-| macOS 15 兼容性 | P1 审查上游和原生 API 可用性，验证暂定最低版本与所需替代路径。G3 在目标系统实测。 |
-| 关于窗口链接 | 确认项目主页、使用文档及 FlutterRunlet 许可证正式地址。P4 接入已确认地址，其他继续显示待配置。 |
-| 原生窗口与控件 | P1/P4 使用系统窗口结构与原生控件。应用专属组件依照已确认的 Figma 布局。 |
-| 设计偏差 | 系统控件与 Figma 不一致时，按 macOS 原生行为实现，并在对应 Phase 验收记录中写明位置、差异和验证结果。 |
+| 日志清空状态 | P3 验证折叠和展开后旧日志保持清空，新日志正常追加。G3 已回归（A30）。 |
+| macOS 15.0 最低部署目标 | P1 审查 API 可用性并验证构建。G3 核对主程序和内嵌 worker 的最低部署版本。实机及虚拟机运行验收已取消，macOS 15 运行兼容性未验证（A31）。 |
+| 关于窗口链接 | P4 接入项目主页、README 和项目许可证。G3 验证默认浏览器打开的目标（A26）。匿名访问在公开发布时复验。 |
+| 原生窗口、控件与设计偏差 | P1/P4 采用系统窗口结构和控件。P4 记录原生差异，G3 复验受影响的界面。 |
+
+[P4 验收记录](../../.planning/milestones/v0.1-phases/04-macos/04-P4-ACCEPTANCE.md) · [G3 验收记录](../../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
 ## 历史与交付资产
 
@@ -63,4 +64,4 @@ Figma 的设备、任务、日志复制和浏览器操作使用演示反馈。�
 
 品牌 Figma 页与[导出资产](assets/)保留矢量主标志、App/Dock 图标、同源单色菜单栏 Template。关于窗口沿用[上游 Flutter GUI Runner 许可](https://github.com/huseyiniriss/flutter-gui-runner/blob/main/LICENSE)。
 
-G0 已通过。GSD 初始化输入、建议 Phase 及验收门槛见 [v0.1 开发路线](../03-ROADMAP.md)。
+GSD 初始化输入、建议 Phase 和当时的验收门槛见 [v0.1 历史路线图](../03-ROADMAP.md)。

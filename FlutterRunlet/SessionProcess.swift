@@ -14,12 +14,12 @@ enum SessionExit: Codable, Equatable, Sendable {
     case launchFailed(Int32)
     case unconfirmed
 
-    var detail: String {
+    var detail: LocalizedStringResource {
         switch self {
-        case .exited(let code): "退出码 \(code)"
-        case .signaled(let signal): "信号 \(signal)"
-        case .launchFailed(let code): "进程启动失败（\(code)）"
-        case .unconfirmed: "无法确认受管进程的退出结果"
+        case .exited(let code): "Exit code \(String(code))"
+        case .signaled(let signal): "Signal \(String(signal))"
+        case .launchFailed(let code): "Process launch failed (\(String(code)))"
+        case .unconfirmed: "Could not confirm that the managed process exited"
         }
     }
 
@@ -36,9 +36,22 @@ struct SessionResult: Sendable {
 }
 
 struct SessionIssue: Error, LocalizedError, Equatable, Sendable {
-    let message: String
-    init(_ message: String) { self.message = message }
-    var errorDescription: String? { message }
+    let resource: LocalizedStringResource
+
+    init(_ message: String) { resource = .verbatim(message) }
+    init(localized resource: LocalizedStringResource) { self.resource = resource }
+
+    var errorDescription: String? { String(localized: resource) }
+}
+
+extension LocalizedStringResource {
+    static func verbatim(_ value: String) -> Self {
+        .init("verbatim", defaultValue: "\(value)")
+    }
+
+    static func appIssue(_ error: any Error) -> Self {
+        (error as? SessionIssue)?.resource ?? .verbatim(error.localizedDescription)
+    }
 }
 
 final class ProjectLease: Sendable {
@@ -49,25 +62,25 @@ final class ProjectLease: Sendable {
 
     init(project: URL, lockDirectory: URL) throws {
         let root = open(project.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard root >= 0 else { throw SessionIssue("无法打开项目目录") }
+        guard root >= 0 else { throw SessionIssue(localized: "Could not open the project directory") }
         var info = stat()
         guard fstat(root, &info) == 0 else {
             close(root)
-            throw SessionIssue("无法确认项目目录身份")
+            throw SessionIssue(localized: "Could not verify the project directory identity")
         }
         let identity = "\(info.st_dev)-\(info.st_ino)"
         let path = lockDirectory.appending(path: "\(identity).lock").path
         let fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else {
             close(root)
-            throw SessionIssue("无法打开项目锁")
+            throw SessionIssue(localized: "Could not open the project lock")
         }
         guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
               info.st_uid == geteuid(), info.st_mode & 0o077 == 0, info.st_nlink == 1,
               flock(fd, LOCK_EX | LOCK_NB) == 0 else {
             close(fd)
             close(root)
-            throw SessionIssue("项目正由另一个会话使用，或项目锁不可用")
+            throw SessionIssue(localized: "The project is in use by another session or the project lock is unavailable")
         }
         self.project = project
         self.identity = identity
@@ -80,7 +93,7 @@ final class ProjectLease: Sendable {
         var info = stat()
         guard lstat(project.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR,
               "\(info.st_dev)-\(info.st_ino)" == identity else {
-            throw SessionIssue("项目目录已移动或身份已变化")
+            throw SessionIssue(localized: "The project directory moved or changed identity")
         }
     }
 
@@ -89,7 +102,7 @@ final class ProjectLease: Sendable {
         let directory = path == project.path
             ? fcntl(projectDescriptor, F_DUPFD_CLOEXEC, STDERR_FILENO + 1)
             : open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard directory >= 0 else { throw SessionIssue("任务工作目录不可用") }
+        guard directory >= 0 else { throw SessionIssue(localized: "The task working directory is unavailable") }
         do {
             try verifyProject()
             return directory
@@ -154,7 +167,11 @@ struct SessionProcessRunner: Sendable {
     }
 
     @MainActor
-    func start(_ command: SessionCommand, lease: ProjectLease) throws -> SessionProcess {
+    func start(_ command: SessionCommand, lease: ProjectLease,
+               output receiveOutput: SessionProcess.Output? = nil,
+               outputGeneration: @escaping @Sendable () -> UInt64 = { 0 },
+               machineProtocol: Bool = false,
+               childStarted: SessionProcess.Started? = nil) throws -> SessionProcess {
         let payload = try JSONEncoder().encode(command)
         let directoryFD = try lease.openWorkingDirectory(command.directory)
         defer { close(directoryFD) }
@@ -163,15 +180,26 @@ struct SessionProcessRunner: Sendable {
         let output = Pipe()
         let errors = Pipe()
         let report = Pipe()
+        let machineInput = machineProtocol ? Pipe() : nil
+        let machineReader = machineInput?.fileHandleForReading
+        let machineWriter = machineInput?.fileHandleForWriting
         let inputFD = input.fileHandleForReading.fileDescriptor
         let reportFD = report.fileHandleForWriting.fileDescriptor
         let handle = input.fileHandleForWriting
         guard fcntl(handle.fileDescriptor, F_SETNOSIGPIPE, 1) == 0 else {
-            throw SessionIssue("无法配置监督进程管道")
+            throw SessionIssue(localized: "Could not configure the supervisor process pipe")
         }
+        if let machineWriter {
+            let fd = machineWriter.fileDescriptor
+            guard fcntl(fd, F_SETNOSIGPIPE, 1) == 0, fcntl(fd, F_SETFL, O_NONBLOCK) == 0 else {
+                throw SessionIssue(localized: "Could not configure the Flutter command pipe")
+            }
+        }
+        let machineFD = machineReader.map { [$0.fileDescriptor] } ?? []
+        let inherited = [lease.descriptor, inputFD, reportFD, directoryFD] + machineFD
         let result = SessionSpawn.spawn(
             worker.path,
-            arguments: [String(lease.descriptor), String(inputFD), String(reportFD), String(directoryFD)],
+            arguments: inherited.map(String.init),
             environment: [:], flags: Int16(POSIX_SPAWN_CLOEXEC_DEFAULT)
         ) { actions in
             for (source, target) in [
@@ -182,13 +210,14 @@ struct SessionProcessRunner: Sendable {
                 let code = posix_spawn_file_actions_adddup2(&actions, source, target)
                 if code != 0 { return code }
             }
-            for fd in [lease.descriptor, inputFD, reportFD, directoryFD] {
+            for fd in inherited {
                 let code = posix_spawn_file_actions_addinherit_np(&actions, fd)
                 if code != 0 { return code }
             }
             return 0
         }
         let pid = try result.get()
+        try? machineReader?.close()
         for handle in [control.fileHandleForReading, input.fileHandleForReading,
                        output.fileHandleForWriting, errors.fileHandleForWriting, report.fileHandleForWriting] {
             try? handle.close()
@@ -200,23 +229,36 @@ struct SessionProcessRunner: Sendable {
 
         return SessionProcess(pid: pid, control: control.fileHandleForWriting,
                               stdout: output.fileHandleForReading, stderr: errors.fileHandleForReading,
-                              report: report.fileHandleForReading)
+                              report: report.fileHandleForReading,
+                              machineInput: machineWriter, output: receiveOutput, outputGeneration: outputGeneration,
+                              childStarted: childStarted)
     }
 }
 
 @MainActor
 final class SessionProcess {
+    typealias Output = @MainActor @Sendable (Data, Bool, UInt64) -> Void
+    typealias Started = @MainActor @Sendable (UInt64) -> Void
+
     private let control: FileHandle
+    private var machineInput: FileHandle?
     private let result: Task<SessionResult, Never>
     let pid: pid_t
 
-    init(pid: pid_t, control: FileHandle, stdout: FileHandle, stderr: FileHandle, report: FileHandle) {
+    init(pid: pid_t, control: FileHandle, stdout: FileHandle, stderr: FileHandle, report: FileHandle,
+         machineInput: FileHandle?, output: Output?, outputGeneration: @escaping @Sendable () -> UInt64,
+         childStarted: Started?) {
         self.pid = pid
         self.control = control
+        self.machineInput = machineInput
         result = Task.detached {
-            async let out = Self.drain(stdout, limit: 64 * 1024)
-            async let err = Self.drain(stderr, limit: 64 * 1024)
-            async let status = Self.drain(report, limit: 1024)
+            // Wait for the private start receipt before tagging any output with a log generation.
+            // The worker reports as soon as spawn returns, independently of stdout/stderr.
+            let start = await Self.readStartReport(report)
+            if let time = start?.time { await childStarted?(time) }
+            async let out = Self.drainOutput(stdout, isError: false, output: output, generation: outputGeneration)
+            async let err = Self.drainOutput(stderr, isError: true, output: output, generation: outputGeneration)
+            async let status = Self.readExitReport(report, prefix: start?.exitPrefix, started: start?.time != nil)
             let workerOK = await withCheckedContinuation { continuation in
                 DispatchQueue.global(qos: .utility).async {
                     var status: Int32 = 0
@@ -225,16 +267,27 @@ final class SessionProcess {
                     continuation.resume(returning: reaped == pid && status == 0)
                 }
             }
-            let decoded = try? await JSONDecoder().decode(SessionExit.self, from: status)
             return await SessionResult(
-                exit: workerOK ? decoded ?? .unconfirmed : .unconfirmed,
+                exit: workerOK ? status ?? .unconfirmed : .unconfirmed,
                 stdout: String(decoding: out, as: UTF8.self),
                 stderr: String(decoding: err, as: UTF8.self)
             )
         }
     }
 
-    func stop() { try? control.close() }
+    func send(_ message: Data) -> Bool {
+        // Keep each non-blocking write atomic, even if Flutter is busy building.
+        guard let machineInput, !message.isEmpty, message.count <= PIPE_BUF else { return false }
+        return message.withUnsafeBytes { bytes in
+            write(machineInput.fileDescriptor, bytes.baseAddress, bytes.count) == bytes.count
+        }
+    }
+
+    func stop() {
+        try? control.close()
+        try? machineInput?.close()
+        machineInput = nil
+    }
 
     func wait() async -> SessionResult {
         let value = await result.value
@@ -252,6 +305,58 @@ final class SessionProcess {
                     if tail.count > limit { tail.removeFirst(tail.count - limit) }
                 }
                 continuation.resume(returning: tail)
+            }
+        }
+    }
+
+    nonisolated private static func drainOutput(_ handle: FileHandle, isError: Bool, output: Output?,
+                                                generation: @escaping @Sendable () -> UInt64) async -> Data {
+        guard let output else { return await drain(handle, limit: 64 * 1024) }
+        defer { try? handle.close() }
+        while let chunk = await readChunk(handle.fileDescriptor, generation: generation) {
+            await output(chunk.data, isError, chunk.generation)
+        }
+        return Data()
+    }
+
+    nonisolated private static func readStartReport(_ handle: FileHandle) async -> (time: UInt64?, exitPrefix: Data)? {
+        var bytes = Data()
+        while let chunk = await readChunk(handle.fileDescriptor) {
+            guard bytes.count + chunk.data.count <= 1024 else { return nil }
+            bytes.append(chunk.data)
+            if let newline = bytes.firstIndex(of: 0x0a) {
+                guard let time = UInt64(String(decoding: bytes[..<newline], as: UTF8.self)), time > 0 else { return nil }
+                bytes.removeSubrange(...newline)
+                return (time, bytes)
+            }
+        }
+        // Failed spawns send the exit result alone.
+        return (nil, bytes)
+    }
+
+    nonisolated private static func readExitReport(_ handle: FileHandle, prefix: Data?, started: Bool) async -> SessionExit? {
+        defer { try? handle.close() }
+        guard var bytes = prefix else { return nil }
+        while let chunk = await readChunk(handle.fileDescriptor) {
+            guard bytes.count + chunk.data.count <= 1024 else { return nil }
+            bytes.append(chunk.data)
+        }
+        guard let exit = try? JSONDecoder().decode(SessionExit.self, from: bytes) else { return nil }
+        switch exit {
+        case .launchFailed: return started ? nil : exit
+        default: return started ? exit : nil
+        }
+    }
+
+    nonisolated private static func readChunk(_ fd: Int32, generation: @escaping @Sendable () -> UInt64 = { 0 })
+        async -> (data: Data, generation: UInt64)? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                var bytes = [UInt8](repeating: 0, count: 4096)
+                var count: Int
+                repeat { count = read(fd, &bytes, bytes.count) } while count == -1 && errno == EINTR
+                // Tag bytes before queuing delivery to the main actor.
+                continuation.resume(returning: count > 0 ? (Data(bytes.prefix(count)), generation()) : nil)
             }
         }
     }

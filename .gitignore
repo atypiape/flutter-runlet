@@ -1,4 +1,5 @@
 .DS_Store
+xcuserdata/
 
 # 本地私有审计材料与示例运行产物
 /.private/

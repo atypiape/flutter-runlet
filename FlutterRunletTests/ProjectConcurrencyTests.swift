@@ -31,13 +31,13 @@ final class ProjectConcurrencyTests: XCTestCase {
         XCTAssertTrue(session.isBusy)
         competitor.run()
         XCTAssertFalse(competitor.isBusy)
-        XCTAssertTrue(competitor.message?.contains("项目锁") == true)
+        XCTAssertTrue(competitor.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("项目锁") == true)
 
         let retry = fixture.session(store: store)
         XCTAssertTrue(retry.openRecoveryProject())
         retry.retryRecovery()
         XCTAssertFalse(retry.isBusy)
-        XCTAssertTrue(retry.message?.contains("项目锁") == true)
+        XCTAssertTrue(retry.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("项目锁") == true)
         XCTAssertEqual(try fixture.marker(), "prod\n")
 
         try Data().write(to: fixture.state("release-descendant"))
