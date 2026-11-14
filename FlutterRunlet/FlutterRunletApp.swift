@@ -225,8 +225,9 @@ struct FlutterRunletApp: App {
                     showFlutterSettings()
                 },
                 prepareForProjectPicker: {
-                    panelWindow.close()
+                    let restore = panelWindow.suspendForProjectPicker()
                     Self.showMainWindow(openWindow: openWindow)
+                    return restore
                 }
             )
             .background(PanelWindowAnchor(reference: panelWindow, debugKeys: debugKeys))
@@ -409,6 +410,16 @@ struct FlutterRunletApp: App {
 
         func close() {
             anchor?.window?.close()
+        }
+
+        func suspendForProjectPicker() -> (() -> Void)? {
+            guard let window = anchor?.window else { return nil }
+            // Keep the menu bar content alive so the picker can return to its original button.
+            window.orderOut(nil)
+            return { [weak self] in
+                guard self?.anchor?.window === window else { return }
+                window.makeKeyAndOrderFront(nil)
+            }
         }
     }
 

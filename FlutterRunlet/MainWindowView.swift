@@ -211,6 +211,7 @@ struct DeviceSelectionControls: View {
             .focused($isTriggerFocused)
             .popover(isPresented: $isShowing, arrowEdge: .bottom) {
                 choices(for: session)
+                    .environment(\.locale, locale)
             }
             .onChange(of: isShowing) { _, showing in
                 if !showing { isTriggerFocused = true }
@@ -645,7 +646,7 @@ struct ProjectControls: View {
 
     let session: SessionController?
     let demoName: String?
-    var prepareForPicker: (() -> Void)? = nil
+    var prepareForPicker: (() -> (() -> Void)?)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -678,7 +679,10 @@ struct ProjectControls: View {
             .focused($isHistoryFocused)
             .disabled(session?.canChangeProject != true)
             .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
-                if let session { history(session) }
+                if let session {
+                    history(session)
+                        .environment(\.locale, locale)
+                }
             }
             .onChange(of: isShowingHistory) { _, showing in
                 if !showing { isHistoryFocused = session?.canChangeProject == true }
@@ -742,7 +746,7 @@ struct ProjectControls: View {
 
     private func openProject() {
         guard let session, session.requestProjectChange() else { return }
-        prepareForPicker?()
+        let restorePickerWindow = prepareForPicker?()
         let panel = NSOpenPanel()
         panel.title = locale.appString("Open Flutter Project")
         panel.message = locale.appString("Select the folder for a Flutter project.")
@@ -751,6 +755,7 @@ struct ProjectControls: View {
         panel.allowsMultipleSelection = false
         // Restore the SwiftUI folder button as the focus destination after AppKit closes.
         if panel.runModal() == .OK, let url = panel.url { session.open(url) }
+        restorePickerWindow?()
         isFolderFocused = session.canChangeProject
     }
 }

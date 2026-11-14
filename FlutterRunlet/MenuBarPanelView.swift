@@ -10,7 +10,7 @@ struct MenuBarPanelView: View {
     let openSettings: (() -> Void)?
     let quit: () -> Void
     var openFlutterSettings: (() -> Void)? = nil
-    var prepareForProjectPicker: (() -> Void)? = nil
+    var prepareForProjectPicker: (() -> (() -> Void)?)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
