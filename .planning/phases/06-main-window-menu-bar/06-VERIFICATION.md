@@ -1,0 +1,160 @@
+---
+phase: 06-main-window-menu-bar
+verified: 2026-11-14T15:54:03Z
+status: human_needed
+score: 10/14 must-haves verified
+covered_files: [
+  ".planning/REQUIREMENTS.md",
+  ".planning/ROADMAP.md",
+  ".planning/phases/06-main-window-menu-bar/06-01-PLAN.md",
+  ".planning/phases/06-main-window-menu-bar/06-01-SUMMARY.md",
+  ".planning/phases/06-main-window-menu-bar/06-02-PLAN.md",
+  ".planning/phases/06-main-window-menu-bar/06-02-SUMMARY.md",
+  ".planning/phases/06-main-window-menu-bar/06-03-PLAN.md",
+  ".planning/phases/06-main-window-menu-bar/06-03-SUMMARY.md",
+  ".planning/phases/06-main-window-menu-bar/06-04-PLAN.md",
+  ".planning/phases/06-main-window-menu-bar/06-04-SUMMARY.md",
+  ".planning/phases/06-main-window-menu-bar/06-ACCEPTANCE.md",
+  ".planning/phases/06-main-window-menu-bar/06-CONTEXT.md",
+  ".planning/phases/06-main-window-menu-bar/06-PATTERNS.md",
+  ".planning/phases/06-main-window-menu-bar/06-RESEARCH.md",
+  ".planning/phases/06-main-window-menu-bar/06-REVIEW-DISPOSITION.md",
+  ".planning/phases/06-main-window-menu-bar/06-REVIEW.md",
+  ".planning/phases/06-main-window-menu-bar/06-SECURITY.md",
+  ".planning/phases/06-main-window-menu-bar/06-UI-REVIEW.md",
+  ".planning/phases/06-main-window-menu-bar/06-UI-SPEC.md",
+  ".planning/phases/06-main-window-menu-bar/06-VALIDATION.md",
+  "FlutterRunlet.xcodeproj/project.pbxproj",
+  "FlutterRunlet.xcodeproj/xcshareddata/xcschemes/FlutterRunlet.xcscheme",
+  "FlutterRunlet/FlutterDebugSession.swift",
+  "FlutterRunlet/FlutterRunletApp.swift",
+  "FlutterRunlet/FlutterToolchain.swift",
+  "FlutterRunlet/Localizable.xcstrings",
+  "FlutterRunlet/MainWindowView.swift",
+  "FlutterRunlet/MenuBarPanelView.swift",
+  "FlutterRunlet/ProjectConfiguration.swift",
+  "FlutterRunlet/ProjectRecoveryStore.swift",
+  "FlutterRunlet/SessionController.swift",
+  "FlutterRunlet/SessionProcess.swift",
+  "FlutterRunletSessionWorker/main.swift",
+  "FlutterRunletTests/FlutterDebugSessionTests.swift",
+  "FlutterRunletTests/FlutterToolchainTests.swift",
+  "FlutterRunletTests/LaunchPresentationTests.swift",
+  "FlutterRunletTests/ProjectConcurrencyTests.swift",
+  "FlutterRunletTests/ProjectRecoveryTests.swift",
+  "FlutterRunletTests/ProjectSelectionTests.swift",
+  "FlutterRunletTests/SessionLifecycleTests.swift",
+  "FlutterRunletTests/SessionLogTests.swift",
+  "docs/02-TECHNICAL.md",
+  "docs/04-ACCEPTANCE.md",
+  "docs/design/DESIGN-SYSTEM.md",
+  "docs/design/FIGMA-HANDOFF.md",
+  "docs/examples/sample-flutter-app/README.md",
+  "docs/examples/sample-flutter-app/launch.jsonc",
+  "docs/examples/sample-flutter-app/scripts/simulate-firebase-switch.sh",
+  "docs/examples/sample-flutter-app/tasks.jsonc"
+]
+covered_digest: "v3:sha256:fb6d83fb1069dc1058aa0599b298eb2bfee1302d8a0114a721619fa35169e166"
+behavior_unverified: 0
+overrides_applied: 0
+decision_coverage:
+  honored: 6
+  total: 6
+  not_honored: []
+human_verification:
+  - test: "两处界面的双语、深浅外观和英文长状态辨识"
+    expected: "同一 Release 在中英文与深浅色下，两处尺寸、布局、状态和禁用语义符合画板。核对无项目、就绪、等待 VM、运行、恢复中和恢复失败。实测英文长状态标签若截断，记录正常阅读场景能否明确区分等待和恢复失败，以及现有提示、详情与辅助名称是否足够。"
+    why_human: "完整原生视觉矩阵未取齐。AX 全名与恢复详情不能证明胶囊截断对目视辨识无影响。"
+  - test: "主窗和菜单栏的 VoiceOver、Return 与目录 Escape 回焦"
+    expected: "VoiceOver 读出图标动作、状态与不可用语义。Tab 和 Shift-Tab 能逐项移动，Return 触发焦点动作，Escape 从历史或设备弹层及系统目录对话框返回原触发项。目录 Escape 保留原项目，下一次 Tab 从原入口继续。"
+    why_human: "已记录辅助功能树、部分 Tab 动作和图形取消后的焦点。缺真实朗读及两处原生按键专项。"
+  - test: "跨入口同步逐行删除的项目历史"
+    expected: "以两个隔离项目建立历史，从一处逐条删除，在另一处依次看到仅对应条目消失和最终空态。删除当前项目条目不关闭它，重新启动后仍为空。运行和恢复期间尝试切换时仍保持原项目。"
+    why_human: "实测覆盖两处同步打开和主窗单删及重启。另一表面逐次观察删除结果缺同候选的直接证据。"
+  - test: "最终候选反向切换设备、两处离线复连和当前调试链接"
+    expected: "从菜单栏在 A 启动 prod，在主窗改选 B。两处下一次均显示 B，实际进程、当前会话、热操作、DevTools 和 Inspector 或其回退仍连接 A。停止后确认旧进程先退出，原后置恢复 test、风险为 0。断开 B 后两处显示名称、类型、红点和离线文字并阻止启动，复连后都显示绿点及在线，下一次实际使用 B。"
+    why_human: "最终候选已经实测由主窗运行 A、菜单栏改选 B。浏览器实连和主窗离线复连来自前一候选，反方向及两处同步观察尚无同一候选证据。"
+  - test: "最终候选主窗恢复故障矩阵和日志边界"
+    expected: "使用隔离样例制造原后置退出 1，主窗原位显示任务、实际退出码、运行提示和重试。故障保留时再次恢复继续阻断启动及退出。单独重试只恢复。另一次先清除旧风险再运行新前置与 Flutter。暂停原恢复时挡住运行、F5、重试与切换，确认退出会等待恢复且不会接续。复制、清空、收起再展开时没有旧日志，后续输出可追加，恢复详情独立可用。"
+    why_human: "最终候选有菜单栏退出 1、F5 阻断及单独重试。主窗完整故障序列和日志行为来自前一候选，需补同一二进制的完整路径。"
+---
+
+# 阶段 06 · 验证报告
+
+阶段目标是交付已确认的主窗口和菜单栏体验，验证设备选择、日志与环境恢复。判定为 **待人工验收**。四波实现和联验记录齐备，最终 Release 源码为 `ad7ee14`，90 项 Debug 测试通过。本轮取证已识别一个英文状态标签的显示限制。现有源码与测试没有证实必须改动的功能阻断。 [路线图](../../ROADMAP.md) · [本地候选和联验](06-ACCEPTANCE.md)
+
+## 可观察结果
+
+| # | 必须成立的行为 | 判定 | 依据 |
+| --- | --- | --- | --- |
+| 1 | 两处共享会话，运行紧邻配置，六项调试动作常驻并随状态启禁用 | 已验证 | 实际场景传入同一 `liveSession`。运行按钮和按键统一走状态守卫。实测等待 VM、运行、就绪及菜单栏恢复失败，自动化验证当前 app ID、等待与停止边界。 |
+| 2 | 历史及系统目录按项目守卫打开，单删及空态可持久保存 | 已验证 | 原生打开、取消和归焦有证据。主窗逐条删除和重启已实测。项目测试覆盖规范路径、旧目录复连后的迁移、历史持久化及运行和恢复的切换锁。跨表面单删观察留人工验收。 |
+| 3 | 面板 348 pt、主窗默认 640 × 520 pt、两处同一设置 | 已验证 | 源码尺寸与原生实测一致。齿轮共用 `showSettings`，菜单栏底部打开主窗及退出已实际执行。 |
+| 4 | 双语与系统深浅下可辨、键盘可达、图标名称可用 | 待人工 | 部分组合及 AX 名称可核对。英文长状态在菜单栏截断，等候与失败需要分别验证。 |
+| 5 | 下一次选择 B 时保留 A 的进程、热操作和当前浏览器关联 | 已验证 | 最终候选菜单栏改选 B，两处仍可对 A 热操作。测试核对启动命令、监测、当前 URL 和重新发现后的新启动。最终候选真实浏览器路径仍须复验。 |
+| 6 | 同一选择器显示设备原名、类型及在线、离线或未知状态 | 已验证 | 共享弹层直接读取 Flutter 和模拟器数据。实际主窗探测及测试共同覆盖离线、复连、扫描错误后未知。两处离线和复连的同步观察留人工验收。 |
+| 7 | 固定 ID 冲突、离线和探测失败在前置任务前拦截 | 已验证 | 测试断言无新 Flutter 标记、环境与风险均不变，覆盖目标冲突、离线和重查错误。 |
+| 8 | 主窗原位呈现真实退出结果和运行提示，两处快捷重试仅运行原任务 | 已验证 | 结构化 `SessionExit` 驱动文案。前一候选实测主窗，最终候选实测面板。测试核对原任务、实际退出码、风险持久清除及菜单栏运行受限。 |
+| 9 | 只有主窗能在恢复失败后选配置并在恢复成功后启动 | 已验证 | 恢复完成和预检结束都复核风险、目标配置和设备。持久化失败、风险库不可读、项目目录更换、配置变化及设备离线均有测试证据。 |
+| 10 | 恢复与接续共用受管操作和项目租约，重入及确认退出能阻止接续 | 已验证 | 暂停样例过程记录真实风险和环境变化。两项退出回归覆盖恢复暂停及接续预检，结束时无新启动。 |
+| 11 | 日志复制、清空与折叠互不干扰，恢复详情独立（UI-12） | 已验证 | 主窗独立状态区和日志工具栏。已有实测记录旧内容不会重现且新日志可追加。测试断言代际清除、脱敏复制、继续输出及 Unicode 阅读边界。 |
+| 12 | 同一最终 Release 的真实调试、当前浏览器、停止及设备变更完整链路 | 待人工 | 最终候选已验证产物、双入口和设备关联，浏览器实连及部分离线复连证据属于前一候选。 |
+| 13 | 同一最终 Release 的两窗布局、外观、语言、状态、焦点和历史矩阵 | 待人工 | 最终候选已实测菜单栏目录选择、取消归焦及两处英文弹层。完整组合和实际键盘及辅助技术仍待验。 |
+| 14 | 同一最终 Release 隔离样例的故障、接续、退出和日志证据 | 待人工 | 最终候选记录面板重试。主窗全套故障与日志原生证据属于前一候选，自动化覆盖核心行为。 |
+
+没有用旧候选结果替代第 4 波要求的同候选取证。四项路线图条件都能追溯到上表，完成判定等同候选矩阵闭环。设置和关于窗口内部、更新及四处联验按阶段 07 另行规划。 [阶段规格](06-UI-SPEC.md) · [本地联验](06-ACCEPTANCE.md)
+
+## 产物、连接及数据
+
+四份计划声明的 9 个产物条目均通过存在及内容检查。关键连接工具只按文件路径文字匹配，Swift 同模块通过类型及调用连接，联验与验证方案以相对链接连接。逐项检查了六条 Swift 路径的字面调用，另检查了联验到验证方案及隔离样例的两个可打开链接。
+
+| 路径 | 数据及已接通的行为 |
+| --- | --- |
+| 应用场景 → 两处视图 → 会话控制器 | 同一个生产控制器的项目、配置、历史、运行数据和设备状态用于两处渲染。历史由持久偏好读写，选择器调用受保护的 `open`。快捷键按原生窗口注册来源映射至同一控制器，设置按钮进入同一窗口。 [应用场景](../../../FlutterRunlet/FlutterRunletApp.swift#L180) · [主窗](../../../FlutterRunlet/MainWindowView.swift) · [菜单栏](../../../FlutterRunlet/MenuBarPanelView.swift) |
+| 菜单栏 → 共享设备控件 → 控制器 → 当前调试会话 | 两处设备行从同一个 `deviceChoices` 读取实际发现结果。预检捕获设备创建 `activeLaunch`，进程监测和浏览器读活动会话。更改下一次设备只写选择偏好，不改已运行的目标。 [设备控件](../../../FlutterRunlet/MainWindowView.swift#L173) · [启动预检](../../../FlutterRunlet/SessionController.swift#L1008) · [浏览器绑定](../../../FlutterRunlet/FlutterDebugSession.swift#L190) |
+| 恢复按钮及主窗 Run → 原恢复记录 → 受管操作 | `beginRecovery` 持有同一个租约，按实际原记录认证任务和执行参数。进程结果直接提供退出状态。仅在恢复成功并持久确认、再次预检通过时调用新启动。 [恢复入口](../../../FlutterRunlet/SessionController.swift#L587) · [结果和完成确认](../../../FlutterRunlet/SessionController.swift#L1267) · [持久风险库](../../../FlutterRunlet/ProjectRecoveryStore.swift#L122) |
+| 受管输出 → 脱敏缓冲 → 日志视图和复制 | 发布前脱敏，清空推进代际，折叠只决定视图是否显示，恢复状态在独立区域。 [日志控件](../../../FlutterRunlet/MainWindowView.swift#L116) · [日志模型](../../../FlutterRunlet/SessionController.swift#L1111) |
+| 联验 → 验证方案及隔离样例 | 命令、候选摘要、样例复制和故障步骤可追溯，提交只包含脱敏结果。 [验证方案](06-VALIDATION.md) · [公开样例](../../../docs/examples/sample-flutter-app/README.md) |
+
+三项禁止条件均有源码和用例支撑。下次设备的赋值与当前会话隔离。恢复、持久清除或身份验证不通过即禁止接续。退出码来自真实 `SessionExit`，不从日志提取。人工验收第 4、5 项对这些状态和时序补同候选观察。 [安全复核](06-SECURITY.md)
+
+## 自动化与审查
+
+只读核对最终原始 Debug 记录 `debug-focus.log`，90 项全量通过，无失败或跳过。最终普通 Release 的 `release-focus.log` 有构建成功，候选身份文件的应用和 worker 摘要与联验表一致。未启动应用或重复执行宿主测试，本表引用最终测试实际执行记录。
+
+| 行为 | 已执行的关键回归 |
+| --- | --- |
+| 启动、切换设备及浏览器关联 | `testChangingNextDeviceKeepsRunningSessionAndItsToolsOnOriginalDevice`、`testInvalidPreflightLeavesEnvironmentAndRiskUntouched`、`testUntestedInspectorVersionOpensConnectedDevToolsWithFallbackFeedback` 通过。 |
+| 历史迁移和阻断切换 | `testUnavailableLegacyProjectMigratesWhenItsDirectoryReturns`、`testRecentHistoryMigratesAndRemembersCanonicalProjectsInOpeningOrder`、`testProjectSwitchRemainsBlockedWhileRunningAndAfterRecoveryFailure` 通过。 |
+| 原任务、风险持久确认和退出顺序 | `testMainRunKeepsOriginalRiskAfterAnotherRecoveryFailureThenRunsSelectedConfiguration`、`testRunAfterRecoveryRequiresDurableRemovalAndReadableRiskStore`、两项 `testConfirmedQuit` 及 `testRecoveryContinuationRechecksConfigurationAndDeviceBeforeNewPreTask` 通过。 |
+| 日志及双语资源 | `testLiveTaskAndDebugLogsClearAndCopyWithoutChangingProdRecovery` 和 `testRecoveryAndLogButtonsUseBothBundleLanguages` 通过。 |
+
+没有发现生产改动中的未登记债务标记或断开的接线。现有回归使用独立项目、预设故障标记、持久风险读回及过程结果，未发现把被测输出当作预期的断言。两项代码审查发现均有修复及复验记录。D-01–D-06 六项决定均能追溯到产物，这一覆盖计数不代替原生签核。 [审查处置](06-REVIEW-DISPOSITION.md)
+
+## 需求追踪
+
+| 需求 | 来源 | 判定 |
+| --- | --- | --- |
+| UI-07 | 06-01、06-02、06-04 | 待人工完成两处外观、英文长状态和辅助技术检查。 |
+| UI-08 | 06-01、06-02、06-03、06-04 | 共享状态和常驻操作已验证，最终候选待复跑真实浏览器关联。 |
+| UI-09 | 06-01、06-04 | 选择、单删、持久化和守卫已验证，待补跨窗口逐次删除和 Escape 键。 |
+| UI-10 | 06-01、06-04 | 菜单栏尺寸、顺序、状态区域、设置和底部入口通过。英文标签可辨程度随 UI-07 复核。 |
+| UI-11 | 06-01、06-04 | 主窗尺寸、布局和共享设置通过。 |
+| UI-12 | 06-03、06-04 | 日志工具栏和状态区独立已验证。最终同候选复跑合并到恢复矩阵。 |
+| RUN-07 | 06-02、06-04 | 设备关联和前置阻断已验证，待补最终候选反向操作、两处离线复连、当前浏览器关联。 |
+| RUN-08 | 06-03、06-04 | 真实退出码、两处呈现和重试已验证，需在最终候选复跑主窗路径。 |
+| RUN-09 | 06-03、06-04 | 分流、持久风险、重入和终止已验证，需在最终候选复跑主窗完整序列。 |
+
+九项均由计划声明，无孤立需求。
+
+## 待人工验收
+
+| # | 操作与预期 |
+| --- | --- |
+| 1 | 在两处用中英文及深浅色核对无项目、就绪、等待 VM、运行、恢复中、恢复失败。尺寸、控件及状态可辨。英文卡片若继续截断，分别检查等待与失败能否按现有反馈明确分辨，并记录结果。 |
+| 2 | 在主窗和菜单栏用 VoiceOver 确认可读动作及禁用状态，重复 Tab／Shift-Tab、Return 和 Escape。弹层与原生目录取消后焦点回到各自触发项并能从那里继续，取消保留当前项目。 |
+| 3 | 用两个样例从一处逐条删历史，在另一处看到实时变更及最终空态。删除当前条目不关闭项目，重启仍为空。运行、恢复时尝试切换仍维持原项目。 |
+| 4 | 用最终候选从菜单栏在 A 启动 prod，在主窗改选 B。热操作与浏览器仍绑定 A。正常停止后原任务恢复 test、风险清零。两处同步显示 B 离线及复连状态，离线不能启动，复连后下一次确实用 B。 |
+| 5 | 在最终候选主窗重跑后置退出 1、二次失败、仅重试、恢复后启动和恢复中确认退出。观察实际任务、风险、Flutter 顺序并复验日志清空和折叠独立。 |
+
+目前需要的是原生验收证据。英文状态截断是实际显示差异，保留待验判定。若人工验收确认因此无法辨识状态，应把它转为 UI-07 实现缺口。 [原生界面复核](06-UI-REVIEW.md)
