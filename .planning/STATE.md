@@ -5,9 +5,9 @@ milestone_name: 界面与调试体验
 current_phase: 06
 current_phase_name: 主窗口与菜单栏
 status: human_needed
-stopped_at: 阶段 06 已按 Figma 重做主窗和菜单栏样式，90 项回归通过，最终画板对照和本地联验待补。阶段 07 另行规划，公开发布继续暂缓。
+stopped_at: 阶段 06 已完成两处四种状态的渲染矩阵，90 项回归通过，系统差异和最终原生菜单栏仍待验收。阶段 07 另行规划，公开发布继续暂缓。
 last_updated: "2026-11-14T23:51:46+08:00"
-last_activity: 2026-11-14
+last_activity: 2026-11-15
 last_activity_desc: 阶段 06 四波已执行，待补最终本地联验
 state_head: 5fd6aa8c6f878d12154381659c7b01b4df04e976
 progress:
@@ -30,7 +30,7 @@ Last activity: 2026-11-14 — 阶段 06 四波已执行并归档本地证据
 ## Session
 
 **Last session:** 2026-11-14T23:51:46+08:00
-**Stopped at:** 阶段 06 已按 Figma 重做主窗和菜单栏样式，90 项回归通过，最终画板对照和本地联验待补。阶段 07 另行规划，公开发布继续暂缓。
+**Stopped at:** 阶段 06 已完成两处四种状态的渲染矩阵，90 项回归通过，系统差异和最终原生菜单栏仍待验收。阶段 07 另行规划，公开发布继续暂缓。
 **Resume file:** [阶段 06 计划](ROADMAP.md#phase-06-主窗口与菜单栏) · [验证方案](phases/06-main-window-menu-bar/06-VALIDATION.md)。
 
 ## Performance Metrics

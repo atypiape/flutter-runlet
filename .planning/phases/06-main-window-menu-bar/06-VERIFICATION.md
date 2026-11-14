@@ -1,6 +1,7 @@
 ---
 phase: 06-main-window-menu-bar
-verified: 2026-11-14T15:54:03Z
+verified: 2026-11-15
+candidate: 57fc4b3332dae3bf9ceb6f44f3dbf694eb383be1
 status: human_needed
 score: 10/14 must-haves verified
 covered_files: [
@@ -26,14 +27,38 @@ covered_files: [
   ".planning/phases/06-main-window-menu-bar/06-VALIDATION.md",
   "FlutterRunlet.xcodeproj/project.pbxproj",
   "FlutterRunlet.xcodeproj/xcshareddata/xcschemes/FlutterRunlet.xcscheme",
+  "FlutterRunlet/Assets.xcassets/RunletCollapse.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletConfigArrow.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletCopy.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletDevTools.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletDevice.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletDeviceArrow.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletFolder.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletGlyph.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletHistory.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletHistoryFolder.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletInspector.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletQuit.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletRecovery.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletReload.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletRestart.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletRun.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletSettings.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletStop.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletTrash.imageset/image.svg",
+  "FlutterRunlet/Assets.xcassets/RunletWindow.imageset/image.svg",
   "FlutterRunlet/FlutterDebugSession.swift",
   "FlutterRunlet/FlutterRunletApp.swift",
   "FlutterRunlet/FlutterToolchain.swift",
+  "FlutterRunlet/Fonts/NotoSansSC-Medium.ttf",
+  "FlutterRunlet/Fonts/NotoSansSC-Regular.ttf",
+  "FlutterRunlet/Fonts/RobotoMono-Regular.ttf",
   "FlutterRunlet/Localizable.xcstrings",
   "FlutterRunlet/MainWindowView.swift",
   "FlutterRunlet/MenuBarPanelView.swift",
   "FlutterRunlet/ProjectConfiguration.swift",
   "FlutterRunlet/ProjectRecoveryStore.swift",
+  "FlutterRunlet/RunletAppearance.swift",
   "FlutterRunlet/SessionController.swift",
   "FlutterRunlet/SessionProcess.swift",
   "FlutterRunletSessionWorker/main.swift",
@@ -54,7 +79,7 @@ covered_files: [
   "docs/examples/sample-flutter-app/scripts/simulate-firebase-switch.sh",
   "docs/examples/sample-flutter-app/tasks.jsonc"
 ]
-covered_digest: "v3:sha256:fb6d83fb1069dc1058aa0599b298eb2bfee1302d8a0114a721619fa35169e166"
+covered_digest: "v3:sha256:1d45c91e269b018376aa936bbe01f0525cf37b94c0ceb9b389a873835294894d"
 behavior_unverified: 0
 overrides_applied: 0
 decision_coverage:
@@ -80,6 +105,10 @@ human_verification:
 ---
 
 # 阶段 06 · 验证报告
+
+2026-11-15 复验改用 `57fc4b3`。90 项 Debug、Release 构建和严格签名通过。已渲染两处六状态、双语和深浅外观，完成八张中文深色原稿的数值对照。系统控件差异已取图供用户复核，菜单栏实机和 VoiceOver 尚未闭环，判定仍为 **待验收**。本报告以下保留原候选的独立验证与需求追踪，新增候选及证据详见[逐张对照与修订候选](06-UI-REVIEW.md)。
+
+## 2026-11-14 · 原候选验证
 
 阶段目标是交付已确认的主窗口和菜单栏体验，验证设备选择、日志与环境恢复。判定为 **待人工验收**。四波实现和联验记录齐备，最终 Release 源码为 `ad7ee14`，90 项 Debug 测试通过。本轮取证已识别一个英文状态标签的显示限制。现有源码与测试没有证实必须改动的功能阻断。 [路线图](../../ROADMAP.md) · [本地候选和联验](06-ACCEPTANCE.md)
 
