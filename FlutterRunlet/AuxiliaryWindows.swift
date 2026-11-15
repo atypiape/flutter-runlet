@@ -90,7 +90,7 @@ struct SettingsView: View {
                         Text(option.title)
                             .font(option == .flutter ? .system(size: 13, weight: selected ? .semibold : .regular)
                                   : RunletType.localized(locale, size: 13, medium: selected || prominentGear))
-                            .foregroundStyle(selected || prominentGear ? palette.primary : palette.secondary)
+                            .foregroundStyle(selected ? palette.primary : palette.secondary)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, 9)
@@ -105,9 +105,9 @@ struct SettingsView: View {
                 Text(verbatim: version)
                     .font(.system(size: 11))
                     .foregroundStyle(palette.secondary)
-                    .frame(height: 16)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 16)
                     .help(version)
             }
         }
@@ -286,7 +286,7 @@ struct SettingsView: View {
                 AboutBrandGlyph(size: 28.35)
                 AboutIdentity(updates: updates, inSettings: true)
                 Spacer(minLength: 0)
-                UpdateButton(updates: updates)
+                UpdateButton(updates: updates, backdrop: palette.field)
             }
             .padding(.horizontal, 12)
             .frame(height: 65)
@@ -629,7 +629,7 @@ struct AboutView: View {
                     }
 
                     VStack(spacing: 7) {
-                        UpdateButton(updates: updates)
+                        UpdateButton(updates: updates, backdrop: palette.window)
                         UpdateFeedback(updates: updates, inSettings: false)
                     }
 
@@ -741,9 +741,11 @@ private struct UpdateButton: View {
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let updates: UpdatePresentationSource
+    let backdrop: Color
 
     var body: some View {
         let presentation = updates.presentation
+        let isSpinning = presentation.status == .checking || presentation.status == .updating
         Button(action: { updates.perform(.primary) }) {
             HStack(spacing: 5) {
                 switch presentation.status {
@@ -762,6 +764,7 @@ private struct UpdateButton: View {
             .frame(width: 116, height: 30)
         }
         .buttonStyle(AuxiliaryButtonStyle(surface: .accent, radius: 6, preservesDisabledSurface: true))
+        .modifier(UpdateButtonOpacity(isSpinning: isSpinning, backdrop: backdrop))
         .disabled(!presentation.canPerformPrimary)
         .accessibilityIdentifier("update-primary")
         .accessibilityLabel(Text(presentation.primaryTitle))
@@ -778,6 +781,24 @@ private struct UpdateButton: View {
         } else {
             RunletIcon("UpdateSpinner", size: 14)
                 .rotationEffect(.degrees(reduceMotion && rotation.isAnimated ? 0 : rotation.degrees(at: .now)))
+        }
+    }
+}
+
+private struct UpdateButtonOpacity: ViewModifier {
+    let isSpinning: Bool
+    let backdrop: Color
+
+    func body(content: Content) -> some View {
+        if isSpinning {
+            // Match the approved sRGB blend before the window converts to the display profile.
+            content
+                .compositingGroup()
+                .opacity(0.72)
+                .background(backdrop)
+                .drawingGroup(opaque: true, colorMode: .nonLinear)
+        } else {
+            content
         }
     }
 }
