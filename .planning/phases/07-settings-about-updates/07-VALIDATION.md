@@ -1,9 +1,9 @@
 ---
 phase: "07"
 slug: settings-about-updates
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-15"
 ---
 
@@ -43,8 +43,49 @@ V01–V05 按简体中文/英文 × 系统深色/浅色的适用组合记录；�
 | UPD-02 | 隔离两个真实 App 做验包、替换、重启与三处版本刷新；覆盖重复点击、窗口全关、稍后、确认前后竞态、失败路径；故障注入覆盖坏包、错身份、真实回退、新旧 App 均启动失败时的反馈。等待安装期间不破坏运行和恢复；安装点需重新核对守卫。 |
 | UI-07 | 同一最终 Release 四处界面，必须包括设置三页与独立窗。中英文 × 深浅外观、键盘/辅助功能名称/角色/状态、无 Tab 焦点的主窗口与菜单栏、保留原生行为的设置与关于；同候选重跑真实 Flutter、SDK 选择、成功与失败恢复。 |
 
-最终记录含候选 App 的 Bundle 实际值、安装前后与回退启动证据、各项通过/失败/阻塞。两份更新构建、签名凭据、Figma 原图及真实运行日志留在本机隔离位置；提交源、测试和脱敏记录。阶段签核待执行。
+最终记录含候选 App 的 Bundle 实际值、安装前后与回退启动证据、各项通过/失败/阻塞。两份更新构建、签名凭据、Figma 原图及真实运行日志留在本机隔离位置；提交源、测试和脱敏记录。执行结果见下方任务验证索引和[最终验收](07-ACCEPTANCE.md)。
 
 ## 规划复核（2026-11-15）
 
 独立复核通过：六份计划、17 个任务覆盖 6 项需求和 12 条决定。修订后逐条验证 35 组校验命令的语法及失败条件；计划 04、05 在缺少真实视觉记录时均返回失败，最终签核的校验拒绝缺项、重复和 `BLOCKED`。复核收敛到同工作区证据、逐例绑定和视觉源码变动、首次替换前的回退、旧进程门禁、签名版本匹配、同源署名及全项通过判定。这些是对计划与现有测试基线的复核，实际视觉门槛和安装验收待执行。
+
+## 逐任务验证索引
+
+| 任务 | 需求或验收范围 | 已运行的验证 | 结果 |
+| --- | --- | --- | --- |
+| 07-01-01 | 视觉来源与资产 | 节点、导出索引、必需字体、图标及变量复核 | [07-01](07-01-SUMMARY.md) |
+| 07-01-02 | 中英文及深浅矩阵 | 矩阵适用性、状态与 1×/2× 原图绑定 | [07-01](07-01-SUMMARY.md) |
+| 07-02-01 | UI-13 | `LaunchPresentationTests` 及原生偏好、设置窗口复用 | [07-02](07-02-SUMMARY.md) |
+| 07-02-02 | UI-14 | `FlutterToolchainTests` 及原生 SDK、Doctor 取证 | [07-02](07-02-SUMMARY.md) |
+| 07-02-03 | UI-15、UPD-01 | `LaunchPresentationTests`、两处布局及普通 Release 负例 | [07-02](07-02-SUMMARY.md) |
+| 07-03-01 | UI-13、UI-14、UI-15 | 固定产物、V01–V03 原生矩阵、辅助功能与键盘 | [逐状态签核](07-VISUAL-GATE.md) |
+| 07-03-02 | UI-15、UPD-01、UPD-02 | 两处 V04–V05 原生矩阵、状态与帧 | [逐状态签核](07-VISUAL-GATE.md) |
+| 07-03-03 | 真实接线前置 | 视觉验证器和伪 PASS、错身份、缺原图等负例自测 | [07-03](07-03-SUMMARY.md) |
+| 07-04-01 | 真实接线前置 | 接线之前的实物验证，接线后 88 对原生复拍 | [07-04](07-04-SUMMARY.md) |
+| 07-04-02 | UPD-01 | `ReleaseUpdatesTests`、同源双入口普通联网及无自动请求 | [07-04](07-04-SUMMARY.md) |
+| 07-04-03 | UPD-02 | `UpdatePackageTests`、实际签名 DMG、回环传输和只读预检 | [07-04](07-04-SUMMARY.md) |
+| 07-05-01 | UPD-02 | `UpdateTransactionTests`、`bootstrap-safety` 与 `success` | [安装实测](07-UPDATE-EVIDENCE.md) |
+| 07-05-02 | UPD-02 | `UpdateInstallGateTests`、现行与旧版跨实例 `gate` | [安装实测](07-UPDATE-EVIDENCE.md) |
+| 07-05-03 | UPD-02 | `UpdateTransactionTests`、`rollback`、双语原生恢复动作 | [安装实测](07-UPDATE-EVIDENCE.md) |
+| 07-06-01 | UI-07、UI-13、UI-14、UI-15 | 最终普通 Release 四处界面、四组合、AX/HID 和六个实链 | [最终验收](07-ACCEPTANCE.md) |
+| 07-06-02 | UI-07、UI-13、UI-14 | 同候选与真实设备、Flutter 热操作、DevTools、Doctor、失败和暂停恢复 | [最终验收](07-ACCEPTANCE.md) |
+| 07-06-03 | UI-07、UI-13、UI-14、UI-15、UPD-01、UPD-02 | 同源码普通/隔离候选及最终六项唯一判定 | [最终验收](07-ACCEPTANCE.md) |
+
+## 原生验证
+
+Figma 节点、键盘、浏览器、系统登录项、Flutter 设备及回退助手使用本机实物和动作记录。应用源码与受控输入的自动化验证通过，正式 Developer ID 签发、公证及 macOS 15 和 Intel 实机仍待覆盖。完整截图和日志在项目私有证据目录。
+
+## 签核
+
+- [x] 17 个任务均关联已执行的证据。
+- [x] 六项需求的最终判定和查重校验通过。
+- [x] 普通 Release 构建、128 项全量宿主测试、53 项定向宿主测试及视觉脚本均通过。
+- [x] 同源码隔离安装、跨实例门禁与回退均有原生记录。
+
+## Validation Audit 2026-11-15
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
