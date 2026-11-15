@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/design/assets/flutterrunlet-dock-128.png" width="88" height="88" alt="FlutterRunlet 应用图标">
+  <img src="docs/screenshots/flutterrunlet-dock-128.jpg" width="88" height="88" alt="FlutterRunlet 应用图标">
 </p>
 
 <h1 align="center">FlutterRunlet</h1>
@@ -22,9 +22,9 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 
 | 主窗口 | 菜单栏 |
 | :---: | :---: |
-| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.png)](docs/screenshots/zh-CN/main-window.png) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.png)](docs/screenshots/zh-CN/menu-bar.png) |
+| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.jpg)](docs/screenshots/zh-CN/main-window.jpg) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.jpg)](docs/screenshots/zh-CN/menu-bar.jpg) |
 | **设置** | **关于** |
-| [![FlutterRunlet 通用设置](docs/screenshots/zh-CN/settings.png)](docs/screenshots/zh-CN/settings.png) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/zh-CN/about.png)](docs/screenshots/zh-CN/about.png) |
+| [![FlutterRunlet 通用设置](docs/screenshots/zh-CN/settings.jpg)](docs/screenshots/zh-CN/settings.jpg) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
 
 截图来自 v0.2.0 开发构建，使用示例数据。
 
@@ -53,4 +53,4 @@ FlutterRunlet 支持 **Debug** 配置。Profile、Release、后台常驻任务�
 
 ## 许可证
 
-本仓库采用 [MIT 许可证](LICENSE)。「关于」窗口列出了 [Flutter GUI Runner](https://github.com/huseyiniriss/flutter-gui-runner) 的上游归属。
+本仓库采用 [MIT 许可证](LICENSE)。

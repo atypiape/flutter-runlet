@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/design/assets/flutterrunlet-dock-128.png" width="88" height="88" alt="FlutterRunlet app icon">
+  <img src="docs/screenshots/flutterrunlet-dock-128.jpg" width="88" height="88" alt="FlutterRunlet app icon">
 </p>
 
 <h1 align="center">FlutterRunlet</h1>
@@ -22,9 +22,9 @@ I built FlutterRunlet so I could keep my existing Flutter configurations, leave 
 
 | Main window | Menu bar |
 | :---: | :---: |
-| [![FlutterRunlet main window with app, configuration, device, and logs](docs/screenshots/main-window.png)](docs/screenshots/main-window.png) | [![macOS menu bar with the FlutterRunlet panel open](docs/screenshots/menu-bar.png)](docs/screenshots/menu-bar.png) |
+| [![FlutterRunlet main window with app, configuration, device, and logs](docs/screenshots/main-window.jpg)](docs/screenshots/main-window.jpg) | [![macOS menu bar with the FlutterRunlet panel open](docs/screenshots/menu-bar.jpg)](docs/screenshots/menu-bar.jpg) |
 | **Settings** | **About** |
-| [![FlutterRunlet general settings](docs/screenshots/settings.png)](docs/screenshots/settings.png) | [![About FlutterRunlet and the Check for Updates button](docs/screenshots/about.png)](docs/screenshots/about.png) |
+| [![FlutterRunlet general settings](docs/screenshots/settings.jpg)](docs/screenshots/settings.jpg) | [![About FlutterRunlet and the Check for Updates button](docs/screenshots/about.jpg)](docs/screenshots/about.jpg) |
 
 Screenshots show a v0.2.0 development build with sample data.
 
@@ -53,4 +53,4 @@ See the [developer guide](docs/DEVELOPMENT.md) (Simplified Chinese) for building
 
 ## License
 
-[MIT](LICENSE). FlutterRunlet credits [Flutter GUI Runner](https://github.com/huseyiniriss/flutter-gui-runner) in its About window.
+[MIT](LICENSE).
