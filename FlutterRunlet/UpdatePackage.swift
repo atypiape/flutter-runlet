@@ -157,7 +157,7 @@ struct IsolatedUpdateBuild: Sendable {
     }
 
     var target: URL { root.appending(path: "target/FlutterRunlet.app", directoryHint: .isDirectory) }
-    var recovery: URL { root.appending(path: "state", directoryHint: .isDirectory) }
+    var recovery: URL { root.appending(path: "home/Library/Application Support/FlutterRunlet", directoryHint: .isDirectory) }
 
     func trusts(_ download: UpdateDownload) -> Bool {
         imageSHA256 == download.image.digest && ReleaseVersion(version) == download.version && ReleaseVersion(build) != nil
@@ -178,6 +178,23 @@ struct UpdatePackageService: Sendable {
     static let helperExecutable = "Contents/MacOS/FlutterRunletUpdateHelper"
 
     static var installsEnabled: Bool { publicTeamID != nil || IsolatedUpdateBuild.read() != nil }
+
+    static func helperMayInstall(_ fixture: IsolatedUpdateBuild?) -> Bool {
+        publicTeamID != nil || fixture != nil
+    }
+
+    static func copiedHelperHashes(at helper: URL, productID: String,
+                                   fixture: IsolatedUpdateBuild?) throws -> [String: String] {
+        let trust = try installationTrust(productID: productID, fixture: fixture)
+        let signer: String?
+        if case .developerID(let team) = trust {
+            signer = try developerRequirement(team) + " and identifier \"\(helperIdentifier)\""
+        } else {
+            signer = nil
+        }
+        try validateBundleTree(helper)
+        return try verifyCode(helper, executable: helper.appending(path: helperExecutable), requirement: signer, nested: true).0
+    }
 
     static func installationIdentity(at app: URL, productID: String,
                                      fixture: IsolatedUpdateBuild? = nil) throws -> PreparedUpdate.SignedIdentity {
@@ -511,13 +528,7 @@ struct UpdatePackageService: Sendable {
         let workerSigner: String?
         switch trust {
         case .developerID(let team):
-            guard team.utf8.count == 10, team.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) }) else {
-                throw UpdatePackageIssue.publisherNotConfigured
-            }
-            workerSigner = """
-            anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists
-            and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "\(team)"
-            """
+            workerSigner = try developerRequirement(team)
             appSigner = workerSigner.map { $0 + " and identifier \"\(publicProductID)\"" }
         #if PHASE07_UPDATE
         case .isolated:
@@ -547,6 +558,16 @@ struct UpdatePackageService: Sendable {
         }
         return .init(app: .init(productID: product, version: version, build: build),
                      appCodeHashes: appHashes, workerCodeHashes: workerHashes, helperCodeHashes: helperHashes)
+    }
+
+    private static func developerRequirement(_ team: String) throws -> String {
+        guard team.utf8.count == 10, team.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) }) else {
+            throw UpdatePackageIssue.publisherNotConfigured
+        }
+        return """
+        anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists
+        and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "\(team)"
+        """
     }
 
     private static func verifyCode(_ url: URL, executable: URL, requirement: String?,

@@ -9,7 +9,7 @@ final class UpdateCoordinator {
         let prepare: @Sendable (UpdateDownload, RunningUpdateApp) async throws -> PreparedUpdate
 
         static let production = Self(
-            check: { try await ReleaseClient().check(runningVersion: $0) },
+            check: { try await UpdatePackageService().check(runningVersion: $0) },
             availability: { UpdatePackageService().availability(for: $0) },
             prepare: { try await UpdatePackageService().prepare($0, running: $1) }
         )
@@ -23,6 +23,10 @@ final class UpdateCoordinator {
     private var releasePage: URL?
     private var offer: UpdateDownload?
     private(set) var prepared: PreparedUpdate?
+    private var gateWatcher: Task<Void, Never>?
+    private var requestedConfirmation = false
+    private var didAutoPrompt = false
+    private var receiptObserver: Task<Void, Never>?
 
     init(source: UpdatePresentationSource, operations: Operations = .production,
          runningApp: @escaping () -> RunningUpdateApp? = { RunningUpdateApp() },
@@ -31,10 +35,19 @@ final class UpdateCoordinator {
         self.operations = operations
         self.runningApp = runningApp
         self.openRelease = openRelease
+        if UpdatePackageService.installsEnabled {
+            receiptObserver = Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(named: AppTermination.receivedUpdate) {
+                    self?.applyReceipt()
+                }
+            }
+        }
     }
 
     deinit {
         inFlight?.cancel()
+        gateWatcher?.cancel()
+        receiptObserver?.cancel()
         try? prepared?.discard()
     }
 
@@ -50,12 +63,23 @@ final class UpdateCoordinator {
             case .unavailable(_, _, let canRetry):
                 if canRetry { prepare() }
                 else { check() }
-            case .checking, .updating, .waiting, .ready, .failed(.replacement), .failed(.newLaunch):
+            case .ready:
+                if prepared != nil { requestConfirmation() }
+            case .failed(.replacement), .failed(.newLaunch):
+                check()
+            case .checking, .updating, .waiting:
                 break
             }
         case .showRelease:
             if presentation.showsReleaseAction, let releasePage { openRelease(releasePage) }
-        case .install, .later, .dismissRecovery, .showInFinder:
+        case .install:
+            install()
+        case .later:
+            if requestedConfirmation {
+                requestedConfirmation = false
+                refreshInstallGate()
+            }
+        case .dismissRecovery, .showInFinder:
             break
         }
     }
@@ -108,13 +132,103 @@ final class UpdateCoordinator {
                     return
                 }
                 self.prepared = candidate
-                self.present(.ready)
+                self.didAutoPrompt = false
+                if UpdatePackageService.installsEnabled {
+                    self.refreshInstallGate()
+                    self.watchInstallGate()
+                } else {
+                    self.present(.ready)
+                }
             } catch is CancellationError {
                 self?.present(.available(offer.tag))
             } catch {
                 self?.showFailure(error, for: offer)
             }
         }
+    }
+
+    private func requestConfirmation() {
+        guard inFlight == nil, UpdatePackageService.installsEnabled else { return }
+        requestedConfirmation = true
+        refreshInstallGate()
+    }
+
+    private func watchInstallGate() {
+        gateWatcher?.cancel()
+        gateWatcher = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, !Task.isCancelled else { return }
+                if self.inFlight == nil { self.refreshInstallGate() }
+            }
+        }
+    }
+
+    private func refreshInstallGate() {
+        guard let prepared, UpdatePackageService.installsEnabled else { return }
+        if let blocker = AppTermination.current?.session?.updateBlocker {
+            requestedConfirmation = false
+            present(.waiting(blocker))
+            return
+        }
+        if !didAutoPrompt && AppTermination.current?.session != nil {
+            didAutoPrompt = true
+            requestedConfirmation = true
+        }
+        let prompt: UpdatePresentation.Prompt? = requestedConfirmation ? .confirm(version: prepared.download.tag) : nil
+        let next = UpdatePresentation(status: .ready, prompt: prompt)
+        if source?.presentation != next { source?.present(next) }
+    }
+
+    private func install() {
+        guard inFlight == nil, requestedConfirmation, let prepared,
+              let termination = AppTermination.current, let session = termination.session else { return }
+        requestedConfirmation = false
+        if let blocker = session.updateBlocker {
+            present(.waiting(blocker))
+            return
+        }
+        present(.ready)
+        inFlight = Task { [weak self, weak termination] in
+            defer { self?.inFlight = nil }
+            let reservation: UpdateReservation
+            do {
+                reservation = try await session.reserveUpdate(productID: prepared.runningApp.productID)
+            } catch {
+                self?.gateWatcher?.cancel()
+                self?.present(.waiting(session.updateBlocker ?? .processUnconfirmed))
+                self?.watchInstallGate()
+                return
+            }
+            let language = termination?.language?.locale.identifier ?? Locale.current.identifier
+            do {
+                let handoff = try await Task.detached {
+                    try await UpdateHandoff.prepare(prepared, reservation: reservation, language: language)
+                }.value
+                do {
+                    try prepared.discard()
+                } catch {
+                    handoff.abandon()
+                    throw error
+                }
+                if termination?.requestUpdateExit(handoff) != true {
+                    handoff.abandon()
+                    throw UpdateChannel.Issue.closed
+                }
+            } catch {
+                session.releaseUpdateReservation()
+                self?.gateWatcher?.cancel()
+                self?.prepared = nil
+                try? prepared.discard()
+                self?.present(.unavailable(version: prepared.download.tag, reason: .staging, canRetry: true))
+            }
+        }
+    }
+
+    private func applyReceipt() {
+        guard let receipt = AppTermination.current?.updateReceipt else { return }
+        releasePage = UpdateRepository.releases.appending(path: "tag/\(receipt.releaseTag)")
+        present(.failed(receipt.failure == .replacement ? .replacement : .newLaunch))
     }
 
     private func showFailure(_ error: Error, for offer: UpdateDownload) {

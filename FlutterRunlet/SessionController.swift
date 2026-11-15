@@ -153,7 +153,7 @@ final class SessionController {
             !isCheckingSDKSelection
     }
     var canCheckEnvironment: Bool {
-        canEditFlutterSDK && sdk != nil && !isCheckingSDK && !isCheckingEnvironment && !isFinishingTermination
+        canEditFlutterSDK && sdk != nil && !isCheckingSDK && !isCheckingEnvironment && !isFinishingTermination && !updateReserved
     }
     var hasPendingEnvironmentChecks: Bool { !doctorTasks.isEmpty }
     var canRefreshDevices: Bool {
@@ -203,7 +203,7 @@ final class SessionController {
         return recoveryProjectIsOpen ? .retry : .openProject
     }
     var canPerformRecoveryAction: Bool {
-        recovery != nil && !isFinishingTermination && !isBusy && !executionIsUnconfirmed && recoveryStoreIssue == nil
+        recovery != nil && !isFinishingTermination && !updateReserved && !isBusy && !executionIsUnconfirmed && recoveryStoreIssue == nil
     }
     var recoveryMessage: LocalizedStringResource? {
         recoveryStoreIssue ?? recoveryReason
@@ -237,7 +237,7 @@ final class SessionController {
     }
 
     private var canStartSelectedConfiguration: Bool {
-        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, !configurationIsStale, recoveryStoreIssue == nil,
+        guard !isFinishingTermination, !updateReserved, !isBusy, !executionIsUnconfirmed, !configurationIsStale, recoveryStoreIssue == nil,
               let launch = selection?.launch, store != nil, runner.isAvailable else { return false }
         if toolchain == nil { return debugCommand != nil }
         return !isCheckingSDKSelection && !isRefreshingDevices && sdk != nil && selectedDevice != nil && deviceSelectionIssue == nil &&
@@ -302,9 +302,9 @@ final class SessionController {
     }
 
     @ObservationIgnored private var projectDevices: [String: DevicePreference] = [:]
-    @ObservationIgnored private let preferences: UserDefaults?
+    @ObservationIgnored private var preferences: UserDefaults?
     @ObservationIgnored private var hasLoadedConfiguration = false
-    @ObservationIgnored private let store: ProjectRecoveryStore?
+    @ObservationIgnored private var store: ProjectRecoveryStore?
     @ObservationIgnored private let runner: SessionProcessRunner
     @ObservationIgnored private let allowedRoot: URL?
     @ObservationIgnored private let allowedRootIdentity: String?
@@ -330,6 +330,10 @@ final class SessionController {
     @ObservationIgnored private var blockedLease: ProjectLease?
     @ObservationIgnored private var operation: Task<Void, Never>?
     @ObservationIgnored private var stopRequested = false
+    private(set) var updateReserved = false
+    @ObservationIgnored private(set) var updateTrial: UpdateAppLaunch?
+    @ObservationIgnored private(set) var updateStartupBlocked = false
+    @ObservationIgnored private var finishUpdateStartup: (() -> Void)?
 
     convenience init(
         store: ProjectRecoveryStore?, runner: SessionProcessRunner, allowedRoot: URL? = nil,
@@ -360,7 +364,7 @@ final class SessionController {
         verifyVM: FlutterDebugSession.Verification? = nil,
         debugTiming: FlutterDebugTiming = .continuous,
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        debugCommand: ((PreparedLaunch) -> SessionCommand?)?
+        debugCommand: ((PreparedLaunch) -> SessionCommand?)?, deferStartup: Bool = false
     ) {
         self.store = store
         self.runner = runner
@@ -374,6 +378,13 @@ final class SessionController {
         self.openURL = openURL
         self.environment = environment
         self.preferences = preferences
+        rememberRecentProject = true
+        showMainWindowOnLaunch = true
+        preferProjectFVM = true
+        if !deferStartup { loadStartupPreferences() }
+    }
+
+    private func loadStartupPreferences() {
         rememberRecentProject = preferences?.object(forKey: Self.rememberKey) as? Bool ?? true
         showMainWindowOnLaunch = preferences?.object(forKey: Self.showMainWindowKey) as? Bool ?? true
         preferProjectFVM = preferences?.object(forKey: Self.preferFVMKey) as? Bool ?? true
@@ -397,6 +408,58 @@ final class SessionController {
         }
         discoverRecovery()
     }
+
+    static var recoveryNamespace: URL {
+        IsolatedUpdateBuild.read()?.recovery ?? URL.applicationSupportDirectory.appending(path: "FlutterRunlet")
+    }
+
+    func completeUpdateStartup() {
+        let finish = finishUpdateStartup
+        finishUpdateStartup = nil
+        updateTrial = nil
+        updateReserved = false
+        finish?()
+    }
+
+    var updateBlocker: UpdatePresentation.Blocker? {
+        if executionIsUnconfirmed { return .processUnconfirmed }
+        if recoveryStoreIssue != nil || store == nil { return .recoveryUnreadable }
+        if recoveryFailure != nil { return .recoveryFailed }
+        if isBusy || isFinishingTermination || updateReserved { return .debugging }
+        if recovery != nil { return .recoveryPending }
+        guard let store else { return .recoveryUnreadable }
+        do {
+            if try !store.allRecords().isEmpty { return .recoveryPending }
+        } catch { return .recoveryUnreadable }
+        do {
+            let lease = try UpdateActivityLease(directory: store.directory, installing: true)
+            defer { withExtendedLifetime(lease) {} }
+            let entries = try FileManager.default.contentsOfDirectory(atPath: store.directory.path)
+            guard !entries.contains(where: { $0.hasPrefix("update-worker-") }),
+                  let product = RunningUpdateApp()?.productID else { return .processUnconfirmed }
+            try UpdateProcessIdentity.requireNoOtherInstances(product, excluding: getpid())
+        } catch UpdateActivityLease.Issue.busy {
+            return .debugging
+        } catch { return .processUnconfirmed }
+        return nil
+    }
+
+    func reserveUpdate(productID: String) async throws -> UpdateReservation {
+        guard canTerminate, !updateReserved, !isFinishingTermination, let store else { throw UpdateActivityLease.Issue.busy }
+        updateReserved = true
+        do {
+            let checks = Array(doctorTasks.values)
+            for check in checks { check.cancel() }
+            for check in checks { await check.value }
+            guard canTerminate, !hasPendingEnvironmentChecks else { throw UpdateActivityLease.Issue.busy }
+            return try UpdateReservation(store: store, productID: productID)
+        } catch {
+            updateReserved = false
+            throw error
+        }
+    }
+
+    func releaseUpdateReservation() { updateReserved = false }
 
     static func fixtureEnabled(arguments: [String]) -> Bool {
         #if DEBUG
@@ -436,10 +499,41 @@ final class SessionController {
             }
         }
         #endif
+        let fixture = IsolatedUpdateBuild.read()
+        let support = recoveryNamespace
+        let trial: UpdateAppLaunch?
+        do {
+            trial = try UpdateAppLaunch.resolve(arguments: arguments, namespace: support)
+        } catch {
+            let blocked = SessionController(store: nil, runner: .bundled, preferences: nil)
+            blocked.updateStartupBlocked = true
+            blocked.updateReserved = true
+            return blocked
+        }
+        if let trial {
+            let controller = SessionController(store: nil, runner: .bundled, allowedRoot: fixture?.projects,
+                                               environment: ProcessInfo.processInfo.environment, preferences: nil,
+                                               toolchain: .production, debugCommand: nil, deferStartup: true)
+            controller.updateTrial = trial
+            controller.updateReserved = true
+            controller.finishUpdateStartup = { [weak controller] in
+                guard let controller else { return }
+                do {
+                    controller.store = try ProjectRecoveryStore(directory: support)
+                    controller.preferences = .standard
+                    controller.loadStartupPreferences()
+                } catch {
+                    controller.recoveryStoreIssue = .appIssue(error)
+                    controller.status = .recoveryUnavailable
+                }
+            }
+            return controller
+        }
         do {
             return try SessionController(
-                store: ProjectRecoveryStore(directory: URL.applicationSupportDirectory.appending(path: "FlutterRunlet")),
-                runner: .bundled, preferences: .standard, toolchain: .production
+                store: ProjectRecoveryStore(directory: support),
+                runner: .bundled, allowedRoot: fixture?.projects, environment: ProcessInfo.processInfo.environment,
+                preferences: .standard, toolchain: .production, debugCommand: nil
             )
         } catch {
             let blocked = SessionController(store: nil, runner: .bundled, preferences: .standard)
@@ -796,12 +890,17 @@ final class SessionController {
 
     func checkEnvironment() {
         guard canCheckEnvironment, let sdk else { return }
+        let activity: UpdateActivityLease?
+        do {
+            activity = try store.map { try UpdateActivityLease(directory: $0.directory) }
+        } catch { return }
         let project = project
         let request = UUID()
         doctorRequest = request
         doctorResult = nil
         isCheckingEnvironment = true
-        doctorTasks[request] = Task { [weak self, environment] in
+        doctorTasks[request] = Task { [weak self, environment, activity] in
+            defer { withExtendedLifetime(activity) {} }
             let result = await FlutterToolchain.doctor(using: sdk, environment: environment, project: project)
             guard let self else { return }
             self.doctorTasks.removeValue(forKey: request)
@@ -938,7 +1037,7 @@ final class SessionController {
     }
 
     func run() {
-        guard !isFinishingTermination, !isBusy, !executionIsUnconfirmed, !configurationIsStale,
+        guard !isFinishingTermination, !updateReserved, !isBusy, !executionIsUnconfirmed, !configurationIsStale,
               recovery == nil, recoveryStoreIssue == nil, let project, let selection else { return }
         guard let store, (debugCommand != nil || toolchain != nil), runner.isAvailable else {
             message = "The Flutter debug process or recovery storage is unavailable in this build"

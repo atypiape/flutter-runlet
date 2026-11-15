@@ -49,6 +49,14 @@
 		E07500000000000000000002 /* UpdateTransactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000001; };
 		E07500000000000000000004 /* UpdateActivityLease.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000003; };
 		E07500000000000000000005 /* UpdateActivityLease.swift in Worker Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000003; };
+		E07500000000000000000007 /* UpdateTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000006; };
+		E07500000000000000000011 /* main.swift in Helper Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000010; };
+		E07500000000000000000013 /* Helper strings in Resources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000012; };
+		E07500000000000000000015 /* Update helper in Helpers */ = {isa = PBXBuildFile; fileRef = E07500000000000000000014; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		E07500000000000000000016 /* UpdateTransaction.swift in Helper Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000006; };
+		E07500000000000000000017 /* UpdatePackage.swift in Helper Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000021; };
+		E07500000000000000000018 /* ReleaseUpdates.swift in Helper Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000011; };
+		E07500000000000000000019 /* UpdateActivityLease.swift in Helper Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000003; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,10 +68,12 @@
 			remoteInfo = FlutterRunlet;
 		};
 		4AD6F79F280F2AC799FE3D68 = {isa = PBXContainerItemProxy; containerPortal = 7C27809197AFAB346EDBBEEF; proxyType = 1; remoteGlobalIDString = 87B3344492BD40F23CE1D153; remoteInfo = FlutterRunletSessionWorker; };
+		E07500000000000000000020 = {isa = PBXContainerItemProxy; containerPortal = 7C27809197AFAB346EDBBEEF; proxyType = 1; remoteGlobalIDString = E07500000000000000000021; remoteInfo = FlutterRunletUpdateHelper; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		DEA9663545CE895C4EFEBDDB /* Embed Session Worker */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = Contents/Helpers; dstSubfolderSpec = 1; files = (BF1BCBA41F9E5042876BA500, ); name = "Embed Session Worker"; runOnlyForDeploymentPostprocessing = 0; };
+		E07500000000000000000023 /* Embed Update Helper */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = Contents/Helpers; dstSubfolderSpec = 1; files = (E07500000000000000000015, ); name = "Embed Update Helper"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -108,6 +118,10 @@
 		E07400000000000000000031 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
 		E07500000000000000000001 /* UpdateTransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateTransactionTests.swift; sourceTree = "<group>"; };
 		E07500000000000000000003 /* UpdateActivityLease.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateActivityLease.swift; sourceTree = "<group>"; };
+		E07500000000000000000006 /* UpdateTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateTransaction.swift; sourceTree = "<group>"; };
+		E07500000000000000000010 /* Helper main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		E07500000000000000000012 /* Helper Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		E07500000000000000000014 /* FlutterRunletUpdateHelper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlutterRunletUpdateHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +167,7 @@
 		2B5F8D4EA11589FFBF3A6812 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				E07500000000000000000014 /* FlutterRunletUpdateHelper.app */,
 				FA2E1BF3C984AC5772EB3971 /* FlutterRunletSessionWorker */,
 				A6359B7B3FDBDD3338280098 /* FlutterRunlet.app */,
 				7C3AA47CF81D79D07BEA456B /* FlutterRunletTests.xctest */,
@@ -189,6 +204,7 @@
 				E07200000000000000000021 /* UpdatePresentationSource.swift */,
 				E07400000000000000000011 /* ReleaseUpdates.swift */,
 				E07500000000000000000003 /* UpdateActivityLease.swift */,
+				E07500000000000000000006 /* UpdateTransaction.swift */,
 				E07400000000000000000021 /* UpdatePackage.swift */,
 				E07400000000000000000031 /* UpdateCoordinator.swift */,
 				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
@@ -224,6 +240,7 @@
 				63742A4E44937BE759BB7EAA /* FlutterRunlet */,
 				0402165A1F9FD08CDB4C6102 /* FlutterRunletTests */,
 				52AAEE196EA722EA0325D33C /* Menu Bar Assets */,
+				E07500000000000000000026 /* FlutterRunletUpdateHelper */,
 				8DC33059E39B3EDE0DCE2C5A /* FlutterRunletSessionWorker */,
 			);
 			sourceTree = "<group>";
@@ -236,6 +253,12 @@
 			path = FlutterRunletSessionWorker;
 			sourceTree = "<group>";
 		};
+		E07500000000000000000026 /* FlutterRunletUpdateHelper */ = {
+			isa = PBXGroup;
+			children = (E07500000000000000000010, E07500000000000000000012, );
+			path = FlutterRunletUpdateHelper;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -243,6 +266,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 296C726C6B6E56C4AC721AB4 /* Build configuration list for PBXNativeTarget "FlutterRunlet" */;
 			buildPhases = (
+				E07500000000000000000023 /* Embed Update Helper */,
 				DEA9663545CE895C4EFEBDDB /* Embed Session Worker */,
 				BEE11AA581C6E5FAC4303E5C /* Sources */,
 				18636F6EE6697CB937F50951 /* Frameworks */,
@@ -251,6 +275,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				E07500000000000000000022 /* Update helper dependency */,
 				8806E72FDB617B3058303F75 /* Session worker dependency */,
 			);
 			name = FlutterRunlet;
@@ -287,6 +312,17 @@
 			productReference = FA2E1BF3C984AC5772EB3971;
 			productType = "com.apple.product-type.tool";
 		};
+		E07500000000000000000021 /* FlutterRunletUpdateHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E07500000000000000000027;
+			buildPhases = (E07500000000000000000024, E07500000000000000000025, );
+			buildRules = ();
+			dependencies = ();
+			name = FlutterRunletUpdateHelper;
+			productName = FlutterRunletUpdateHelper;
+			productReference = E07500000000000000000014;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -312,6 +348,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				E07500000000000000000021 /* FlutterRunletUpdateHelper */,
 				87B3344492BD40F23CE1D153 /* FlutterRunletSessionWorker */,
 				24AE19C04B1A2F7AD5B9359E /* FlutterRunlet */,
 				A9A28AACD7A0DFE4BEB7EA1F /* FlutterRunletTests */,
@@ -339,6 +376,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E07500000000000000000025 /* Update Helper Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (E07500000000000000000013, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -362,6 +400,7 @@
 				E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */,
 				E07400000000000000000012 /* ReleaseUpdates.swift in Sources */,
 				E07500000000000000000004 /* UpdateActivityLease.swift in Sources */,
+				E07500000000000000000007 /* UpdateTransaction.swift in Sources */,
 				E07400000000000000000022 /* UpdatePackage.swift in Sources */,
 				E07400000000000000000032 /* UpdateCoordinator.swift in Sources */,
 				F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */,
@@ -397,6 +436,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E07500000000000000000024 /* Update Helper Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (E07500000000000000000011, E07500000000000000000016, E07500000000000000000017, E07500000000000000000018, E07500000000000000000019, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -407,6 +447,7 @@
 			targetProxy = 54074D6F7FC3F80A42ECD59E /* PBXContainerItemProxy */;
 		};
 		8806E72FDB617B3058303F75 = {isa = PBXTargetDependency; target = 87B3344492BD40F23CE1D153; targetProxy = 4AD6F79F280F2AC799FE3D68; };
+		E07500000000000000000022 = {isa = PBXTargetDependency; target = E07500000000000000000021; targetProxy = E07500000000000000000020; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -623,6 +664,40 @@
 			};
 			name = Release;
 		};
+		E07500000000000000000028 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet.UpdateHelper;
+				PRODUCT_NAME = FlutterRunletUpdateHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) RUNLET_UPDATE_HELPER";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		E07500000000000000000029 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atypiape.FlutterRunlet.UpdateHelper;
+				PRODUCT_NAME = FlutterRunletUpdateHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) RUNLET_UPDATE_HELPER";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -654,6 +729,7 @@
 			defaultConfigurationName = Release;
 		};
 		30B0454CAD483FD9E37A65B1 = {isa = XCConfigurationList; buildConfigurations = (2B2478DE862F389992397E4E, B48678C7D455D8B6FA77F23C, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		E07500000000000000000027 = {isa = XCConfigurationList; buildConfigurations = (E07500000000000000000028, E07500000000000000000029, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 7C27809197AFAB346EDBBEEF /* Project object */;

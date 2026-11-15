@@ -74,7 +74,8 @@ if [[ "$build" != "$requested_build" || ( -n "$requested_version" && "$version" 
   exit 1
 fi
 
-for executable in Contents/MacOS/FlutterRunlet Contents/Helpers/FlutterRunletSessionWorker; do
+for executable in Contents/MacOS/FlutterRunlet Contents/Helpers/FlutterRunletSessionWorker \
+  Contents/Helpers/FlutterRunletUpdateHelper.app/Contents/MacOS/FlutterRunletUpdateHelper; do
   architectures="$(lipo -archs "$app/$executable")"
   case "$architectures" in
     'arm64 x86_64'|'x86_64 arm64') ;;
@@ -89,6 +90,8 @@ stage="$work_dir/stage"
 mkdir "$stage"
 ditto "$app" "$stage/FlutterRunlet.app"
 codesign --verify --deep --strict --all-architectures "$stage/FlutterRunlet.app"
+codesign --verify --strict --all-architectures \
+  "$stage/FlutterRunlet.app/Contents/Helpers/FlutterRunletUpdateHelper.app"
 ln -s /Applications "$stage/Applications"
 
 dmg="FlutterRunlet-v$version-macOS-universal.dmg"
