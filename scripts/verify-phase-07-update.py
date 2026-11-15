@@ -16,6 +16,10 @@ import sys
 from types import SimpleNamespace
 from urllib.request import urlopen
 from urllib.parse import unquote
+from PIL import Image
+
+if not __debug__:
+    raise RuntimeError("update acceptance requires Python assertions to be enabled")
 
 REPO = Path(__file__).resolve().parent.parent
 PHASE = REPO / ".private/phase-07"
@@ -31,6 +35,20 @@ VERSION_B, BUILD_B = "7.5.1", "751"
 
 def run(*args, **options):
     return subprocess.run([str(arg) for arg in args], check=True, **options)
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def preserve_prior_target(root, target, output):
+    if not target.exists() and not target.is_symlink():
+        return
+    require(not target.is_symlink() and target.parent.resolve(strict=True) == root / "target",
+            "refusing to move an unsafe update target")
+    require(signed(target)["id"] == PRODUCT, "refusing to move a non-isolated application")
+    target.rename(output / "prior-target.app")
 
 
 def dump(path, payload):
@@ -227,9 +245,7 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
     support = home / "Library/Application Support"
     support.mkdir(parents=True, exist_ok=True)
     clean_candidates(root)
-    if target.exists():
-        assert not target.is_symlink() and signed(target)["id"] == PRODUCT, target
-        target.rename(into / "prior-target.app")
+    preserve_prior_target(root, target, into)
     if (support / "FlutterRunlet").exists():
         (support / "FlutterRunlet").rename(into / "prior-recovery")
     transport_fault = root / "transport-fault"
@@ -457,9 +473,7 @@ def gate_scenario(root, source, image, into):
     support = home / "Library/Application Support"
     support.mkdir(parents=True, exist_ok=True)
     namespace = support / "FlutterRunlet"
-    if product_target.exists():
-        assert signed(product_target)["id"] == PRODUCT and not product_target.is_symlink()
-        product_target.rename(into / "prior-target.app")
+    preserve_prior_target(root, product_target, into)
     if namespace.exists():
         namespace.rename(into / "prior-recovery")
     run("/usr/bin/ditto", source, product_target)
@@ -641,28 +655,138 @@ def gate_scenario(root, source, image, into):
             log.close()
 
 
-def verify_manifest(path, expected):
+def signed_application(identity):
+    return {key: identity[key] for key in ("id", "version", "build", "sha256")}
+
+
+def verify_capture(path, expected_pid, executable_digest, expected_size=None):
+    receipt = read_json(path.with_suffix(".json"))
+    require(isinstance(receipt, dict), f"missing capture receipt: {path.name}")
+    with Image.open(path) as image:
+        require(image.format == "PNG" and list(image.size) == receipt["pixel_size"],
+                f"invalid native PNG or dimensions: {path.name}")
+        if expected_size is not None:
+            require(image.size == expected_size, f"incorrect surface dimensions: {path.name}")
+        image.verify()
+    window = receipt["window"]
+    require(receipt["png_sha256"] == digest(path) and receipt["candidate_pid"] == expected_pid
+            and window["kCGWindowOwnerPID"] == expected_pid and window["kCGWindowIsOnscreen"] is True
+            and receipt["candidate_executable_sha256"] == executable_digest,
+            f"capture identity mismatch: {path.name}")
+    return receipt
+
+
+def verify_installation(result, expected, root, original, candidate):
+    journal_path = (root / result["journalPath"]).resolve(strict=True)
+    require(journal_path.name == "intent.json" and journal_path.parent.name.startswith(".update-")
+            and journal_path.parent.parent == root / "target", "journal is not in an isolated stage")
+    journal = read_json(journal_path)
+    expected_app = {"productID": PRODUCT, "version": VERSION_A, "build": BUILD_A}
+    successor = {"productID": PRODUCT, "version": VERSION_B, "build": BUILD_B}
+    require(journal == result["journal"] and journal["phase"] == expected
+            and journal["oldProcess"]["pid"] == result["oldPID"]
+            and journal["original"]["app"] == expected_app and journal["candidate"]["app"] == successor,
+            "transaction receipt differs from the expected operation")
+    target = root / "target" / APP
+    require(Path(unquote(journal["target"].removeprefix("file://"))) == target
+            and Path(unquote(journal["stage"].removeprefix("file://"))) == journal_path.parent,
+            "transaction paths do not match the isolated target")
+    before, after, retained = (result[key] for key in ("before", "after", "retained"))
+    require(before["device"] == after["device"] == retained["device"], "transaction changed volumes")
+    if expected == "committed":
+        require(signed_application(after) == signed_application(candidate) and retained == before
+                and after["inode"] == journal["candidateObject"]["inode"],
+                "no actual A-to-B replacement with A retained")
+    elif expected == "restored":
+        require(after == before and signed_application(retained) == signed_application(candidate),
+                "the signed original was not restored")
+    else:
+        require(retained == before and signed_application(after) in (signed_application(original),
+                                                                       signed_application(candidate)),
+                "unconfirmed recovery did not retain the original application")
+    return journal
+
+
+def verify_manifest(path, specifications):
+    root = path.parents[1]
     manifest = read_json(path)
-    assert manifest["result"] == "passed" and [row["case"] for row in manifest["scenarios"]] == expected
-    for row in manifest["scenarios"]:
+    require(manifest["result"] == "passed" and [row["case"] for row in manifest["scenarios"]]
+            == [name for name, _, _ in specifications], "incorrect or incomplete manifest")
+    candidates = read_json(path.parent / "candidates.json")
+    a = path.parent / "A" / APP
+    b = path.parent / "B" / APP
+    original, candidate = signed(a), signed(b)
+    require(candidates["A"] == original and candidates["B"] == candidate
+            and (original["id"], original["version"], original["build"]) == (PRODUCT, VERSION_A, BUILD_A)
+            and (candidate["id"], candidate["version"], candidate["build"]) == (PRODUCT, VERSION_B, BUILD_B),
+            "manifest candidate signatures or identity do not match")
+    helper_digest = digest(a / HELPER / "Contents/MacOS/FlutterRunletUpdateHelper")
+    seen_captures = set()
+    for row, (name, fault, expected) in zip(manifest["scenarios"], specifications):
         result_path = (path.parent / row["path"]).resolve(strict=True)
-        assert result_path.is_relative_to(path.parent) and result_path.name == "result.json"
-        payload = read_json(result_path)
-        assert payload["case"] == row["case"] and payload["result"] == "passed" and payload["screenshots"]
-        if "journalPath" in payload:
-            journal = (path.parents[1] / payload["journalPath"]).resolve(strict=True)
-            assert journal.is_relative_to(path.parents[1] / "target") and journal.name == "intent.json"
-            raw = read_json(journal)
-            assert raw["id"] == payload["journal"]["id"] and raw["phase"] == payload["expected"]
-        if row["case"] == "flutter-and-legacy":
-            assert payload["before"] == payload["after"] and payload["failedRecovery"]["risks"] == 1
-            assert payload["legacyActivity"]["flutter"] and payload["legacyActivity"]["risks"] == 0
-            assert payload["orphanedWorker"]["worker"] in payload["legacyActivity"]["workers"]
-            assert payload["peerActivity"]["flutter"]
-        for name in payload["screenshots"]:
-            shot = (result_path.parent / name).resolve(strict=True)
-            assert shot.is_relative_to(result_path.parent) and shot.stat().st_size > 512
-            assert read_json(shot.with_suffix(".json"))["png_sha256"] == digest(shot)
+        require(result_path == path.parent / name / "result.json", "result path does not match its case")
+        result = read_json(result_path)
+        require(result["case"] == name and result["result"] == "passed"
+                and signed_application(result["before"]) == signed_application(original),
+                f"result or original application mismatch: {name}")
+        require(expected == "blocked" or (result["expected"] == expected and result["fault"] == fault),
+                f"unexpected scenario disposition: {name}")
+        digest_for_capture = original["sha256"]
+        expected_sizes = {}
+        if expected == "blocked":
+            require(result["before"] == result["after"] and result["active"]["flutter"]
+                    and result["failedRecovery"]["risks"] == 1 and result["legacyActivity"]["flutter"]
+                    and result["legacyActivity"]["risks"] == 0
+                    and result["orphanedWorker"]["worker"] in result["legacyActivity"]["workers"]
+                    and result["peerActivity"]["flutter"], "missing cross-instance gate evidence")
+            expected_pid = result["active"]["application"]
+            expected_sizes = {
+                "download-during-prod.png": (400, 412), "failed-recovery-blocks.png": (400, 412),
+                "managed-restoration.png": (640, 520), "prompt-with-about-windows-closed.png": (420, 152),
+                "continue-from-about.png": (420, 152), "continue-from-settings.png": (420, 152),
+                "unreadable-recovery-blocks.png": (400, 412), "cross-project-legacy-blocks.png": (400, 412),
+                "orphaned-legacy-worker-blocks.png": (400, 412), "cross-project-current-blocks.png": (400, 412),
+            }
+        elif expected in ("untouched", "download-rejected"):
+            require("journalPath" not in result, "rejected handoff recorded a disk transaction")
+            expected_pid = result["oldPID"]
+            if expected == "untouched":
+                require(result["helperRefusal"]["oldProcess"]["pid"] == expected_pid
+                        and result["helperRefusal"]["phase"] == "prepared", "missing readiness-failure evidence")
+                expected_sizes = {"handoff-refused.png": (400, 412)}
+            else:
+                expected_sizes = {"checksum-refused.png": (400, 412)}
+        else:
+            journal = verify_installation(result, expected, root, original, candidate)
+            if expected == "committed":
+                expected_pid = journal["attemptedProcess"]["pid"]
+                require(expected_pid != result["oldPID"], "new version did not get a new process")
+                digest_for_capture = candidate["sha256"]
+                expected_sizes = {"new-settings-about-and-sidebar.png": (520, 520), "new-about.png": (400, 412)}
+            elif expected == "preserved" or any(action in fault.split(",") for action in
+                                                ("exit-a", "hold-a", "wrong-a", "launch-a")):
+                expected_pid = journal["helperProcess"]["pid"]
+                digest_for_capture = helper_digest
+                expected_sizes = {
+                    "preserved-without-success.png" if expected == "preserved" else "independent-recovery.png": None
+                }
+            else:
+                expected_pid = journal["reopenedProcess"]["pid"]
+                expected_sizes = {"rollback-about.png": (400, 412), "rollback-settings.png": (520, 520)}
+        require(set(result["screenshots"]) == set(expected_sizes)
+                and len(result["screenshots"]) == len(expected_sizes), f"incomplete native capture evidence: {name}")
+        for filename, size in expected_sizes.items():
+            shot = (result_path.parent / filename).resolve(strict=True)
+            require(shot == result_path.parent / filename, f"capture is outside its case: {filename}")
+            receipt = verify_capture(shot, expected_pid, digest_for_capture, size)
+            capture_id = receipt["capture_id"]
+            require(capture_id not in seen_captures, "native capture reused across results")
+            seen_captures.add(capture_id)
+            if expected == "committed":
+                version = f"v{VERSION_B} (build {BUILD_B})"
+                count = sum(version in (node.get("AXValue"), node.get("AXTitle"), node.get("AXDescription"))
+                            for node in receipt["accessibility_after_capture"])
+                require(count >= (2 if size == (520, 520) else 1), f"visible version missing: {filename}")
 
 
 def main():
@@ -672,7 +796,7 @@ def main():
     argument.add_argument("--verify-manifest", type=Path)
     config = argument.parse_args()
     root = config.workspace.resolve(strict=True)
-    if root != PHASE / "update" or root.is_symlink() or root.stat().st_mode & 0o077:
+    if root != PHASE / "update" or config.workspace.is_symlink() or root.stat().st_mode & 0o077 or root.stat().st_uid != os.geteuid():
         argument.error("use the repository's private phase 07 update directory with owner-only permissions")
     sys.path.insert(0, str(PHASE / "07-03-trials"))
     global Desktop, wait, stamp
@@ -694,12 +818,12 @@ def main():
                      ("original-wrong-reply", "launch-b,wrong-a", "restored"),
                      ("original-launch-failed", "launch-b,launch-a", "restored")],
     }
-    expected_cases = ["flutter-and-legacy"] if config.scenario == "gate" else [name for name, _, _ in scenarios[config.scenario]]
+    specifications = [("flutter-and-legacy", "", "blocked")] if config.scenario == "gate" else scenarios[config.scenario]
     if config.verify_manifest:
         manifest = config.verify_manifest.resolve(strict=True)
         if not manifest.is_relative_to(root) or read_json(manifest).get("scenario") != config.scenario:
             argument.error("manifest is outside the update workspace or belongs to a different scenario")
-        verify_manifest(manifest, expected_cases)
+        verify_manifest(manifest, specifications)
         print(manifest)
         return
     parent = root / "target"
@@ -725,7 +849,7 @@ def main():
                 rows.append({"case": name, "path": f"{name}/result.json"})
     manifest = output / "manifest.json"
     dump(manifest, {"scenario": config.scenario, "scenarios": rows, "result": "passed"})
-    verify_manifest(manifest, expected_cases)
+    verify_manifest(manifest, specifications)
     print(manifest)
 
 
