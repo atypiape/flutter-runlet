@@ -22,11 +22,14 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 
 ### Active
 
-下一里程碑的目标和需求待确认。
+- [ ] 独立 DevTools 按需连接当前会话，Inspector 复用标签并跳转到所选编辑器。
+- [ ] 修复启动期间丢失页面请求、服务退出后重开旧地址及源码订阅失败后不重试。
+- [ ] 整理 DevTools 设置页，在通用设置补上应用外观选择。
+- [ ] 保留 exchange-app 验收、内存对比及测量口径，评估进程拆分能否降低整套调试占用。
 
 ### Out of Scope
 
-- IDE 的源码编辑、导航和 DAP 调试界面超出轻量调试工具范围。
+- IDE 的内嵌源码编辑和 DAP 调试界面超出轻量调试工具范围。
 - 构建签名发布管理、包管理、Git、复杂脚本和 SDK 安装升级由现有工具处理。
 - 独立全功能 Doctor、内嵌 DevTools 和自建 Inspector 超出调试入口范围。
 - Windows/Linux、远程调试、云账号、遥测和多设备并行运行超出当前范围。
@@ -38,9 +41,9 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 - 最低部署目标为 macOS 15.0，实测宿主为 Apple Silicon macOS 26.7.1。Intel 实机、最低系统实机与 VoiceOver 实际朗读仍待覆盖。[验收边界](milestones/v0.2-MILESTONE-AUDIT.md#nyquist-与验收边界)
 - 公开发布、Developer ID 签名、公证和公开可用性复核继续暂缓。[公开发布检查](../docs/PUBLIC-RELEASE-AUDIT.md)
 
-## Next Milestone Goals
+## Current Milestone: v0.3 Inspector 与设置
 
-下一里程碑尚待规划。历次交付及验收条件见[里程碑记录](MILESTONES.md)。
+在不更改项目 Flutter 与 Dart SDK 的情况下，完善独立 DevTools 和 Inspector 工作流，并使 DevTools 与外观偏好更容易找到。[需求](REQUIREMENTS.md) · [路线图](ROADMAP.md)
 
 ## Context
 
@@ -82,4 +85,4 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 2. 每次里程碑结束后复核产品定义、核心价值、范围和当前上下文。
 
 ---
-*最后更新于 2026-11-15，v0.2 已完成本地归档。*
+*最后更新于 2026-11-16，开始 v0.3。*

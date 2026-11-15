@@ -1,29 +1,26 @@
 ---
 gsd_state_version: "1.0"
-milestone: v0.2
-milestone_name: 界面与调试体验
-status: Awaiting next milestone
-stopped_at: v0.2 已完成本地归档，等待下一里程碑规划
-last_updated: "2026-11-15T15:21:11.316Z"
-last_activity: 2026-11-15
-last_activity_desc: v0.2 界面与调试体验通过审计并完成本地归档
-state_head: f817e1d63d79371be32448cc1fbce9e371a67d06
+milestone: v0.3
+milestone_name: Inspector 与设置
+status: planning
+last_updated: "2026-11-15T18:11:17.634Z"
+last_activity: 2026-11-16
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: v0.2 本地归档完成
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-11-15 — v0.2 界面与调试体验通过审计并完成本地归档
+Status: Defining requirements
+Last activity: 2026-11-16 — Milestone v0.3 started
 
 ## Session
 
