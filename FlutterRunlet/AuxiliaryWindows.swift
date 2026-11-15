@@ -355,18 +355,18 @@ struct SettingsView: View {
                 }
             }
             if path != nil || session.standaloneDevToolsIssue != nil {
-                HStack {
-                    groupTitle("Dart SDK", systemFont: true)
-                    Spacer()
-                    if path != nil {
-                        settingsAction("Change…", emphasized: true) { chooseDevToolsSDK(for: session) }
-                            .disabled(!session.canEditFlutterSDK)
-                    }
-                }
-                .padding(.trailing, 13)
+                groupTitle("Dart SDK", systemFont: true)
                 settingsCard {
                     if let path {
-                        sdkPath("Path", path: path)
+                        settingsRow("Path") {
+                            settingsAction("Change…", emphasized: true) { chooseDevToolsSDK(for: session) }
+                                .disabled(!session.canEditFlutterSDK)
+                        }
+                        rule
+                        sdkPathValue(path)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                     }
                     if let issue = session.standaloneDevToolsIssue {
                         Text(issue)
@@ -474,22 +474,26 @@ struct SettingsView: View {
 
     private func sdkPath(_ title: LocalizedStringResource, path: String, enabled: Bool = true,
                          change: (() -> Void)? = nil) -> some View {
-        let home = NSHomeDirectory()
-        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
-        return settingsRow(title) {
-            Text(verbatim: display)
-                .font(.system(size: 12))
-                .foregroundStyle(palette.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(path)
-                .accessibilityLabel(Text(verbatim: path))
-                .textSelection(.enabled)
+        settingsRow(title) {
+            sdkPathValue(path)
             if let change {
                 settingsAction("Change…", emphasized: true, action: change)
                     .disabled(!enabled)
             }
         }
+    }
+
+    private func sdkPathValue(_ path: String) -> some View {
+        let home = NSHomeDirectory()
+        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
+        return Text(verbatim: display)
+            .font(.system(size: 12))
+            .foregroundStyle(palette.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .help(path)
+            .accessibilityLabel(Text(verbatim: path))
+            .textSelection(.enabled)
     }
 
     private func settingsRow<Trailing: View>(_ title: LocalizedStringResource,
@@ -837,6 +841,7 @@ private struct AboutLinks: View {
 }
 
 private extension AboutInformation.Destination {
+    @MainActor
     @ViewBuilder
     var icon: some View {
         switch self {
