@@ -67,7 +67,7 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 1**
 
-- [ ] [07-01 补齐 Figma 图层和逐状态取证基线](phases/07-settings-about-updates/07-01-PLAN.md)
+- [x] [07-01 补齐 Figma 图层和逐状态取证基线](phases/07-settings-about-updates/07-01-PLAN.md)（36 张参考图，516 个适用用例）
 
 **Wave 2（依赖 07-01）**
 
