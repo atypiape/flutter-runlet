@@ -945,6 +945,7 @@ struct AuxiliaryWindowLayout<Content: View>: View {
 
         final class ChromeView: NSView {
             private weak var observedWindow: NSWindow?
+            private var titleObservations: [NSKeyValueObservation] = []
             var configuration: WindowChrome? { didSet { updateWindow() } }
 
             override func viewDidMoveToWindow() {
@@ -953,10 +954,20 @@ struct AuxiliaryWindowLayout<Content: View>: View {
                 if let observedWindow {
                     notifications.removeObserver(self, name: NSWindow.didUpdateNotification, object: observedWindow)
                 }
+                titleObservations.removeAll()
                 observedWindow = window
                 if let window {
                     notifications.addObserver(self, selector: #selector(restoreTitlebar),
                                               name: NSWindow.didUpdateNotification, object: window)
+                    // SwiftUI can restore the system title while Settings is behind another window.
+                    titleObservations = [
+                        window.observe(\.title) { [weak self] _, _ in
+                            DispatchQueue.main.async { self?.restoreTitlebar() }
+                        },
+                        window.observe(\.titleVisibility) { [weak self] _, _ in
+                            DispatchQueue.main.async { self?.restoreTitlebar() }
+                        }
+                    ]
                 }
                 updateWindow()
             }

@@ -358,6 +358,28 @@ final class LaunchPresentationTests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsChromeRestoresHiddenLocalizedTitleWhileWindowIsNotVisible() async throws {
+        for (code, title) in [("en", "Settings"), ("zh-Hans", "设置")] {
+            let window = NSWindow(contentRect: NSRect(origin: .zero, size: SettingsView.windowSize),
+                                  styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            defer { window.close() }
+            window.contentView = NSHostingView(rootView:
+                AuxiliaryWindowLayout(title: "Settings", kind: .settings) { Color.clear }
+                    .environment(\.locale, Locale(identifier: code))
+            )
+            window.contentView?.layoutSubtreeIfNeeded()
+            try await eventually { window.title == title && window.titleVisibility == .hidden }
+            XCTAssertFalse(window.isVisible)
+
+            window.title = "FlutterRunlet设置"
+            window.titleVisibility = .visible
+            try await eventually { window.title == title && window.titleVisibility == .hidden }
+            XCTAssertFalse(window.isVisible)
+        }
+    }
+
+    @MainActor
     func testPhase07FrozenFramesKeepButtonAndVersionConsistent() throws {
         for (state, status, angle) in [
             ("idle", UpdatePresentation.Status.idle, 0.0),
