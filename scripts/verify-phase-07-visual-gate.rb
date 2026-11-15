@@ -33,16 +33,20 @@ module Phase07VisualGate
   EXPORT_INDEX_SHA256 = '5a35f505e46b5ee9ef1d3e27fc07ee1ec9140e6a1330665d363f3a665358038d'
   PROJECT = 'FlutterRunlet.xcodeproj/project.pbxproj'
   PRESENTATION_BRIDGE = 'FlutterRunlet/UpdatePresentationSource.swift'
+  PRESENTATION_FILES = %w[
+    FlutterRunlet/AuxiliaryWindows.swift
+    FlutterRunlet/LaunchPresentation.swift
+    FlutterRunlet/Localizable.xcstrings
+  ].freeze
+  # Exact presentation inputs reviewed on native screenshots in 07-04-VISUAL-RECHECK.md.
+  REVIEWED_UPDATE_PRESENTATION_SHA256 = '49142d04498e4a0e0601fd216cb1209ffac1f5f74cf75992b0b20284853fb9ed'
   PLANNING = '.planning/phases/07-settings-about-updates'
   VISUAL = '.private/phase-07/visual'
   MINIMUM_PATHS = %w[
     FlutterRunlet/FlutterRunletApp.swift
-    FlutterRunlet/AuxiliaryWindows.swift
     FlutterRunlet/MainWindowView.swift
     FlutterRunlet/MenuBarPanelView.swift
     FlutterRunlet/RunletAppearance.swift
-    FlutterRunlet/LaunchPresentation.swift
-    FlutterRunlet/Localizable.xcstrings
     FlutterRunlet/Assets.xcassets
     FlutterRunlet/Fonts
     FlutterRunlet/Resources
@@ -155,10 +159,18 @@ module Phase07VisualGate
     index = project_visual_settings(git(root, 'show', ":#{PROJECT}"), root)
     current = project_visual_settings(root.join(PROJECT).read, root)
     assert(candidate == index && candidate == current, 'visual build settings or resource list changed')
-    bridge_sources = [git(root, 'show', "#{commit}:#{PRESENTATION_BRIDGE}"),
-                      git(root, 'show', ":#{PRESENTATION_BRIDGE}"), root.join(PRESENTATION_BRIDGE).read]
-    assert(bridge_sources.map { |source| presentation_model(source) }.uniq.size == 1,
-           'update presentation state or wording changed')
+    from_candidate = presentation_signature { |path| git(root, 'show', "#{commit}:#{path}") }
+    from_index = presentation_signature { |path| git(root, 'show', ":#{path}") }
+    from_disk = presentation_signature { |path| root.join(path).read }
+    approved = [from_candidate, REVIEWED_UPDATE_PRESENTATION_SHA256]
+    assert(from_index == from_disk && approved.include?(from_disk),
+           'visual presentation state or wording changed without a matching reviewed snapshot')
+  end
+
+  def presentation_signature
+    files = PRESENTATION_FILES.map { |path| Digest::SHA256.hexdigest(yield(path)) }
+    model = Digest::SHA256.hexdigest(presentation_model(yield(PRESENTATION_BRIDGE)))
+    Digest::SHA256.hexdigest(JSON.generate(files + [model]))
   end
 
   def presentation_model(source)
@@ -562,7 +574,7 @@ module Phase07VisualGate
       project = root.join(PROJECT)
       project.dirname.mkpath
       project.binwrite(original_project)
-      visual_inputs = MINIMUM_PATHS.map do |path|
+      visual_inputs = (MINIMUM_PATHS + PRESENTATION_FILES).map do |path|
         file = root.join(path)
         file = file.join('fixture.asset') if %w[Assets.xcassets Fonts Resources].include?(file.basename.to_s)
         file.dirname.mkpath
@@ -744,7 +756,7 @@ module Phase07VisualGate
       git(root, 'checkout', '--', asset.relative_path_from(root).to_s)
       [root.join('FlutterRunlet/AuxiliaryWindows.swift'), visual_inputs.find { |input| input.to_s.include?('/Fonts/') }].each do |input|
         input.write('uncommitted visual change')
-        expect_invalid.call('uncommitted view or font', /git: diff failed/)
+        expect_invalid.call('uncommitted view or font', /git: diff failed|visual presentation state or wording changed/)
         git(root, 'checkout', '--', input.relative_path_from(root).to_s)
       end
 
