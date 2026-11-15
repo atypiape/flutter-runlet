@@ -4,6 +4,27 @@ import XCTest
 @testable import FlutterRunlet
 
 final class LaunchPresentationTests: XCTestCase {
+    @MainActor
+    func testGeneralSettingsGeometryAndLaunchSwitchUseHostedPreference() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let suite = "FlutterRunletTests.Settings.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, preferences: defaults)
+        let settings = SettingsView(session: session, selection: .constant(.general),
+                                    language: AppLanguageSettings(defaults: defaults))
+        let host = NSHostingView(rootView: settings)
+        XCTAssertEqual(host.fittingSize, CGSize(width: 520, height: 520))
+        let launchSwitch = Binding(get: { settings.session?.showMainWindowOnLaunch ?? false },
+                                   set: { settings.session?.showMainWindowOnLaunch = $0 })
+        XCTAssertTrue(launchSwitch.wrappedValue)
+        launchSwitch.wrappedValue = false
+        let restarted = SessionController(store: store, runner: .bundled, preferences: defaults)
+        XCTAssertFalse(restarted.shouldPresentMainWindowOnLaunch)
+    }
+
     func testAboutInformationUsesHostedAppBundleAndConfirmedLinks() throws {
         let information = AboutInformation()
         XCTAssertEqual(try XCTUnwrap(information.version),
