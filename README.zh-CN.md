@@ -30,7 +30,7 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 
 ## 安装
 
-**v0.2.0 已通过本地验收，尚未公开发布。** 现有安装包可在 [GitHub Releases](https://github.com/atypiape/flutter-runlet/releases) 获取。按对应发布页的说明核对校验值，打开 DMG，将 FlutterRunlet 拖入「应用程序」。
+在 [GitHub 最新发布页](https://github.com/atypiape/flutter-runlet/releases/latest)下载通用 macOS DMG。按发布页说明核对校验值，打开 DMG，将 FlutterRunlet 拖入「应用程序」。
 
 最低部署目标为 macOS 15.0。安装包包含 Apple Silicon 和 Intel 架构。已在 Apple Silicon（macOS 26.7.1）上验证运行，Intel 和 macOS 15 实机运行尚未验证。详见[版本说明](docs/RELEASE-NOTES.md)。
 
