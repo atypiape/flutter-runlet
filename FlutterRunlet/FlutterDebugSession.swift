@@ -1,3 +1,4 @@
+import AppKit
 import CoreFoundation
 import Darwin
 import Foundation
@@ -24,6 +25,147 @@ enum FlutterBrowserPage {
     var title: String { self == .devTools ? "DevTools" : "Inspector" }
 }
 
+struct StandaloneDevToolsSDK {
+    let directory: URL
+    let version: String
+
+    var dart: URL { directory.appending(path: "bin/dart") }
+    static func hasSourceLinks(_ version: String) -> Bool {
+        version.compare("2.61.0", options: .numeric) != .orderedAscending
+    }
+
+    init?(directory: URL) {
+        guard directory.isFileURL, let root = try? ProjectLocation.directory(directory),
+              FileManager.default.isExecutableFile(atPath: root.appending(path: "bin/dart").path),
+              let data = Self.readManifest(in: root),
+              data.count < 4096,
+              let manifest = try? JSONDecoder().decode(Manifest.self, from: data),
+              manifest.app_name == "devtools_app",
+              manifest.version.range(of: #"^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.+-]+)?$"#,
+                                     options: .regularExpression) != nil else { return nil }
+        self.directory = root
+        version = manifest.version
+    }
+
+    private static func readManifest(in directory: URL) -> Data? {
+        let file = directory.appending(path: "bin/resources/devtools/version.json")
+        guard (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
+              let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? handle.close() }
+        return try? handle.read(upToCount: 4096)
+    }
+
+    static func serverAddress(from line: String) -> URL? {
+        guard let response = try? JSONDecoder().decode(StartupEvent.self, from: Data(line.utf8)),
+              response.event == "server.started", response.params.host == "127.0.0.1",
+              (1...65535).contains(response.params.port) else { return nil }
+        return URL(string: "http://127.0.0.1:\(response.params.port)")
+    }
+
+    private struct Manifest: Decodable {
+        let app_name: String
+        let version: String
+    }
+
+    private struct StartupEvent: Decodable {
+        struct Params: Decodable {
+            let host: String
+            let port: Int
+        }
+        let event: String
+        let params: Params
+    }
+}
+
+enum InspectorEditor: String, CaseIterable {
+    case vsCode = "vscode"
+    case cursor
+    case zed
+
+    var title: String {
+        switch self {
+        case .vsCode: "VS Code"
+        case .cursor: "Cursor"
+        case .zed: "Zed"
+        }
+    }
+
+    private var bundleID: String {
+        switch self {
+        case .vsCode: "com.microsoft.VSCode"
+        case .cursor: "com.todesktop.230313mzl4w4u92"
+        case .zed: "dev.zed.Zed"
+        }
+    }
+
+    private var launcherPath: String {
+        switch self {
+        case .vsCode: "Contents/Resources/app/bin/code"
+        case .cursor: "Contents/Resources/app/bin/cursor"
+        case .zed: "Contents/MacOS/cli"
+        }
+    }
+
+    func arguments(for location: InspectorSourceLocation) -> [String] {
+        let argument = "\(location.file.path):\(location.line):\(location.column)"
+        return self == .zed ? [argument] : ["--goto", argument]
+    }
+
+    @MainActor
+    func open(_ location: InspectorSourceLocation, onFailure: @escaping @MainActor @Sendable () -> Void) {
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            onFailure()
+            return
+        }
+        let process = Process()
+        process.executableURL = app.appending(path: launcherPath)
+        process.arguments = arguments(for: location)
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { process in
+            if process.terminationStatus != 0 { Task { @MainActor in onFailure() } }
+        }
+        do { try process.run() }
+        catch { onFailure() }
+    }
+}
+
+struct InspectorSourceLocation {
+    let file: URL
+    let line: Int
+    let column: Int
+
+    init?(notification: [String: Any], project: URL, opensOnSelection: Bool) {
+        guard notification["jsonrpc"] as? String == "2.0",
+              notification["method"] as? String == "streamNotify", notification["id"] == nil,
+              let params = notification["params"] as? [String: Any], params["streamId"] as? String == "ToolEvent",
+              let event = params["event"] as? [String: Any], event["kind"] as? String == "Extension",
+              event["extensionKind"] as? String == "navigate",
+              let data = event["extensionData"] as? [String: Any],
+              let source = data["source"] as? String,
+              source == "devtools.inspector" || (opensOnSelection && source == "flutter.inspector"),
+              let path = data["fileUri"] as? String, path.utf8.count <= 8192,
+              let uri = URLComponents(string: path), uri.scheme == "file",
+              uri.host == nil || uri.host == "" || uri.host == "localhost",
+              uri.user == nil, uri.password == nil, uri.port == nil, uri.query == nil, uri.fragment == nil,
+              uri.path.hasPrefix("/"), uri.path.rangeOfCharacter(from: .controlCharacters) == nil,
+              let line = Self.coordinate(data["line"]), let column = Self.coordinate(data["column"]) else { return nil }
+        let file = URL(fileURLWithPath: uri.path).resolvingSymlinksInPath()
+        guard file.pathExtension == "dart", ProjectLocation.contains(file, in: project),
+              (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { return nil }
+        self.file = file
+        self.line = line
+        self.column = column
+    }
+
+    private static func coordinate(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+              let integer = value as? Int, (1...Int(Int32.max)).contains(integer) else { return nil }
+        return integer
+    }
+}
+
 @MainActor
 final class FlutterDebugSession {
     typealias Verification = @MainActor (URL) async -> Bool
@@ -35,10 +177,13 @@ final class FlutterDebugSession {
     private let testedInspectorRoute: Bool
     private let connectionChanged: (Bool) -> Void
     private let browserAvailabilityChanged: (Bool) -> Void
+    private let openSource: (([String: Any], Bool) -> Void)?
+    private let opensSourceOnSelection: Bool
     private var appID: String?
     private var endpoint: URL?
     private var reportedDevTools: URL?
     private var probe: Task<Void, Never>?
+    private var sourceListener: Task<Void, Never>?
     private var hotTimeout: Task<Void, Never>?
     private var hotRequest: (id: Int, complete: HotCompletion)?
     private var nextID = 2  // app.stop uses request 1.
@@ -46,16 +191,21 @@ final class FlutterDebugSession {
     private(set) var hasVerifiedVM = false
     private var connected = false
     private var stopped = false
+    var openedInspector: URL?
+    var hasActiveVMService: Bool { connected && !stopped && endpoint != nil }
 
     init(deviceID: String, verifyVM: Verification?, timing: FlutterDebugTiming, sdk: FlutterSDK?,
          connectionChanged: @escaping (Bool) -> Void,
-         browserAvailabilityChanged: @escaping (Bool) -> Void) {
+         browserAvailabilityChanged: @escaping (Bool) -> Void,
+         openSource: (([String: Any], Bool) -> Void)? = nil) {
         self.deviceID = deviceID
         self.verifyVM = verifyVM
         self.timing = timing
         testedInspectorRoute = sdk?.flutterVersion == "3.47.4" && sdk?.devToolsVersion == "2.60.0"
+        opensSourceOnSelection = sdk?.devToolsVersion?.compare("2.61.0", options: .numeric) == .orderedAscending
         self.connectionChanged = connectionChanged
         self.browserAvailabilityChanged = browserAvailabilityChanged
+        self.openSource = openSource
     }
 
     func finish() {
@@ -116,13 +266,34 @@ final class FlutterDebugSession {
         hotTimeout = nil
         endpoint = nil
         reportedDevTools = nil
+        openedInspector = nil
         setConnected(false)
     }
 
     private func setConnected(_ value: Bool) {
         guard value != connected else { return }
         connected = value
-        if value { hasVerifiedVM = true }
+        if value {
+            hasVerifiedVM = true
+            if let endpoint, let openSource, verifyVM == nil {
+                sourceListener = Task { [timing, opensSourceOnSelection] in
+                    while !Task.isCancelled {
+                        do {
+                            try await VMServiceProbe.listenForToolEvents(at: endpoint) { message in
+                                if !Task.isCancelled { openSource(message, opensSourceOnSelection) }
+                            }
+                            return
+                        } catch {
+                            do { try await timing.sleep(.seconds(2)) }
+                            catch { return }
+                        }
+                    }
+                }
+            }
+        } else {
+            sourceListener?.cancel()
+            sourceListener = nil
+        }
         connectionChanged(value)
         browserAvailabilityChanged(browserDestination(.devTools) != nil)
     }
@@ -156,6 +327,7 @@ final class FlutterDebugSession {
                   let url = Self.localEndpoint(address, schemes: ["ws", "wss"]), url != endpoint else { return }
             probe?.cancel()
             endpoint = url
+            openedInspector = nil
             setConnected(false)
             probe = Task { [weak self, verifyVM, timing] in
                 let service = VMServiceProbe(url: url)
@@ -207,6 +379,17 @@ final class FlutterDebugSession {
             if let url = browser.url { return (url, false) }
         }
         return (reportedDevTools, page == .inspector)
+    }
+
+    func standaloneBrowserDestination(_ page: FlutterBrowserPage, server: URL,
+                                      version: String) -> (url: URL, inspectorFallback: Bool)? {
+        guard hasActiveVMService, let endpoint,
+              var browser = URLComponents(url: server, resolvingAgainstBaseURL: false) else { return nil }
+        // Verified with the standalone DevTools 2.61.0 server.
+        let directInspector = page == .inspector && version == "2.61.0"
+        browser.path = directInspector ? "/inspector" : "/"
+        browser.queryItems = [URLQueryItem(name: "uri", value: endpoint.absoluteString)]
+        return browser.url.map { ($0, page == .inspector && !directInspector) }
     }
 
     private static func bindsService(_ address: String, service: URLComponents) -> Bool {
@@ -268,6 +451,10 @@ final class FlutterDebugSession {
 
 @MainActor
 private final class VMServiceProbe {
+    private enum ToolEventSubscriptionError: Error {
+        case rejected
+    }
+
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 3
@@ -332,6 +519,31 @@ private final class VMServiceProbe {
         }
         if !ready { self.socket = nil }
         return ready
+    }
+
+    static func listenForToolEvents(at url: URL, receive: ([String: Any]) -> Void) async throws {
+        let connection = VMServiceProbe(url: url)
+        let socket = connection.connection()
+        defer { connection.close() }
+        try await withTaskCancellationHandler {
+            let id = "runlet-inspector"
+            try await socket.send(.string(#"{"jsonrpc":"2.0","id":"\#(id)","method":"streamListen","params":{"streamId":"ToolEvent"}}"#))
+            var subscribed = false
+            while !Task.isCancelled {
+                guard case .string(let text) = try await socket.receive(),
+                      let message = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { continue }
+                if message["id"] as? String == id {
+                    guard let result = message["result"] as? [String: Any], result["type"] as? String == "Success" else {
+                        throw ToolEventSubscriptionError.rejected
+                    }
+                    subscribed = true
+                } else if subscribed {
+                    receive(message)
+                }
+            }
+        } onCancel: {
+            socket.cancel(with: .normalClosure, reason: nil)
+        }
     }
 }
 

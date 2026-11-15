@@ -52,6 +52,51 @@ final class AppLanguageSettings {
     var locale: Locale { Locale(identifier: selection.resolve(preferredLanguages: preferredLanguages()).rawValue) }
 }
 
+enum AppAppearance: String, CaseIterable {
+    case system, light, dark
+
+    var label: LocalizedStringResource {
+        switch self {
+        case .system: "Follow System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var name: NSAppearance.Name? {
+        switch self {
+        case .system: nil
+        case .light: .aqua
+        case .dark: .darkAqua
+        }
+    }
+}
+
+@MainActor
+@Observable
+final class AppAppearanceSettings {
+    static let preferenceKey = "appAppearance"
+
+    private let defaults: UserDefaults
+    private let apply: (NSAppearance.Name?) -> Void
+    var selection: AppAppearance {
+        didSet {
+            defaults.set(selection.rawValue, forKey: Self.preferenceKey)
+            apply(selection.name)
+        }
+    }
+
+    init(defaults: UserDefaults = .standard, initialOverride: NSAppearance.Name? = nil,
+         apply: @escaping (NSAppearance.Name?) -> Void = { name in
+             NSApplication.shared.appearance = name.flatMap { NSAppearance(named: $0) }
+         }) {
+        self.defaults = defaults
+        self.apply = apply
+        selection = defaults.string(forKey: Self.preferenceKey).flatMap(AppAppearance.init(rawValue:)) ?? .dark
+        apply(initialOverride ?? selection.name)
+    }
+}
+
 extension Locale {
     func appString(_ resource: LocalizedStringResource) -> String {
         var resource = resource
@@ -158,6 +203,7 @@ struct FlutterRunletApp: App {
     @State private var panelWindow: PanelWindowReference
     @State private var settingsPage: SettingsView.Page? = .general
     @State private var language: AppLanguageSettings
+    @State private var appearance: AppAppearanceSettings
     @State private var loginItem: LoginItemSettings
     @State private var windowKeys: WindowKeys
 
@@ -180,9 +226,9 @@ struct FlutterRunletApp: App {
         let demo = scene.map { Phase07UpdateDemo(scene: $0) }
         captureScene = scene
         updateDemo = demo
-        if let appearance = scene?.appearance { NSApplication.shared.appearance = NSAppearance(named: appearance) }
         _updates = State(initialValue: demo?.source ?? UpdatePresentationSource())
         let language = AppLanguageSettings(initialSelection: scene?.language)
+        let appearance = AppAppearanceSettings(initialOverride: scene?.appearance)
         let loginItem = scene?.state == .loginUnavailable
             ? LoginItemSettings(readStatus: { .notFound }, register: {}, unregister: {}, appServiceAvailable: false)
             : LoginItemSettings()
@@ -190,6 +236,7 @@ struct FlutterRunletApp: App {
         #else
         _updates = State(initialValue: UpdatePresentationSource())
         let language = AppLanguageSettings()
+        let appearance = AppAppearanceSettings()
         let loginItem = LoginItemSettings()
         let capturesAuxiliaryWindow = false
         #endif
@@ -199,6 +246,7 @@ struct FlutterRunletApp: App {
         presentsMainWindowOnLaunch = presentsMainWindow
         _session = State(initialValue: controller)
         _language = State(initialValue: language)
+        _appearance = State(initialValue: appearance)
         _loginItem = State(initialValue: loginItem)
         let panelWindow = PanelWindowReference()
         _panelWindow = State(initialValue: panelWindow)
@@ -275,7 +323,7 @@ struct FlutterRunletApp: App {
                     return restore
                 }
             )
-            .background(PanelWindowAnchor(reference: panelWindow, windowKeys: windowKeys))
+            .background(WindowKeyAnchor(reference: panelWindow, windowKeys: windowKeys))
             .environment(\.locale, language.locale)
         } label: {
             Image(nsImage: makeMenuBarTemplate())
@@ -299,8 +347,9 @@ struct FlutterRunletApp: App {
             // Let AppKit size the full-height content without adding another title-bar inset.
             GeometryReader { _ in
                 SettingsView(session: liveSession, selection: $settingsPage, language: language,
-                             loginItem: loginItem, updates: updates)
+                             appearance: Bindable(appearance).selection, loginItem: loginItem, updates: updates)
                     .environment(\.locale, language.locale)
+                    .background(WindowKeyAnchor(windowKeys: windowKeys))
             }
             .ignoresSafeArea()
         }
@@ -324,7 +373,7 @@ struct FlutterRunletApp: App {
             .ignoresSafeArea()
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 400, height: 412)
+        .defaultSize(width: AboutView.windowSize.width, height: AboutView.windowSize.height)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
         .commandsRemoved()
@@ -495,23 +544,25 @@ struct FlutterRunletApp: App {
         }
     }
 
-    private struct PanelWindowAnchor: NSViewRepresentable {
-        let reference: PanelWindowReference
+    private struct WindowKeyAnchor: NSViewRepresentable {
+        var reference: PanelWindowReference? = nil
         let windowKeys: WindowKeys
 
         func makeNSView(context: Context) -> NSView {
-            let anchor = PanelAnchorView(windowKeys: windowKeys)
-            reference.anchor = anchor
+            let anchor = KeyAnchorView(windowKeys: windowKeys, isMenuBar: reference != nil)
+            reference?.anchor = anchor
             return anchor
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
 
-        private final class PanelAnchorView: NSView {
+        private final class KeyAnchorView: NSView {
             private let windowKeys: WindowKeys
+            private let isMenuBar: Bool
 
-            init(windowKeys: WindowKeys) {
+            init(windowKeys: WindowKeys, isMenuBar: Bool) {
                 self.windowKeys = windowKeys
+                self.isMenuBar = isMenuBar
                 super.init(frame: .zero)
             }
 
@@ -520,7 +571,10 @@ struct FlutterRunletApp: App {
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
-                if let window { windowKeys.register(window, source: .menuBar) }
+                if let window {
+                    if isMenuBar { windowKeys.register(window, source: .menuBar) }
+                    else { windowKeys.registerSettings(window) }
+                }
             }
         }
     }
@@ -531,6 +585,7 @@ private final class WindowKeys {
     private weak var session: SessionController?
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private let menuPanels = NSHashTable<NSWindow>.weakObjects()
+    private let settingsWindows = NSHashTable<NSWindow>.weakObjects()
     private var monitor: Any?
 
     init(session: SessionController?) { self.session = session }
@@ -540,6 +595,15 @@ private final class WindowKeys {
         case .mainWindow: mainWindows.add(window)
         case .menuBar: menuPanels.add(window)
         }
+        installMonitor()
+    }
+
+    func registerSettings(_ window: NSWindow) {
+        settingsWindows.add(window)
+        installMonitor()
+    }
+
+    private func installMonitor() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handleKey(event) == true }
@@ -557,23 +621,19 @@ private final class WindowKeys {
               window.isVisible, window.attachedSheet == nil else {
             return false
         }
-        let source: DebugActionSource
-        if mainWindows.contains(window) {
-            source = .mainWindow
-        } else if menuPanels.contains(window) {
-            source = .menuBar
-        } else {
-            return false
-        }
+        let inMainWindow = mainWindows.contains(window)
+        let inMenuPanel = menuPanels.contains(window)
+        guard inMainWindow || inMenuPanel || settingsWindows.contains(window) else { return false }
         if event.keyCode == kVK_Tab,
            event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
             return true
         }
-        guard let session, let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
+        guard inMainWindow || inMenuPanel, let session,
+              let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
                                                     isRepeat: event.isARepeat) else {
             return false
         }
-        return session.performDebugAction(action, source: source)
+        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar)
     }
 }
 

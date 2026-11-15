@@ -401,6 +401,38 @@
         }
       }
     },
+    "App Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Appearance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用外观"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外观"
+          }
+        }
+      }
+    },
     "Auto": {
       "localizations": {
         "en": {
@@ -449,6 +481,22 @@
         }
       }
     },
+    "Bundled with Flutter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundled with Flutter"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter 自带"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "en": {
@@ -461,6 +509,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更换…"
           }
         }
       }
@@ -509,6 +573,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "检查 FlutterRunlet 是否有新版本"
+          }
+        }
+      }
+    },
+    "Check that the editor selected in Settings is installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check that the editor selected in Settings is installed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请确认已安装在设置中选择的编辑器。"
+          }
+        }
+      }
+    },
+    "Check the Dart SDK in DevTools settings and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the Dart SDK in DevTools settings and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在「DevTools」设置中检查 Dart SDK，然后重试。"
           }
         }
       }
@@ -813,6 +909,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制日志"
+          }
+        }
+      }
+    },
+    "Copy Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制路径"
           }
         }
       }
@@ -1153,6 +1265,22 @@
         }
       }
     },
+    "Could not open the source editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the source editor"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开源码编辑器"
+          }
+        }
+      }
+    },
     "Could not persist the recovery file to disk": {
       "localizations": {
         "en": {
@@ -1313,6 +1441,22 @@
         }
       }
     },
+    "Could not start standalone DevTools": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not start standalone DevTools"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动独立 DevTools"
+          }
+        }
+      }
+    },
     "Could not start the iOS simulator: %@. Check the simulator and try again.": {
       "localizations": {
         "en": {
@@ -1457,6 +1601,22 @@
         }
       }
     },
+    "Dark": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "深色"
+          }
+        }
+      }
+    },
     "Dart defines must use KEY=VALUE. Check toolArgs": {
       "localizations": {
         "en": {
@@ -1469,6 +1629,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dart define 必须为 KEY=VALUE，请检查 toolArgs"
+          }
+        }
+      }
+    },
+    "Dart SDK Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dart SDK Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dart SDK 路径"
           }
         }
       }
@@ -1585,6 +1761,22 @@
         }
       }
     },
+    "DevTools Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DevTools Source"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DevTools 来源"
+          }
+        }
+      }
+    },
     "Device": {
       "localizations": {
         "en": {
@@ -1645,6 +1837,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        }
+      }
+    },
+    "Doc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doc"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用文档"
           }
         }
       }
@@ -1725,6 +1933,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "任务标签重复：%@"
+          }
+        }
+      }
+    },
+    "Effective Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effective Source"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生效来源"
           }
         }
       }
@@ -2477,6 +2701,262 @@
           "stringUnit": {
             "state": "translated",
             "value": "JSONC 语法错误"
+          }
+        }
+      }
+    },
+    "License": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "许可证"
+          }
+        }
+      }
+    },
+    "Light": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "浅色"
+          }
+        }
+      }
+    },
+    "Manual SDK Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual SDK Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动 SDK 路径"
+          }
+        }
+      }
+    },
+    "Manual SDK…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual SDK…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动…"
+          }
+        }
+      }
+    },
+    "Open Inspector or DevTools again after the debug session reconnects.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inspector or DevTools again after the debug session reconnects."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调试会话重新连接后，再打开 Inspector 或 DevTools。"
+          }
+        }
+      }
+    },
+    "Open Inspector or DevTools to start it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inspector or DevTools to start it again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开 Inspector 或 DevTools 可重新启动服务。"
+          }
+        }
+      }
+    },
+    "Recent Updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近期更新"
+          }
+        }
+      }
+    },
+    "Select Dart SDK…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Dart SDK…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择 Dart SDK…"
+          }
+        }
+      }
+    },
+    "Select a Dart SDK directory that includes DevTools.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a Dart SDK directory that includes DevTools."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择包含 DevTools 的 Dart SDK 目录。"
+          }
+        }
+      }
+    },
+    "Source Editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source Editor"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源码编辑器"
+          }
+        }
+      }
+    },
+    "Source Navigation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source Navigation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源码跳转"
+          }
+        }
+      }
+    },
+    "Standalone Dart SDK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone Dart SDK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 Dart SDK"
+          }
+        }
+      }
+    },
+    "Standalone Dart SDK…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone Dart SDK…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 Dart SDK…"
+          }
+        }
+      }
+    },
+    "Standalone DevTools is ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone DevTools is ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 DevTools 已就绪"
+          }
+        }
+      }
+    },
+    "Standalone DevTools stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone DevTools stopped"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 DevTools 已停止"
+          }
+        }
+      }
+    },
+    "Starting standalone DevTools…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting standalone DevTools…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在启动独立 DevTools…"
           }
         }
       }
@@ -4205,6 +4685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看设备全名"
+          }
+        }
+      }
+    },
+    "Show Full Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Full Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看完整路径"
           }
         }
       }
@@ -6081,6 +6577,22 @@
         }
       }
     },
+    "Updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近期更新"
+          }
+        }
+      }
+    },
     "Updating…": {
       "localizations": {
         "en": {
@@ -6109,6 +6621,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "校验失败：更新包校验和不匹配。"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }
