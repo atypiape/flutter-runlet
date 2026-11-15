@@ -213,12 +213,13 @@ final class LaunchPresentationTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         var applied: [NSAppearance.Name?] = []
         let appearance = AppAppearanceSettings(defaults: defaults) { applied.append($0) }
-        XCTAssertEqual(appearance.selection, .system)
+        XCTAssertEqual(appearance.selection, .dark)
         appearance.selection = .light
         appearance.selection = .dark
         XCTAssertEqual(AppAppearanceSettings(defaults: defaults) { applied.append($0) }.selection, .dark)
         appearance.selection = .system
-        XCTAssertEqual(applied, [nil, .aqua, .darkAqua, .darkAqua, nil])
+        XCTAssertEqual(AppAppearanceSettings(defaults: defaults) { applied.append($0) }.selection, .system)
+        XCTAssertEqual(applied, [.darkAqua, .aqua, .darkAqua, .darkAqua, nil, nil])
         XCTAssertEqual(defaults.string(forKey: AppAppearanceSettings.preferenceKey), "system")
     }
 

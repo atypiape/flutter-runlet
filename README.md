@@ -47,7 +47,7 @@ In **Settings → DevTools → DevTools Source**, you can choose a separate Dart
 
 Click **Open Inspector** again to return to its existing tab for the current session. After closing the tab, click again to reopen it. Edge, Chrome, and Safari require macOS browser automation permission for this feature.
 
-Both views control the same session. Changing the device while debugging sets up the next run; the current session stays on its original device. The app supports English and Simplified Chinese. In **Settings → General → App Appearance**, choose Follow System, Light, or Dark. The change applies immediately and persists across launches.
+Both views control the same session. Changing the device while debugging sets up the next run; the current session stays on its original device. The app supports English and Simplified Chinese. In **Settings → General → App Appearance**, Dark is the default. You can choose Light or Follow System. The change applies immediately and persists across launches.
 
 FlutterRunlet supports **Debug** configurations. Profile and Release configurations, long-running background tasks, complex interactive tasks, and some VS Code extension variables are outside its scope. It leaves your configuration files alone and runs the pre-launch and post-debug tasks you configured. Try the [sample VS Code configurations](docs/examples/sample-flutter-app/README.md) or see the [compatibility details](docs/02-TECHNICAL.md#2-launchjson-基本契约v01) (Simplified Chinese).
 

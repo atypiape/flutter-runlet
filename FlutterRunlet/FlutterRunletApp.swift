@@ -92,7 +92,7 @@ final class AppAppearanceSettings {
          }) {
         self.defaults = defaults
         self.apply = apply
-        selection = defaults.string(forKey: Self.preferenceKey).flatMap(AppAppearance.init(rawValue:)) ?? .system
+        selection = defaults.string(forKey: Self.preferenceKey).flatMap(AppAppearance.init(rawValue:)) ?? .dark
         apply(initialOverride ?? selection.name)
     }
 }

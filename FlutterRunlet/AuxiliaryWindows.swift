@@ -355,12 +355,18 @@ struct SettingsView: View {
                 }
             }
             if path != nil || session.standaloneDevToolsIssue != nil {
-                groupTitle("Dart SDK", systemFont: true)
+                HStack {
+                    groupTitle("Dart SDK", systemFont: true)
+                    Spacer()
+                    if path != nil {
+                        settingsAction("Change…", emphasized: true) { chooseDevToolsSDK(for: session) }
+                            .disabled(!session.canEditFlutterSDK)
+                    }
+                }
+                .padding(.trailing, 13)
                 settingsCard {
                     if let path {
-                        sdkPath("Dart SDK Path", path: path, enabled: session.canEditFlutterSDK) {
-                            chooseDevToolsSDK(for: session)
-                        }
+                        sdkPath("Path", path: path)
                     }
                     if let issue = session.standaloneDevToolsIssue {
                         Text(issue)
@@ -832,7 +838,7 @@ private struct UpdateButton: View {
     var body: some View {
         let presentation = updates.presentation
         let isSpinning = presentation.status == .checking || presentation.status == .updating
-        AuxiliaryActionButton(emphasized: true, width: 116, preservesDisabledSurface: true,
+        AuxiliaryActionButton(emphasized: true, preservesDisabledSurface: true,
                               action: { updates.perform(.primary) }) {
             HStack(spacing: 5) {
                 switch presentation.status {
@@ -842,9 +848,6 @@ private struct UpdateButton: View {
                 }
                 Text(presentation.primaryTitle)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .truncationMode(.middle)
-                    .frame(height: 16)
             }
         }
         .modifier(UpdateButtonOpacity(isSpinning: isSpinning, backdrop: backdrop))
@@ -1090,7 +1093,6 @@ struct AuxiliaryWindowLayout<Content: View>: View {
 private struct AuxiliaryActionButton<Label: View>: View {
     @Environment(\.locale) private var locale
     var emphasized = false
-    var width: CGFloat? = nil
     var preservesDisabledSurface = false
     let action: () -> Void
     @ViewBuilder let label: () -> Label
@@ -1100,7 +1102,7 @@ private struct AuxiliaryActionButton<Label: View>: View {
             label()
                 .font(RunletType.localized(locale, size: 11, medium: true))
                 .padding(.horizontal, 10)
-                .frame(width: width, height: 24)
+                .frame(height: 24)
                 .fixedSize(horizontal: true, vertical: false)
         }
         .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, radius: 6,
