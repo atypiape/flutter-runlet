@@ -652,7 +652,7 @@ struct AboutView: View {
                 .padding(.vertical, 18)
             }
             // Keep the centered layout stable when feedback requires scrolling.
-            .scrollIndicators(.hidden, axes: .vertical)
+            .scrollIndicators(.never, axes: .vertical)
         }
     }
 }
