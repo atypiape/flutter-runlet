@@ -139,18 +139,22 @@
 
 ## V01–V05 逐状态矩阵
 
+实拍协议复核：键盘用例使用 macOS HID 路径的带时序按键、前后原图与 AX 焦点作为操作记录。长版本是在同一 App 上的受控展示输入，实际 Bundle 版本和构建号由默认窗口用例与 Info.plist 核验。
+
+本机试验只处理隔离候选登录项。注册后系统呈现启用，撤回后开关立即关闭，未返回待批准。四项依赖该系统返回值的本机原生用例记为 N/A。应用处理待批准的文案、开关和注销逻辑由宿主 XCTest 的可控 Service Management 状态核验，本机实测另外覆盖真实注册、注销、重启与无法配置分支。系统试验记录在本机 `visual/login-approval-attempt/`。
+
 语言和外观是主证据截图的最终状态。语言切换的前置窗口按各行指定的起始语言另拍；英文和浅色始终检查各自截图。`general`、`flutter`、`settings-about` 分别指设置三页。`about` 指独立关于，`install-confirm` 和 `recovery-feedback` 指升级流程产生的独立窗口。静态帧记为 `static`，旋转位相记为 `f01`–`f04`，连续序列记为 `sequence`。四个关键帧的 ID 在状态名后加入帧号。每行的截图、录像或区域索引以用例 ID 命名，关联本次操作前后及所用输入；候选视觉签核按行登记结果。`N/A` 保留具体原因，`REQUIRED` 按证据列复拍。
 
 冻结原型输入采用 P07-F01～F07 的示例文字、路径和 `v0.2.0 (build 256)`，新版 `v1.5.0`。实机专用长版本统一使用 `v12.34.567 (build 123456)`，手动长路径用隔离夹具内含空格的 `Flutter SDK Fixtures/2026 channel beta/flutter`，实际完整路径只在本地证据中保留。Doctor 长输出夹具保留成功标记、实测行数及首尾标识并传给真实视图，故障夹具固定退出状态和可用原文。正式更新前的检查、等待、安装与回退使用受控状态和故障输入；真实网络、安装与进程回退证据在相应验收项另取。旋转静态取图固定相位，连续录像解除相位固定并延长对应状态。截图机的语言、外观、缩放倍率、实际 Bundle 和候选提交在每轮采集前记录。
 
 | 组 | REQUIRED | N/A | 合计 |
 | --- | ---: | ---: | ---: |
-| V01 | 76 | 4 | 80 |
+| V01 | 72 | 8 | 80 |
 | V02 | 92 | 0 | 92 |
 | V03 | 76 | 16 | 92 |
 | V04 | 136 | 0 | 136 |
 | V05 | 136 | 8 | 144 |
-| 合计 | 516 | 28 | 544 |
+| 合计 | 512 | 32 | 544 |
 
 ### V01 通用偏好与语言
 
@@ -196,10 +200,10 @@
 | V01-general-language-menu-open-zh-Hans-light | REQUIRED | general | language-menu-open | zh-Hans | light | static | 通用，跟随系统 | 打开界面语言选框 | 组件/变量 P07-F05、P07-F01（浅色变量） | 核对 310 × 148 面板的标题、三项、间距和对齐，记录系统锚点 | 窗口+弹层裁区+AX |
 | V01-general-language-menu-open-en-dark | REQUIRED | general | language-menu-open | en | dark | static | 通用，跟随系统 | 打开界面语言选框 | 组件/变量 P07-F05、P07-F01（英文译文） | 核对 310 × 148 面板的标题、三项、间距和对齐，记录系统锚点 | 窗口+弹层裁区+AX |
 | V01-general-language-menu-open-en-light | REQUIRED | general | language-menu-open | en | light | static | 通用，跟随系统 | 打开界面语言选框 | 组件/变量 P07-F05、P07-F01（英文译文与浅色变量） | 核对 310 × 148 面板的标题、三项、间距和对齐，记录系统锚点 | 窗口+弹层裁区+AX |
-| V01-general-language-dismiss-escape-zh-Hans-dark | REQUIRED | general | language-dismiss-escape | zh-Hans | dark | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+键盘录像+焦点AX |
-| V01-general-language-dismiss-escape-zh-Hans-light | REQUIRED | general | language-dismiss-escape | zh-Hans | light | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，浅色变量） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+键盘录像+焦点AX |
-| V01-general-language-dismiss-escape-en-dark | REQUIRED | general | language-dismiss-escape | en | dark | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，英文译文） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+键盘录像+焦点AX |
-| V01-general-language-dismiss-escape-en-light | REQUIRED | general | language-dismiss-escape | en | light | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，英文译文与浅色变量） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+键盘录像+焦点AX |
+| V01-general-language-dismiss-escape-zh-Hans-dark | REQUIRED | general | language-dismiss-escape | zh-Hans | dark | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+HID 按键时序+焦点AX |
+| V01-general-language-dismiss-escape-zh-Hans-light | REQUIRED | general | language-dismiss-escape | zh-Hans | light | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，浅色变量） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+HID 按键时序+焦点AX |
+| V01-general-language-dismiss-escape-en-dark | REQUIRED | general | language-dismiss-escape | en | dark | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，英文译文） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+HID 按键时序+焦点AX |
+| V01-general-language-dismiss-escape-en-light | REQUIRED | general | language-dismiss-escape | en | light | static | 语言菜单已开且焦点在菜单 | 按 Escape | 组件/变量 P07-F05;P07-F01（无同状态原图，英文译文与浅色变量） | 弹层闭合、恢复选框焦点、原语言不变 | 闭合前后+HID 按键时序+焦点AX |
 | V01-general-language-dismiss-outside-zh-Hans-dark | REQUIRED | general | language-dismiss-outside | zh-Hans | dark | static | 语言菜单已开 | 点出弹层、点通用页空白 | 组件/变量 P07-F05;P07-F01（无同状态原图） | 弹层闭合且配置不变，记录指针关闭时焦点位置 | 闭合前后+AX |
 | V01-general-language-dismiss-outside-zh-Hans-light | REQUIRED | general | language-dismiss-outside | zh-Hans | light | static | 语言菜单已开 | 点出弹层、点通用页空白 | 组件/变量 P07-F05;P07-F01（无同状态原图，浅色变量） | 弹层闭合且配置不变，记录指针关闭时焦点位置 | 闭合前后+AX |
 | V01-general-language-dismiss-outside-en-dark | REQUIRED | general | language-dismiss-outside | en | dark | static | 语言菜单已开 | 点出弹层、点通用页空白 | 组件/变量 P07-F05;P07-F01（无同状态原图，英文译文） | 弹层闭合且配置不变，记录指针关闭时焦点位置 | 闭合前后+AX |
@@ -216,10 +220,10 @@
 | V01-general-language-en-zh-Hans-light | N/A | general | language-en | zh-Hans | light | static | 通用，中文界面 | 选 English，然后重新打开设置 | —（P07-F01;P07-F05，范围说明） | 界面语言列记录操作后的语言；显式选择结果固定为 en，本组合不能产生 zh-Hans。起始语言在对应适用行一起留证。 | — |
 | V01-general-language-en-en-dark | REQUIRED | general | language-en | en | dark | static | 通用，中文界面 | 选 English，然后重新打开设置 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文） | 界面与 AX 进入英文，选框不裁切，偏好保持 | 前后窗口+AX |
 | V01-general-language-en-en-light | REQUIRED | general | language-en | en | light | static | 通用，中文界面 | 选 English，然后重新打开设置 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文与浅色变量） | 界面与 AX 进入英文，选框不裁切，偏好保持 | 前后窗口+AX |
-| V01-general-login-approval-zh-Hans-dark | REQUIRED | general | login-approval | zh-Hans | dark | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 组件/变量 P07-F01（无同状态原图） | 展示系统批准说明与适用入口，切换能力与当次系统状态一致 | 窗口+AX+系统状态 |
-| V01-general-login-approval-zh-Hans-light | REQUIRED | general | login-approval | zh-Hans | light | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 组件/变量 P07-F01（无同状态原图，浅色变量） | 展示系统批准说明与适用入口，切换能力与当次系统状态一致 | 窗口+AX+系统状态 |
-| V01-general-login-approval-en-dark | REQUIRED | general | login-approval | en | dark | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 组件/变量 P07-F01（无同状态原图，英文译文） | 展示系统批准说明与适用入口，切换能力与当次系统状态一致 | 窗口+AX+系统状态 |
-| V01-general-login-approval-en-light | REQUIRED | general | login-approval | en | light | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 组件/变量 P07-F01（无同状态原图，英文译文与浅色变量） | 展示系统批准说明与适用入口，切换能力与当次系统状态一致 | 窗口+AX+系统状态 |
+| V01-general-login-approval-zh-Hans-dark | N/A | general | login-approval | zh-Hans | dark | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 本机系统实测及宿主 XCTest | 隔离候选的注册与撤回均已实测。本机系统没有产生待批准状态，应用分支由宿主 XCTest 验证。 | — |
+| V01-general-login-approval-zh-Hans-light | N/A | general | login-approval | zh-Hans | light | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 本机系统实测及宿主 XCTest | 隔离候选的注册与撤回均已实测。本机系统没有产生待批准状态，应用分支由宿主 XCTest 验证。 | — |
+| V01-general-login-approval-en-dark | N/A | general | login-approval | en | dark | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 本机系统实测及宿主 XCTest | 隔离候选的注册与撤回均已实测。本机系统没有产生待批准状态，应用分支由宿主 XCTest 验证。 | — |
+| V01-general-login-approval-en-light | N/A | general | login-approval | en | light | static | 通用，隔离登录项等待系统批准 | 读取真实系统待批准；确认提示可读 | 本机系统实测及宿主 XCTest | 隔离候选的注册与撤回均已实测。本机系统没有产生待批准状态，应用分支由宿主 XCTest 验证。 | — |
 | V01-general-login-locked-zh-Hans-dark | REQUIRED | general | login-locked | zh-Hans | dark | static | 通用，登录项状态不可更改 | 受控锁定并以鼠标和键盘尝试；记录系统状态来源 | 组件/变量 P07-F01（无同状态原图） | 保留说明与可用系统入口，不修改注册状态；核对禁用角色和焦点 | 窗口+AX+拒绝动作记录 |
 | V01-general-login-locked-zh-Hans-light | REQUIRED | general | login-locked | zh-Hans | light | static | 通用，登录项状态不可更改 | 受控锁定并以鼠标和键盘尝试；记录系统状态来源 | 组件/变量 P07-F01（无同状态原图，浅色变量） | 保留说明与可用系统入口，不修改注册状态；核对禁用角色和焦点 | 窗口+AX+拒绝动作记录 |
 | V01-general-login-locked-en-dark | REQUIRED | general | login-locked | en | dark | static | 通用，登录项状态不可更改 | 受控锁定并以鼠标和键盘尝试；记录系统状态来源 | 组件/变量 P07-F01（无同状态原图，英文译文） | 保留说明与可用系统入口，不修改注册状态；核对禁用角色和焦点 | 窗口+AX+拒绝动作记录 |
@@ -228,10 +232,10 @@
 | V01-general-login-system-settings-zh-Hans-light | REQUIRED | general | login-system-settings | zh-Hans | light | static | 通用，登录项需系统处理 | 打开系统设置登录项入口；返回 App | 系统/实测；组件 P07-F01（入口或角色，浅色变量） | 系统落地为登录项页面；返回时反映实际状态 | 设置窗口+系统落地截图+返回AX |
 | V01-general-login-system-settings-en-dark | REQUIRED | general | login-system-settings | en | dark | static | 通用，登录项需系统处理 | 打开系统设置登录项入口；返回 App | 系统/实测；组件 P07-F01（入口或角色，英文译文） | 系统落地为登录项页面；返回时反映实际状态 | 设置窗口+系统落地截图+返回AX |
 | V01-general-login-system-settings-en-light | REQUIRED | general | login-system-settings | en | light | static | 通用，登录项需系统处理 | 打开系统设置登录项入口；返回 App | 系统/实测；组件 P07-F01（入口或角色，英文译文与浅色变量） | 系统落地为登录项页面；返回时反映实际状态 | 设置窗口+系统落地截图+返回AX |
-| V01-general-keyboard-order-zh-Hans-dark | REQUIRED | general | keyboard-order | zh-Hans | dark | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+键盘录像 |
-| V01-general-keyboard-order-zh-Hans-light | REQUIRED | general | keyboard-order | zh-Hans | light | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，浅色变量） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+键盘录像 |
-| V01-general-keyboard-order-en-dark | REQUIRED | general | keyboard-order | en | dark | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+键盘录像 |
-| V01-general-keyboard-order-en-light | REQUIRED | general | keyboard-order | en | light | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文与浅色变量） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+键盘录像 |
+| V01-general-keyboard-order-zh-Hans-dark | REQUIRED | general | keyboard-order | zh-Hans | dark | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+HID 按键时序 |
+| V01-general-keyboard-order-zh-Hans-light | REQUIRED | general | keyboard-order | zh-Hans | light | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，浅色变量） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+HID 按键时序 |
+| V01-general-keyboard-order-en-dark | REQUIRED | general | keyboard-order | en | dark | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+HID 按键时序 |
+| V01-general-keyboard-order-en-light | REQUIRED | general | keyboard-order | en | light | static | 通用初始窗口 | Tab、Shift-Tab、Space、Return 操作选框和开关 | 组件/变量 P07-F01;P07-F05（无同状态原图，英文译文与浅色变量） | 顺序、名称和值可读，焦点可见，完成菜单选择后回入口 | 窗口+焦点AX+HID 按键时序 |
 | V01-general-preferences-reopen-zh-Hans-dark | REQUIRED | general | preferences-reopen | zh-Hans | dark | static | 通用已变更语言以外的三个偏好 | 关闭设置，由另一齿轮复开，再重启隔离 App | 组件/变量 P07-F01（无同状态原图） | 窗口复用与三项实际持久化；启动行为读取真实偏好 | 窗口前后+偏好记录 |
 | V01-general-preferences-reopen-zh-Hans-light | REQUIRED | general | preferences-reopen | zh-Hans | light | static | 通用已变更语言以外的三个偏好 | 关闭设置，由另一齿轮复开，再重启隔离 App | 组件/变量 P07-F01（无同状态原图，浅色变量） | 窗口复用与三项实际持久化；启动行为读取真实偏好 | 窗口前后+偏好记录 |
 | V01-general-preferences-reopen-en-dark | REQUIRED | general | preferences-reopen | en | dark | static | 通用已变更语言以外的三个偏好 | 关闭设置，由另一齿轮复开，再重启隔离 App | 组件/变量 P07-F01（无同状态原图，英文译文） | 窗口复用与三项实际持久化；启动行为读取真实偏好 | 窗口前后+偏好记录 |
@@ -289,10 +293,10 @@
 | V02-flutter-sdk-panel-cancel-zh-Hans-light | REQUIRED | flutter | sdk-panel-cancel | zh-Hans | light | static | 原生目录选择器打开 | 换浏览目录但点系统取消 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，浅色变量） | 面板关闭且路径未变，焦点回选路径 | 系统区域+返回窗口+焦点AX |
 | V02-flutter-sdk-panel-cancel-en-dark | REQUIRED | flutter | sdk-panel-cancel | en | dark | static | 原生目录选择器打开 | 换浏览目录但点系统取消 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文） | 面板关闭且路径未变，焦点回选路径 | 系统区域+返回窗口+焦点AX |
 | V02-flutter-sdk-panel-cancel-en-light | REQUIRED | flutter | sdk-panel-cancel | en | light | static | 原生目录选择器打开 | 换浏览目录但点系统取消 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文与浅色变量） | 面板关闭且路径未变，焦点回选路径 | 系统区域+返回窗口+焦点AX |
-| V02-flutter-sdk-panel-escape-zh-Hans-dark | REQUIRED | flutter | sdk-panel-escape | zh-Hans | dark | static | 原生目录选择器打开 | 浏览目录后按 Escape | 系统/实测；组件 P07-F07;P07-F02（入口或角色） | 与原生取消一致，保存选择不变 | 系统区域+键盘录像+返回焦点AX |
-| V02-flutter-sdk-panel-escape-zh-Hans-light | REQUIRED | flutter | sdk-panel-escape | zh-Hans | light | static | 原生目录选择器打开 | 浏览目录后按 Escape | 系统/实测；组件 P07-F07;P07-F02（入口或角色，浅色变量） | 与原生取消一致，保存选择不变 | 系统区域+键盘录像+返回焦点AX |
-| V02-flutter-sdk-panel-escape-en-dark | REQUIRED | flutter | sdk-panel-escape | en | dark | static | 原生目录选择器打开 | 浏览目录后按 Escape | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文） | 与原生取消一致，保存选择不变 | 系统区域+键盘录像+返回焦点AX |
-| V02-flutter-sdk-panel-escape-en-light | REQUIRED | flutter | sdk-panel-escape | en | light | static | 原生目录选择器打开 | 浏览目录后按 Escape | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文与浅色变量） | 与原生取消一致，保存选择不变 | 系统区域+键盘录像+返回焦点AX |
+| V02-flutter-sdk-panel-escape-zh-Hans-dark | REQUIRED | flutter | sdk-panel-escape | zh-Hans | dark | static | 原生目录选择器打开 | 从已打开的原生目录选择器按 Escape；实际导航与选择在目录接受用例复核 | 系统/实测；组件 P07-F07;P07-F02（入口或角色） | 与原生取消一致，保存选择不变 | 系统区域+HID 按键时序+返回焦点AX |
+| V02-flutter-sdk-panel-escape-zh-Hans-light | REQUIRED | flutter | sdk-panel-escape | zh-Hans | light | static | 原生目录选择器打开 | 从已打开的原生目录选择器按 Escape；实际导航与选择在目录接受用例复核 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，浅色变量） | 与原生取消一致，保存选择不变 | 系统区域+HID 按键时序+返回焦点AX |
+| V02-flutter-sdk-panel-escape-en-dark | REQUIRED | flutter | sdk-panel-escape | en | dark | static | 原生目录选择器打开 | 从已打开的原生目录选择器按 Escape；实际导航与选择在目录接受用例复核 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文） | 与原生取消一致，保存选择不变 | 系统区域+HID 按键时序+返回焦点AX |
+| V02-flutter-sdk-panel-escape-en-light | REQUIRED | flutter | sdk-panel-escape | en | light | static | 原生目录选择器打开 | 从已打开的原生目录选择器按 Escape；实际导航与选择在目录接受用例复核 | 系统/实测；组件 P07-F07;P07-F02（入口或角色，英文译文与浅色变量） | 与原生取消一致，保存选择不变 | 系统区域+HID 按键时序+返回焦点AX |
 | V02-flutter-doctor-idle-zh-Hans-dark | REQUIRED | flutter | doctor-idle | zh-Hans | dark | static | Flutter 页，原图默认 SDK 数据 | 清除旧检测，保持空闲且 SDK 可用 | Figma 原图 P07-F02（匹配区域） | 检查键存在且可用，无旧反馈 | 窗口+AX |
 | V02-flutter-doctor-idle-zh-Hans-light | REQUIRED | flutter | doctor-idle | zh-Hans | light | static | Flutter 页，原图默认 SDK 数据 | 清除旧检测，保持空闲且 SDK 可用 | 组件/变量 P07-F02（浅色变量） | 检查键存在且可用，无旧反馈 | 窗口+AX |
 | V02-flutter-doctor-idle-en-dark | REQUIRED | flutter | doctor-idle | en | dark | static | Flutter 页，原图默认 SDK 数据 | 清除旧检测，保持空闲且 SDK 可用 | 组件/变量 P07-F02（英文译文） | 检查键存在且可用，无旧反馈 | 窗口+AX |
@@ -329,10 +333,10 @@
 | V02-flutter-doctor-sdk-change-zh-Hans-light | REQUIRED | flutter | doctor-sdk-change | zh-Hans | light | static | Flutter 页，SDK A 已有结果 | 切换到另一个有效 SDK B，保留项目 | 组件/变量 P07-F02;P07-F06（无同状态原图，浅色变量） | 旧结果即时失效，随后检查读取 SDK B | 窗口前后+SDK与输出归属记录 |
 | V02-flutter-doctor-sdk-change-en-dark | REQUIRED | flutter | doctor-sdk-change | en | dark | static | Flutter 页，SDK A 已有结果 | 切换到另一个有效 SDK B，保留项目 | 组件/变量 P07-F02;P07-F06（无同状态原图，英文译文） | 旧结果即时失效，随后检查读取 SDK B | 窗口前后+SDK与输出归属记录 |
 | V02-flutter-doctor-sdk-change-en-light | REQUIRED | flutter | doctor-sdk-change | en | light | static | Flutter 页，SDK A 已有结果 | 切换到另一个有效 SDK B，保留项目 | 组件/变量 P07-F02;P07-F06（无同状态原图，英文译文与浅色变量） | 旧结果即时失效，随后检查读取 SDK B | 窗口前后+SDK与输出归属记录 |
-| V02-flutter-keyboard-order-zh-Hans-dark | REQUIRED | flutter | keyboard-order | zh-Hans | dark | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+键盘录像+焦点AX |
-| V02-flutter-keyboard-order-zh-Hans-light | REQUIRED | flutter | keyboard-order | zh-Hans | light | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，浅色变量） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+键盘录像+焦点AX |
-| V02-flutter-keyboard-order-en-dark | REQUIRED | flutter | keyboard-order | en | dark | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，英文译文） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+键盘录像+焦点AX |
-| V02-flutter-keyboard-order-en-light | REQUIRED | flutter | keyboard-order | en | light | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+键盘录像+焦点AX |
+| V02-flutter-keyboard-order-zh-Hans-dark | REQUIRED | flutter | keyboard-order | zh-Hans | dark | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+HID 按键时序+焦点AX |
+| V02-flutter-keyboard-order-zh-Hans-light | REQUIRED | flutter | keyboard-order | zh-Hans | light | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，浅色变量） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+HID 按键时序+焦点AX |
+| V02-flutter-keyboard-order-en-dark | REQUIRED | flutter | keyboard-order | en | dark | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，英文译文） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+HID 按键时序+焦点AX |
+| V02-flutter-keyboard-order-en-light | REQUIRED | flutter | keyboard-order | en | light | static | Flutter 页，选择有效手动 SDK | Tab／Shift-Tab 遍历来源、选路径、FVM、检查与输出动作；通过键盘进入目录选择器 | 组件/变量 P07-F02;P07-F07（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、可达控件和名称可读，开关状态正确，目录关闭后焦点回入口 | 窗口+HID 按键时序+焦点AX |
 
 ### V03 关于布局、许可与操作
 
@@ -342,10 +346,10 @@
 | V03-settings-about-layout-zh-Hans-light | REQUIRED | settings-about | layout | zh-Hans | light | static | 设置 → 关于 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F03（浅色变量） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
 | V03-settings-about-layout-en-dark | REQUIRED | settings-about | layout | en | dark | static | 设置 → 关于 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F03（英文译文） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
 | V03-settings-about-layout-en-light | REQUIRED | settings-about | layout | en | light | static | 设置 → 关于 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F03（英文译文与浅色变量） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
-| V03-settings-about-version-long-zh-Hans-dark | REQUIRED | settings-about | version-long | zh-Hans | dark | static | 设置 → 关于 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F03（无同状态原图） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-settings-about-version-long-zh-Hans-light | REQUIRED | settings-about | version-long | zh-Hans | light | static | 设置 → 关于 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F03（无同状态原图，浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-settings-about-version-long-en-dark | REQUIRED | settings-about | version-long | en | dark | static | 设置 → 关于 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F03（无同状态原图，英文译文） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-settings-about-version-long-en-light | REQUIRED | settings-about | version-long | en | light | static | 设置 → 关于 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F03（无同状态原图，英文译文与浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
+| V03-settings-about-version-long-zh-Hans-dark | REQUIRED | settings-about | version-long | zh-Hans | dark | static | 设置 → 关于 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F03（无同状态原图） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-settings-about-version-long-zh-Hans-light | REQUIRED | settings-about | version-long | zh-Hans | light | static | 设置 → 关于 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F03（无同状态原图，浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-settings-about-version-long-en-dark | REQUIRED | settings-about | version-long | en | dark | static | 设置 → 关于 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F03（无同状态原图，英文译文） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-settings-about-version-long-en-light | REQUIRED | settings-about | version-long | en | light | static | 设置 → 关于 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F03（无同状态原图，英文译文与浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
 | V03-settings-about-github-url-zh-Hans-dark | REQUIRED | settings-about | github-url | zh-Hans | dark | static | 设置 → 关于 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F03（入口或角色） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
 | V03-settings-about-github-url-zh-Hans-light | REQUIRED | settings-about | github-url | zh-Hans | light | static | 设置 → 关于 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F03（入口或角色，浅色变量） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
 | V03-settings-about-github-url-en-dark | REQUIRED | settings-about | github-url | en | dark | static | 设置 → 关于 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F03（入口或角色，英文译文） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
@@ -358,10 +362,10 @@
 | V03-settings-about-license-url-zh-Hans-light | REQUIRED | settings-about | license-url | zh-Hans | light | static | 设置 → 关于 | 点击项目许可证／Project License | 系统/实测；组件 P07-F03（入口或角色，浅色变量） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
 | V03-settings-about-license-url-en-dark | REQUIRED | settings-about | license-url | en | dark | static | 设置 → 关于 | 点击项目许可证／Project License | 系统/实测；组件 P07-F03（入口或角色，英文译文） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
 | V03-settings-about-license-url-en-light | REQUIRED | settings-about | license-url | en | light | static | 设置 → 关于 | 点击项目许可证／Project License | 系统/实测；组件 P07-F03（入口或角色，英文译文与浅色变量） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
-| V03-settings-about-keyboard-focus-zh-Hans-dark | REQUIRED | settings-about | keyboard-focus | zh-Hans | dark | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-settings-about-keyboard-focus-zh-Hans-light | REQUIRED | settings-about | keyboard-focus | zh-Hans | light | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-settings-about-keyboard-focus-en-dark | REQUIRED | settings-about | keyboard-focus | en | dark | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，英文译文） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-settings-about-keyboard-focus-en-light | REQUIRED | settings-about | keyboard-focus | en | light | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
+| V03-settings-about-keyboard-focus-zh-Hans-dark | REQUIRED | settings-about | keyboard-focus | zh-Hans | dark | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-settings-about-keyboard-focus-zh-Hans-light | REQUIRED | settings-about | keyboard-focus | zh-Hans | light | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-settings-about-keyboard-focus-en-dark | REQUIRED | settings-about | keyboard-focus | en | dark | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，英文译文） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-settings-about-keyboard-focus-en-light | REQUIRED | settings-about | keyboard-focus | en | light | static | 设置 → 关于 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F03（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
 | V03-settings-about-control-disabled-zh-Hans-dark | REQUIRED | settings-about | control-disabled | zh-Hans | dark | f01 | 设置 → 关于 | 固定检查中，尝试再次触发更新并检查三个链接 | Figma 原图 P07-U02（仅按钮），组件/变量 P07-F03（宿主） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
 | V03-settings-about-control-disabled-zh-Hans-light | REQUIRED | settings-about | control-disabled | zh-Hans | light | f01 | 设置 → 关于 | 固定检查中，尝试再次触发更新并检查三个链接 | 组件/变量 P07-F03;P07-U02（浅色变量，无同帧原图） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
 | V03-settings-about-control-disabled-en-dark | REQUIRED | settings-about | control-disabled | en | dark | f01 | 设置 → 关于 | 固定检查中，尝试再次触发更新并检查三个链接 | 组件/变量 P07-F03;P07-U02（英文译文，无同帧原图） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
@@ -390,10 +394,10 @@
 | V03-about-layout-zh-Hans-light | REQUIRED | about | layout | zh-Hans | light | static | 独立关于窗口 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F04（浅色变量） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
 | V03-about-layout-en-dark | REQUIRED | about | layout | en | dark | static | 独立关于窗口 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F04（英文译文） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
 | V03-about-layout-en-light | REQUIRED | about | layout | en | light | static | 独立关于窗口 | 待检查；使用原画板版本、构建号、文案 | 组件/变量 P07-F04（英文译文与浅色变量） | 四角、标题、品牌、版本、反馈、三链接及该窗专属内容边界 | 窗口+原生标题栏局部 |
-| V03-about-version-long-zh-Hans-dark | REQUIRED | about | version-long | zh-Hans | dark | static | 独立关于窗口 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F04（无同状态原图） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-about-version-long-zh-Hans-light | REQUIRED | about | version-long | zh-Hans | light | static | 独立关于窗口 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F04（无同状态原图，浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-about-version-long-en-dark | REQUIRED | about | version-long | en | dark | static | 独立关于窗口 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F04（无同状态原图，英文译文） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
-| V03-about-version-long-en-light | REQUIRED | about | version-long | en | light | static | 独立关于窗口 | Bundle 使用多位版本和构建号；检查中英文链接与说明 | 组件/变量 P07-F04（无同状态原图，英文译文与浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整真实版本 | 窗口+文本局部+AX |
+| V03-about-version-long-zh-Hans-dark | REQUIRED | about | version-long | zh-Hans | dark | static | 独立关于窗口 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F04（无同状态原图） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-about-version-long-zh-Hans-light | REQUIRED | about | version-long | zh-Hans | light | static | 独立关于窗口 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F04（无同状态原图，浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-about-version-long-en-dark | REQUIRED | about | version-long | en | dark | static | 独立关于窗口 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F04（无同状态原图，英文译文） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
+| V03-about-version-long-en-light | REQUIRED | about | version-long | en | light | static | 独立关于窗口 | 同一候选的长版本展示输入；实际 Bundle 在默认用例复核 | 组件/变量 P07-F04（无同状态原图，英文译文与浅色变量） | 品牌、版本、链接及其长文案可读；设置侧栏也保留完整长版本展示数据 | 窗口+文本局部+AX |
 | V03-about-github-url-zh-Hans-dark | REQUIRED | about | github-url | zh-Hans | dark | static | 独立关于窗口 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F04（入口或角色） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
 | V03-about-github-url-zh-Hans-light | REQUIRED | about | github-url | zh-Hans | light | static | 独立关于窗口 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F04（入口或角色，浅色变量） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
 | V03-about-github-url-en-dark | REQUIRED | about | github-url | en | dark | static | 独立关于窗口 | 点击 Github 链接或本地化的项目主页按钮 | 系统/实测；组件 P07-F04（入口或角色，英文译文） | 由默认浏览器打开仓库首页 | 窗口+点击录像或目标URL |
@@ -406,10 +410,10 @@
 | V03-about-license-url-zh-Hans-light | REQUIRED | about | license-url | zh-Hans | light | static | 独立关于窗口 | 点击项目许可证／Project License | 系统/实测；组件 P07-F04（入口或角色，浅色变量） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
 | V03-about-license-url-en-dark | REQUIRED | about | license-url | en | dark | static | 独立关于窗口 | 点击项目许可证／Project License | 系统/实测；组件 P07-F04（入口或角色，英文译文） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
 | V03-about-license-url-en-light | REQUIRED | about | license-url | en | light | static | 独立关于窗口 | 点击项目许可证／Project License | 系统/实测；组件 P07-F04（入口或角色，英文译文与浅色变量） | 由默认浏览器打开当前 LICENSE；校验许可和版权归属 | 窗口+点击录像或目标URL |
-| V03-about-keyboard-focus-zh-Hans-dark | REQUIRED | about | keyboard-focus | zh-Hans | dark | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-about-keyboard-focus-zh-Hans-light | REQUIRED | about | keyboard-focus | zh-Hans | light | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-about-keyboard-focus-en-dark | REQUIRED | about | keyboard-focus | en | dark | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，英文译文） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
-| V03-about-keyboard-focus-en-light | REQUIRED | about | keyboard-focus | en | light | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+键盘录像 |
+| V03-about-keyboard-focus-zh-Hans-dark | REQUIRED | about | keyboard-focus | zh-Hans | dark | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-about-keyboard-focus-zh-Hans-light | REQUIRED | about | keyboard-focus | zh-Hans | light | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-about-keyboard-focus-en-dark | REQUIRED | about | keyboard-focus | en | dark | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，英文译文） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
+| V03-about-keyboard-focus-en-light | REQUIRED | about | keyboard-focus | en | light | static | 独立关于窗口 | 用 Tab／Shift-Tab 聚焦更新和三链接；按 Return 或 Space 激活 | 组件/变量 P07-F04（无同状态原图，英文译文与浅色变量） | 原生焦点顺序、名称、可达；窗口控制保持预期 | 窗口+焦点AX+HID 按键时序 |
 | V03-about-control-disabled-zh-Hans-dark | REQUIRED | about | control-disabled | zh-Hans | dark | f01 | 独立关于窗口 | 固定检查中，尝试再次触发更新并检查三个链接 | Figma 原图 P07-U02（仅按钮），组件/变量 P07-F04（宿主） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
 | V03-about-control-disabled-zh-Hans-light | REQUIRED | about | control-disabled | zh-Hans | light | f01 | 独立关于窗口 | 固定检查中，尝试再次触发更新并检查三个链接 | 组件/变量 P07-F04;P07-U02（浅色变量，无同帧原图） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
 | V03-about-control-disabled-en-dark | REQUIRED | about | control-disabled | en | dark | f01 | 独立关于窗口 | 固定检查中，尝试再次触发更新并检查三个链接 | 组件/变量 P07-F04;P07-U02（英文译文，无同帧原图） | 更新不可重复发起，链接仍可达，禁用/焦点以 AX 和动作核对 | 窗口+按钮局部+AX+操作计数 |
