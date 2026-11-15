@@ -245,11 +245,15 @@ struct FlutterRunletApp: App {
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(session: liveSession, selection: $settingsPage, language: language, loginItem: loginItem)
-                .background(WindowTitle(title: language.locale.appString("FlutterRunlet Settings")))
-                .environment(\.locale, language.locale)
+            // Let AppKit size the full-height content without adding another title-bar inset.
+            GeometryReader { _ in
+                SettingsView(session: liveSession, selection: $settingsPage, language: language, loginItem: loginItem)
+                    .environment(\.locale, language.locale)
+            }
+            .ignoresSafeArea()
         }
-        .defaultSize(width: 672, height: 520)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: SettingsView.windowSize.width, height: SettingsView.windowSize.height)
         .restorationBehavior(.disabled)
         .commands {
             CommandGroup(replacing: .appSettings) {

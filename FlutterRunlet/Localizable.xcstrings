@@ -241,6 +241,22 @@
         }
       }
     },
+    "About": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于"
+          }
+        }
+      }
+    },
     "About FlutterRunlet": {
       "localizations": {
         "en": {
@@ -369,6 +385,22 @@
         }
       }
     },
+    "Automatically launch FlutterRunlet when you log in to macOS.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically launch FlutterRunlet when you log in to macOS."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录 macOS 后自动启动 FlutterRunlet"
+          }
+        }
+      }
+    },
     "Build %@": {
       "localizations": {
         "en": {
@@ -493,6 +525,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择启动配置和设备后运行。"
+          }
+        }
+      }
+    },
+    "Choose Language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Language"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择语言"
           }
         }
       }
@@ -2129,6 +2177,22 @@
         }
       }
     },
+    "Interface Language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interface Language"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "界面语言"
+          }
+        }
+      }
+    },
     "Invalid JSONC syntax": {
       "localizations": {
         "en": {
@@ -2220,7 +2284,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录时启动"
+            "value": "登录时自动启动"
           }
         }
       }
@@ -3773,6 +3837,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在启动 iOS 模拟器"
+          }
+        }
+      }
+    },
+    "Startup & Projects": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup & Projects"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动与项目"
           }
         }
       }

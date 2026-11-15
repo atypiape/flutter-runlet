@@ -12,6 +12,7 @@ struct RunletAppearance {
     var raised: Color { color(0x222d3a, 0xffffff) }
     var field: Color { color(0x202a37, 0xffffff) }
     var border: Color { color(0x344252, 0xb9c8d9) }
+    var disabled: Color { color(0x1b242f, 0xe8eef5) }
     var divider: Color { color(0x2b3848, 0xd4dfea) }
     var primary: Color { color(0xf0f5fb, 0x192638) }
     var secondary: Color { color(0xb0bdcd, 0x46576b) }

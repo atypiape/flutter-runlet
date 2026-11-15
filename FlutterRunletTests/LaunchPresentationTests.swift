@@ -17,8 +17,7 @@ final class LaunchPresentationTests: XCTestCase {
                                     language: AppLanguageSettings(defaults: defaults))
         let host = NSHostingView(rootView: settings)
         XCTAssertEqual(host.fittingSize, CGSize(width: 520, height: 520))
-        let launchSwitch = Binding(get: { settings.session?.showMainWindowOnLaunch ?? false },
-                                   set: { settings.session?.showMainWindowOnLaunch = $0 })
+        let launchSwitch = SettingsView.launchWindowPreference(session)
         XCTAssertTrue(launchSwitch.wrappedValue)
         launchSwitch.wrappedValue = false
         let restarted = SessionController(store: store, runner: .bundled, preferences: defaults)
