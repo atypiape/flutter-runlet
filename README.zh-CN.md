@@ -22,9 +22,9 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 
 | 主窗口 | 菜单栏 |
 | :---: | :---: |
-| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/main-window.png)](docs/screenshots/main-window.png) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/menu-bar.png)](docs/screenshots/menu-bar.png) |
+| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.png)](docs/screenshots/zh-CN/main-window.png) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.png)](docs/screenshots/zh-CN/menu-bar.png) |
 | **设置** | **关于** |
-| [![FlutterRunlet 通用设置](docs/screenshots/settings.png)](docs/screenshots/settings.png) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/about.png)](docs/screenshots/about.png) |
+| [![FlutterRunlet 通用设置](docs/screenshots/zh-CN/settings.png)](docs/screenshots/zh-CN/settings.png) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/zh-CN/about.png)](docs/screenshots/zh-CN/about.png) |
 
 截图来自 v0.2.0 开发构建，使用示例数据。
 

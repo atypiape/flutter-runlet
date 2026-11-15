@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
 output_root="$repo_root/.build/release"
 output_dir=
+mount_point=
 version_pattern='^[0-9]+(\.[0-9]+){0,2}$'
 requested_version=
 
@@ -43,6 +44,12 @@ mkdir -p "$output_root"
 work_dir="$(mktemp -d "$output_root/.package.XXXXXXXX")"
 cleanup() {
   local status=$?
+  # 挂载期间收到信号也先卸载。未挂载时，验证目录和临时目录在同一个设备上。
+  if [[ -n "$mount_point" && "$(stat -f '%d' "$mount_point")" != "$(stat -f '%d' "$work_dir")" ]] &&
+    ! hdiutil detach -quiet "$mount_point"; then
+    printf '无法卸载验证用 DMG，已保留临时目录：%s\n' "$work_dir" >&2
+    exit 1
+  fi
   rm -R -- "$work_dir"
   if [[ "$status" -ne 0 && -n "$output_dir" ]]; then
     rm -R -- "$output_dir"
@@ -60,6 +67,7 @@ xcodebuild -quiet \
   -destination 'generic/platform=macOS' \
   -derivedDataPath "$work_dir/DerivedData" \
   'ARCHS=arm64 x86_64' ONLY_ACTIVE_ARCH=NO 'CODE_SIGN_IDENTITY=-' \
+  DEPLOYMENT_POSTPROCESSING=YES STRIP_INSTALLED_PRODUCT=YES STRIP_STYLE=debugging STRIP_SWIFT_SYMBOLS=NO \
   "$@" build
 
 app="$work_dir/DerivedData/Build/Products/Release/FlutterRunlet.app"
@@ -74,24 +82,45 @@ if [[ "$build" != "$requested_build" || ( -n "$requested_version" && "$version" 
   exit 1
 fi
 
-for executable in Contents/MacOS/FlutterRunlet Contents/Helpers/FlutterRunletSessionWorker \
-  Contents/Helpers/FlutterRunletUpdateHelper.app/Contents/MacOS/FlutterRunletUpdateHelper; do
-  architectures="$(lipo -archs "$app/$executable")"
-  case "$architectures" in
-    'arm64 x86_64'|'x86_64 arm64') ;;
-    *)
-      printf '%s 缺少预期的双架构支持：%s\n' "$executable" "$architectures" >&2
-      exit 1
-      ;;
-  esac
-done
+verify_packaged_app() {
+  local packaged_app="$1" executable architectures
+  local helper='Contents/Helpers/FlutterRunletUpdateHelper.app'
+  local worker='Contents/Helpers/FlutterRunletSessionWorker'
+  codesign --verify --deep --strict --all-architectures "$packaged_app" || return 1
+  codesign --verify --strict --all-architectures "$packaged_app/$worker" || return 1
+  codesign --verify --strict --all-architectures "$packaged_app/$helper" || return 1
+
+  for executable in Contents/MacOS/FlutterRunlet "$worker" "$helper/Contents/MacOS/FlutterRunletUpdateHelper"; do
+    architectures="$(lipo -archs "$packaged_app/$executable")" || return 1
+    case "$architectures" in
+      'arm64 x86_64'|'x86_64 arm64') ;;
+      *)
+        printf '%s 缺少预期的双架构支持：%s\n' "$executable" "$architectures" >&2
+        return 1
+        ;;
+    esac
+    # 直接扫描二进制字节，覆盖 fat Mach-O 的两个切片及字符串表。
+    if ! /usr/bin/perl -e '
+      my ($file, @prefixes) = @ARGV;
+      open my $input, "<:raw", $file or die "Cannot read Mach-O: $!\n";
+      local $/;
+      my $bytes = <$input>;
+      die "Empty Mach-O\n" unless defined $bytes && length $bytes;
+      for my $prefix (@prefixes) {
+        exit 1 if index($bytes, $prefix) >= 0;
+      }
+      exit($bytes =~ m{/(?:Users|Volumes|home|(?:private/)?var/(?:folders|tmp)|(?:private/)?tmp)/[^/\x00\s]} ? 1 : 0);
+    ' "$packaged_app/$executable" "$repo_root/" "$work_dir/"; then
+      printf '%s 未通过构建机路径检查。\n' "$executable" >&2
+      return 1
+    fi
+    printf '已核对 %s 的双架构、签名及构建机路径。\n' "${executable##*/}"
+  done
+}
 
 stage="$work_dir/stage"
 mkdir "$stage"
 ditto "$app" "$stage/FlutterRunlet.app"
-codesign --verify --deep --strict --all-architectures "$stage/FlutterRunlet.app"
-codesign --verify --strict --all-architectures \
-  "$stage/FlutterRunlet.app/Contents/Helpers/FlutterRunletUpdateHelper.app"
 ln -s /Applications "$stage/Applications"
 
 dmg="FlutterRunlet-v$version-macOS-universal.dmg"
@@ -99,6 +128,12 @@ printf '正在创建并校验 DMG…\n'
 hdiutil create -quiet -srcfolder "$stage" -volname FlutterRunlet \
   -fs 'HFS+' -format UDZO "$work_dir/$dmg"
 hdiutil verify -quiet "$work_dir/$dmg"
+mkdir "$work_dir/mount"
+mount_point="$work_dir/mount"
+hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$mount_point" "$work_dir/$dmg"
+verify_packaged_app "$mount_point/FlutterRunlet.app"
+hdiutil detach -quiet "$mount_point"
+mount_point=
 (
   cd "$work_dir"
   shasum -a 256 "$dmg" > "$dmg.sha256"
