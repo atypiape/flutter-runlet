@@ -25,6 +25,58 @@ enum FlutterBrowserPage {
     var title: String { self == .devTools ? "DevTools" : "Inspector" }
 }
 
+struct StandaloneDevToolsSDK {
+    let directory: URL
+    let version: String
+
+    var dart: URL { directory.appending(path: "bin/dart") }
+    static func hasSourceLinks(_ version: String) -> Bool {
+        version.compare("2.61.0", options: .numeric) != .orderedAscending
+    }
+
+    init?(directory: URL) {
+        guard directory.isFileURL, let root = try? ProjectLocation.directory(directory),
+              FileManager.default.isExecutableFile(atPath: root.appending(path: "bin/dart").path),
+              let data = Self.readManifest(in: root),
+              data.count < 4096,
+              let manifest = try? JSONDecoder().decode(Manifest.self, from: data),
+              manifest.app_name == "devtools_app",
+              manifest.version.range(of: #"^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.+-]+)?$"#,
+                                     options: .regularExpression) != nil else { return nil }
+        self.directory = root
+        version = manifest.version
+    }
+
+    private static func readManifest(in directory: URL) -> Data? {
+        let file = directory.appending(path: "bin/resources/devtools/version.json")
+        guard (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
+              let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? handle.close() }
+        return try? handle.read(upToCount: 4096)
+    }
+
+    static func serverAddress(from line: String) -> URL? {
+        guard let response = try? JSONDecoder().decode(StartupEvent.self, from: Data(line.utf8)),
+              response.event == "server.started", response.params.host == "127.0.0.1",
+              (1...65535).contains(response.params.port) else { return nil }
+        return URL(string: "http://127.0.0.1:\(response.params.port)")
+    }
+
+    private struct Manifest: Decodable {
+        let app_name: String
+        let version: String
+    }
+
+    private struct StartupEvent: Decodable {
+        struct Params: Decodable {
+            let host: String
+            let port: Int
+        }
+        let event: String
+        let params: Params
+    }
+}
+
 enum InspectorEditor: String, CaseIterable {
     case vsCode = "vscode"
     case cursor
@@ -139,6 +191,7 @@ final class FlutterDebugSession {
     private(set) var hasVerifiedVM = false
     private var connected = false
     private var stopped = false
+    var hasActiveVMService: Bool { connected && !stopped && endpoint != nil }
 
     init(deviceID: String, verifyVM: Verification?, timing: FlutterDebugTiming, sdk: FlutterSDK?,
          connectionChanged: @escaping (Bool) -> Void,
@@ -323,6 +376,17 @@ final class FlutterDebugSession {
             if let url = browser.url { return (url, false) }
         }
         return (reportedDevTools, page == .inspector)
+    }
+
+    func standaloneBrowserDestination(_ page: FlutterBrowserPage, server: URL,
+                                      version: String) -> (url: URL, inspectorFallback: Bool)? {
+        guard hasActiveVMService, let endpoint,
+              var browser = URLComponents(url: server, resolvingAgainstBaseURL: false) else { return nil }
+        // Verified with the standalone DevTools 2.61.0 server.
+        let directInspector = page == .inspector && version == "2.61.0"
+        browser.path = directInspector ? "/inspector" : "/"
+        browser.queryItems = [URLQueryItem(name: "uri", value: endpoint.absoluteString)]
+        return browser.url.map { ($0, page == .inspector && !directInspector) }
     }
 
     private static func bindsService(_ address: String, service: URLComponents) -> Bool {

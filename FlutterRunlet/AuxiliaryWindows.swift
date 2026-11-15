@@ -9,7 +9,7 @@ struct SettingsView: View {
     @FocusState private var languageButtonFocused: Bool
     @FocusState private var sdkPickerFocus: SDKPickerTrigger?
 
-    private enum SDKPickerTrigger { case manual, path }
+    private enum SDKPickerTrigger { case manual, path, devTools }
 
     var session: SessionController? = nil
     enum Page: CaseIterable {
@@ -329,6 +329,47 @@ struct SettingsView: View {
 
             groupTitle("Environment Check")
             settingsCard { environmentCheck(session) }
+
+            groupTitle("DevTools", systemFont: true)
+            settingsCard { standaloneDevToolsSettings(session) }
+        }
+    }
+
+    private func standaloneDevToolsSettings(_ session: SessionController) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sdkRow("DevTools Source") {
+                if let version = session.standaloneDevToolsVersion {
+                    Text(verbatim: "DevTools \(version)")
+                        .font(.system(size: 12))
+                } else if session.standaloneDevToolsPath == nil {
+                    Text("Bundled with Flutter")
+                        .font(RunletType.localized(locale, size: 12))
+                }
+                if session.standaloneDevToolsPath != nil {
+                    settingsAction("Use Bundled") { session.selectStandaloneDevTools(nil) }
+                        .disabled(!session.canEditFlutterSDK)
+                }
+                settingsAction("Select Dart SDK…") { chooseDevToolsSDK(for: session) }
+                    .focused($sdkPickerFocus, equals: .devTools)
+                    .disabled(!session.canEditFlutterSDK)
+            }
+            if let path = session.standaloneDevToolsPath {
+                Text(verbatim: path)
+                    .font(.system(size: 11))
+                    .foregroundStyle(palette.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(path)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
+            if let issue = session.standaloneDevToolsIssue {
+                Text(issue)
+                    .font(RunletType.localized(locale, size: 11))
+                    .foregroundStyle(palette.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
         }
     }
 
@@ -569,6 +610,22 @@ struct SettingsView: View {
             session.selectFlutterSDK(url)
         }
         sdkPickerFocus = trigger
+    }
+
+    private func chooseDevToolsSDK(for session: SessionController) {
+        let panel = NSOpenPanel()
+        panel.title = locale.appString("Select Dart SDK…")
+        panel.message = locale.appString("Select a Dart SDK directory that includes DevTools.")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if let path = session.standaloneDevToolsPath {
+            panel.directoryURL = URL(fileURLWithPath: path, isDirectory: true)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            session.selectStandaloneDevTools(url)
+        }
+        sdkPickerFocus = .devTools
     }
 }
 

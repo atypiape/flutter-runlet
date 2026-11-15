@@ -506,6 +506,67 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testStandaloneDevToolsStartsOnDemandReusesServerAndStopsWithSession() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let executable = try makeFlutter(in: fixture, script: Self.machineReady + "\nIFS= read -r command")
+        let directory = fixture.base.appending(path: "DevTools SDK")
+        let manifest = directory.appending(path: "bin/resources/devtools")
+        try FileManager.default.createDirectory(at: manifest, withIntermediateDirectories: true)
+        try #"{"app_name":"devtools_app","version":"2.61.0"}"#
+            .write(to: manifest.appending(path: "version.json"), atomically: true, encoding: .utf8)
+        let dart = directory.appending(path: "bin/dart")
+        try #"""
+            #!/bin/sh
+            printf '%s\n' "$@" >> .runlet-fixture/devtools-args
+            printf '%s\n' "$$" > .runlet-fixture/devtools-pid
+            printf '%s\n' '{"event":"server.started","params":{"host":"example.test","port":9100}}'
+            while [ ! -f .runlet-fixture/devtools-ready ]; do /bin/sleep .02; done
+            printf '%s\n' '{"event":"server.started","params":{"host":"127.0.0.1","port":9123}}'
+            while :; do /bin/sleep .02; done
+            """#.write(to: dart, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dart.path)
+
+        var opened: [URL] = []
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = controller(fixture, store: store, executable: executable,
+                                 openURL: { opened.append($0); return true }) { _ in true }
+        try fixture.select("test", in: session)
+        session.selectStandaloneDevTools(directory)
+        XCTAssertEqual(session.standaloneDevToolsVersion, "2.61.0")
+        try await eventually { session.canRun }
+        session.run()
+        do {
+            try await eventually { session.canOpenBrowser }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("devtools-args").path))
+            session.openBrowser(.inspector)
+            session.openBrowser(.inspector)
+            try await fixture.waitFor("devtools-pid")
+            XCTAssertTrue(opened.isEmpty)
+            try Data().write(to: fixture.state("devtools-ready"))
+            try await eventually { opened.count == 1 }
+            session.openBrowser(.devTools)
+            XCTAssertEqual(opened.map(\.path), ["/inspector", "/"])
+            XCTAssertEqual(opened.map(\.port), [9123, 9123])
+            for url in opened {
+                XCTAssertEqual(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+                               [URLQueryItem(name: "uri", value: "ws://127.0.0.1:8181/private=/ws")])
+            }
+            let arguments = try String(contentsOf: fixture.state("devtools-args"), encoding: .utf8)
+            XCTAssertEqual(arguments.split(separator: "\n"),
+                           ["devtools", "--no-launch-browser", "--machine", "--host=127.0.0.1", "--port=0"])
+            let pid = try XCTUnwrap(Int32(String(contentsOf: fixture.state("devtools-pid"), encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)))
+            session.stop()
+            await session.waitUntilIdle()
+            XCTAssertEqual(kill(pid, 0), -1)
+        } catch {
+            session.stop()
+            await session.waitUntilIdle()
+            throw error
+        }
+    }
+
     func testBrowserUsesOnlyCurrentBoundAddressAndReconnectsBeforeOpeningAgain() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }

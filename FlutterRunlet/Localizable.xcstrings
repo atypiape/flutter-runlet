@@ -449,6 +449,22 @@
         }
       }
     },
+    "Bundled with Flutter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundled with Flutter"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter 自带"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "en": {
@@ -525,6 +541,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "请确认已安装在设置中选择的编辑器。"
+          }
+        }
+      }
+    },
+    "Check the Dart SDK in Flutter settings and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the Dart SDK in Flutter settings and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请检查 Flutter 设置中的独立 Dart SDK，然后重试。"
           }
         }
       }
@@ -1345,6 +1377,22 @@
         }
       }
     },
+    "Could not start standalone DevTools": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not start standalone DevTools"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动独立 DevTools"
+          }
+        }
+      }
+    },
     "Could not start the iOS simulator: %@. Check the simulator and try again.": {
       "localizations": {
         "en": {
@@ -1629,6 +1677,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "演示模式"
+          }
+        }
+      }
+    },
+    "DevTools Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DevTools Source"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DevTools 来源"
           }
         }
       }
@@ -2529,6 +2593,54 @@
         }
       }
     },
+    "Open Inspector or DevTools again after the debug session reconnects.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inspector or DevTools again after the debug session reconnects."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调试会话重新连接后，再打开 Inspector 或 DevTools。"
+          }
+        }
+      }
+    },
+    "Select Dart SDK…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Dart SDK…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择 Dart SDK…"
+          }
+        }
+      }
+    },
+    "Select a Dart SDK directory that includes DevTools.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a Dart SDK directory that includes DevTools."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择包含 DevTools 的 Dart SDK 目录。"
+          }
+        }
+      }
+    },
     "Source Editor": {
       "localizations": {
         "en": {
@@ -2541,6 +2653,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "源码编辑器"
+          }
+        }
+      }
+    },
+    "Standalone DevTools is ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone DevTools is ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 DevTools 已就绪"
+          }
+        }
+      }
+    },
+    "Starting standalone DevTools…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting standalone DevTools…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在启动独立 DevTools…"
+          }
+        }
+      }
+    },
+    "Use Bundled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use Bundled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用自带版本"
           }
         }
       }
