@@ -1100,7 +1100,7 @@ private struct AuxiliaryActionButton<Label: View>: View {
             label()
                 .font(RunletType.localized(locale, size: 11, medium: true))
                 .padding(.horizontal, 10)
-                .frame(width: width, height: 30)
+                .frame(width: width, height: 24)
                 .fixedSize(horizontal: true, vertical: false)
         }
         .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, radius: 6,
