@@ -6,6 +6,37 @@ import XCTest
 
 @MainActor
 final class UpdateInstallGateTests: XCTestCase {
+    func testUnconfirmedWorkerMarkerCanBeClearedAfterAnotherBootAndRiskClearance() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        let marker: URL
+        do {
+            let lease = try UpdateActivityLease(directory: store.directory)
+            marker = store.directory.appending(path: try lease.beginWorker())
+        }
+
+        let currentBoot = try XCTUnwrap(UUID(uuidString: String(contentsOf: marker, encoding: .utf8)))
+        XCTAssertEqual(session.updateBlocker, .processUnconfirmed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path))
+        try Data().write(to: marker)
+        XCTAssertEqual(session.updateBlocker, .processUnconfirmed)
+
+        var previousBoot = UUID()
+        while previousBoot == currentBoot { previousBoot = UUID() }
+        try Data(previousBoot.uuidString.utf8).write(to: marker)
+        let corrupt = store.directory.appending(path: "damaged.risk")
+        try Data("illegible".utf8).write(to: corrupt)
+        XCTAssertEqual(chmod(corrupt.path, 0o600), 0)
+        XCTAssertEqual(session.updateBlocker, .recoveryUnreadable)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path))
+
+        try FileManager.default.removeItem(at: corrupt)
+        XCTAssertNil(session.updateBlocker)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     func testLegacyProjectLeaseAndUnreadableRecoveryBlockInstallation() throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }

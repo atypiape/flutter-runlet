@@ -5,8 +5,20 @@ final class UpdateActivityLease: Sendable {
     enum Issue: Error { case unavailable, busy, workersUnconfirmed }
 
     static let name = "update-activity.lock"
+    private static let workerPrefix = "update-worker-"
+    private static let bootSession: UUID? = {
+        var bytes = [CChar](repeating: 0, count: 37)
+        var count = bytes.count
+        guard sysctlbyname("kern.bootsessionuuid", &bytes, &count, nil, 0) == 0, count == bytes.count else {
+            return nil
+        }
+        return bytes.withUnsafeBufferPointer { buffer in
+            buffer.baseAddress.flatMap(String.init(validatingCString:)).flatMap(UUID.init(uuidString:))
+        }
+    }()
     let descriptor: Int32
     let directoryDescriptor: Int32
+    private let installing: Bool
 
     init(directory: URL, installing: Bool = false) throws {
         let parent = open(directory.path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
@@ -19,6 +31,7 @@ final class UpdateActivityLease: Sendable {
         }
         descriptor = try Self.lock(Self.name, in: parent, installing ? LOCK_EX : LOCK_SH, create: true)
         directoryDescriptor = parent
+        self.installing = installing
         keepParent = true
     }
 
@@ -62,17 +75,56 @@ final class UpdateActivityLease: Sendable {
     }
 
     func beginWorker() throws -> String {
-        let marker = "update-worker-\(UUID().uuidString)"
+        let marker = Self.workerPrefix + UUID().uuidString
         let fd = openat(directoryDescriptor, marker, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw Issue.unavailable }
-        defer { close(fd) }
-        guard fcntl(fd, F_FULLFSYNC, 0) == 0, fsync(directoryDescriptor) == 0 else { throw Issue.unavailable }
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        do {
+            if let boot = Self.bootSession { try handle.write(contentsOf: Data(boot.uuidString.utf8)) }
+            guard fcntl(fd, F_FULLFSYNC, 0) == 0, fsync(directoryDescriptor) == 0 else { throw Issue.unavailable }
+        } catch {
+            _ = Self.finishWorker(marker, in: directoryDescriptor)
+            throw error
+        }
         return marker
     }
 
+    // Only an earlier OS boot proves that an unconfirmed process and all its descendants are gone.
+    // The caller must first rule out durable recovery risks and hold the exclusive namespace lease.
+    func reconcileWorkers(_ names: [String]) throws {
+        let markers = names.filter { $0.hasPrefix(Self.workerPrefix) }
+        guard !markers.isEmpty else { return }
+        guard installing, let boot = Self.bootSession else { throw Issue.workersUnconfirmed }
+        for marker in markers {
+            guard Self.isWorkerMarker(marker), try markerPredatesBoot(marker, boot: boot) else {
+                throw Issue.workersUnconfirmed
+            }
+        }
+        for marker in markers {
+            guard Self.finishWorker(marker, in: directoryDescriptor) else { throw Issue.workersUnconfirmed }
+        }
+    }
+
+    private func markerPredatesBoot(_ marker: String, boot: UUID) throws -> Bool {
+        let descriptor = openat(directoryDescriptor, marker, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        guard descriptor >= 0 else { return false }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
+              info.st_uid == geteuid(), info.st_mode & 0o077 == 0, info.st_nlink == 1, info.st_size == 36,
+              let data = try handle.read(upToCount: 37), data.count == 36,
+              let text = String(data: data, encoding: .utf8), let markerBoot = UUID(uuidString: text) else { return false }
+        return markerBoot != boot
+    }
+
     static func finishWorker(_ marker: String, in directory: Int32) -> Bool {
-        let prefix = "update-worker-"
-        guard marker.hasPrefix(prefix), UUID(uuidString: String(marker.dropFirst(prefix.count))) != nil else { return false }
+        guard isWorkerMarker(marker) else { return false }
         return unlinkat(directory, marker, 0) == 0 && fsync(directory) == 0
+    }
+
+    private static func isWorkerMarker(_ marker: String) -> Bool {
+        marker.hasPrefix(workerPrefix) && UUID(uuidString: String(marker.dropFirst(workerPrefix.count))) != nil
     }
 }

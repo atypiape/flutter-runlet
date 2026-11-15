@@ -440,12 +440,15 @@ final class SessionController {
             return .debugging
         } catch { return .processUnconfirmed }
         do {
+            if try !store.allRecords().isEmpty { return .recoveryPending }
+        } catch { return .recoveryUnreadable }
+        do {
             let entries = try FileManager.default.contentsOfDirectory(atPath: store.directory.path)
-            guard !entries.contains(where: { $0.hasPrefix("update-worker-") }),
-                  let product = RunningUpdateApp()?.productID else { return .processUnconfirmed }
+            guard let product = RunningUpdateApp()?.productID else { return .processUnconfirmed }
             let legacy = try UpdateActivityLease.legacyProjectLocks(entries, in: lease.directoryDescriptor)
             defer { legacy.forEach { close($0) }; withExtendedLifetime(lease) {} }
             try UpdateProcessIdentity.requireNoOtherInstances(product, excluding: getpid())
+            try lease.reconcileWorkers(entries)
         } catch { return .processUnconfirmed }
         return nil
     }
