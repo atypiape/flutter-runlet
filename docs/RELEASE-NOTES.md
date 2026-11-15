@@ -1,12 +1,12 @@
 # FlutterRunlet 版本说明
 
-## v0.3.0 · 本地候选
+## v0.3.0 · DevTools 与设置
 
 - Inspector 可按需启动独立 DevTools 并连接当前调试会话。同一会话重复打开会复用浏览器标签，选中 Widget 后可从 Inspector 跳到源码，按需打开 VS Code、Cursor 或 Zed。
 - 设置新增 DevTools 页。独立 Dart SDK 路径单独显示，过长时从中间省略。可通过悬停查看完整地址，或点击行尾「…」在浮窗中查看并复制。通用设置提供深色、浅色和跟随系统，未保存偏好时默认深色。
 - 独立「关于」窗口提供项目主页、文档、许可证和近期更新四个入口。
 
-本地验收覆盖完整路径浮窗与独立 DevTools 2.61.0。项目沿用原有 Flutter、Dart 配置。
+本地验收覆盖完整路径浮窗与独立 DevTools 2.61.0。项目沿用原有 Flutter、Dart 配置。预发布包使用临时签名，未经过 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.3.0)
 
 ## v0.2.0 · 双架构 DMG
 
