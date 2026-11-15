@@ -465,6 +465,38 @@
         }
       }
     },
+    "Check for Updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查更新"
+          }
+        }
+      }
+    },
+    "Check if there is a new version of FlutterRunlet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check if there is a new version of FlutterRunlet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查 FlutterRunlet 是否有新版本"
+          }
+        }
+      }
+    },
     "Checking": {
       "localizations": {
         "en": {
@@ -525,6 +557,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在检查 Flutter SDK 和设备"
+          }
+        }
+      }
+    },
+    "Checking…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查中..."
           }
         }
       }
@@ -605,6 +653,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "清除手动路径"
+          }
+        }
+      }
+    },
+    "Clear Update Blocker": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Update Blocker"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解除更新阻塞"
           }
         }
       }
@@ -705,6 +769,22 @@
         }
       }
     },
+    "Continue Installation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Installation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续安装"
+          }
+        }
+      }
+    },
     "Copy Logs": {
       "localizations": {
         "en": {
@@ -717,6 +797,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制日志"
+          }
+        }
+      }
+    },
+    "Could not check for updates. Release information was unavailable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check for updates. Release information was unavailable."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法检查更新：无法读取发布信息。"
           }
         }
       }
@@ -1553,6 +1649,22 @@
         }
       }
     },
+    "Download failed. The update package could not be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download failed. The update package could not be read."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下载失败：无法读取更新包。"
+          }
+        }
+      }
+    },
     "Duplicate Dart define in toolArgs": {
       "localizations": {
         "en": {
@@ -1837,6 +1949,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "请先在主窗口完成环境恢复。"
+          }
+        }
+      }
+    },
+    "Finish the pending environment recovery.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the pending environment recovery."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先完成待处理的环境恢复。"
           }
         }
       }
@@ -2129,6 +2257,22 @@
         }
       }
     },
+    "Github": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Github"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Github"
+          }
+        }
+      }
+    },
     "Hot Reload": {
       "localizations": {
         "en": {
@@ -2257,6 +2401,38 @@
         }
       }
     },
+    "Install %@ and restart FlutterRunlet?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install %@ and restart FlutterRunlet?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装 %@ 并重启 FlutterRunlet？"
+          }
+        }
+      }
+    },
+    "Install and Restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install and Restart"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装并重启"
+          }
+        }
+      }
+    },
     "Interface Language": {
       "localizations": {
         "en": {
@@ -2337,6 +2513,22 @@
         }
       }
     },
+    "Later": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后"
+          }
+        }
+      }
+    },
     "Launch Blocked": {
       "localizations": {
         "en": {
@@ -2381,6 +2573,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS 上的轻量 Flutter 调试工具。"
+          }
+        }
+      }
+    },
+    "Lightweight Flutter run and debug tool": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lightweight Flutter run and debug tool"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "轻量 Flutter 运行与调试工具"
           }
         }
       }
@@ -2497,6 +2705,22 @@
         }
       }
     },
+    "New version available: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New version available: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检测到新版本：%@"
+          }
+        }
+      }
+    },
     "No Debug Session": {
       "localizations": {
         "en": {
@@ -2605,6 +2829,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚无运行日志。启动调试后将在这里显示输出。"
+          }
+        }
+      }
+    },
+    "No stable release is available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No stable release is available"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无正式版本可用"
           }
         }
       }
@@ -2909,6 +3149,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "待恢复记录缺少原安装密钥"
+          }
+        }
+      }
+    },
+    "Phase 07": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phase 07"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "阶段 07"
           }
         }
       }
@@ -3361,6 +3617,22 @@
         }
       }
     },
+    "Replacement failed. The previous version was restored.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacement failed. The previous version was restored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替换失败：已恢复旧版本。"
+          }
+        }
+      }
+    },
     "Restart": {
       "localizations": {
         "en": {
@@ -3453,6 +3725,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "重试恢复"
+          }
+        }
+      }
+    },
+    "Retry the failed environment recovery.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry the failed environment recovery."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请重试失败的环境恢复。"
           }
         }
       }
@@ -3885,6 +4173,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看项目全名"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Finder"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示"
           }
         }
       }
@@ -4337,6 +4641,22 @@
         }
       }
     },
+    "The environment recovery record cannot be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The environment recovery record cannot be read."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取环境恢复记录。"
+          }
+        }
+      }
+    },
     "The FVM SDK required by the project is unavailable: %@. Fix the SDK specified by the project.": {
       "localizations": {
         "en": {
@@ -4401,6 +4721,38 @@
         }
       }
     },
+    "The new version could not open. The previous version was restored.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new version could not open. The previous version was restored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新版无法启动，已恢复旧版本。"
+          }
+        }
+      }
+    },
+    "The previous version was restored but could not open automatically.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The previous version was restored but could not open automatically."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "旧版本已恢复，但无法自动打开。"
+          }
+        }
+      }
+    },
     "The selected device is used for the next run.": {
       "localizations": {
         "en": {
@@ -4413,6 +4765,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "所选设备用于下一次运行。"
+          }
+        }
+      }
+    },
+    "The update package is ready.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The update package is ready."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新包已就绪。"
           }
         }
       }
@@ -5377,6 +5745,102 @@
         }
       }
     },
+    "Update downloaded. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update downloaded. %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新已下载。%@"
+          }
+        }
+      }
+    },
+    "Update downloaded. You can continue installation.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update downloaded. You can continue installation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新已下载，可以继续安装。"
+          }
+        }
+      }
+    },
+    "Update Recovery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Recovery"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新恢复反馈"
+          }
+        }
+      }
+    },
+    "Update to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update to %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新到 %@"
+          }
+        }
+      }
+    },
+    "Updating…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新中..."
+          }
+        }
+      }
+    },
+    "Verification failed. The package checksum did not match.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verification failed. The package checksum did not match."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "校验失败：更新包校验和不匹配。"
+          }
+        }
+      }
+    },
     "Version & Status": {
       "localizations": {
         "en": {
@@ -5389,6 +5853,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "版本与状态"
+          }
+        }
+      }
+    },
+    "View Release": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View Release"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看发布页"
           }
         }
       }
@@ -5469,6 +5949,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "完整输出"
+          }
+        }
+      }
+    },
+    "Wait for the debug session to finish.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait for the debug session to finish."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请等待调试会话结束。"
+          }
+        }
+      }
+    },
+    "Wait until the managed process has exited.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait until the managed process has exited."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请等待受管进程退出得到确认。"
           }
         }
       }
@@ -5581,6 +6093,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "toolArgs 含无法确认保持 Debug 模式、入口或设备的参数"
+          }
+        }
+      }
+    },
+    "You’re up to date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You’re up to date"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已是最新版本"
           }
         }
       }

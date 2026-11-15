@@ -319,4 +319,157 @@ final class LaunchPresentationTests: XCTestCase {
             .empty
         )
     }
+
+    @MainActor
+    func testOrdinaryUpdatePresentationStaysIdleAfterClicks() {
+        let source = UpdatePresentationSource()
+        source.perform(.primary)
+        source.perform(.install)
+        XCTAssertEqual(source.presentation, UpdatePresentation())
+    }
+
+    @MainActor
+    func testUnavailableLoginItemRetainsSystemSettingsGuidance() {
+        let loginItem = LoginItemSettings(readStatus: { .notFound }, register: { XCTFail("Unexpected registration") },
+                                          unregister: { XCTFail("Unexpected unregistration") }, appServiceAvailable: false)
+        XCTAssertFalse(loginItem.canChange)
+        XCTAssertFalse(loginItem.isRegistered)
+        XCTAssertNotNil(loginItem.statusMessage)
+        loginItem.setRegistered(true)
+        XCTAssertFalse(loginItem.isRegistered)
+    }
+
+    #if DEBUG
+    func testPhase07RequiresExactExplicitSceneAndValidOptions() {
+        for args in [
+            [], ["--phase-07-state", "complete"], ["--phase-07-scene=both"],
+            ["--phase-07-scene"], ["--phase-07-scene", "unknown"],
+            ["--phase-07-scene", "about", "--phase-07-state", "check-5"],
+            ["--phase-07-scene", "about", "--phase-07-scene", "both"],
+            ["--phase-07-scene", "both", "--phase-07-appearance", "none"],
+            ["--phase-07-scene", "both", "--phase-07-fixtures", "../other"]
+        ] {
+            XCTAssertNil(Phase07Scene.resolve(arguments: args), "\(args)")
+        }
+        let scene = Phase07Scene.resolve(arguments: ["--phase-07-scene", "both", "--phase-07-language", "en"])
+        XCTAssertEqual(scene?.destination, .both)
+        XCTAssertEqual(scene?.language, .english)
+        XCTAssertEqual(scene?.state, .idle)
+    }
+
+    @MainActor
+    func testPhase07FrozenFramesKeepButtonAndVersionConsistent() throws {
+        for (state, status, angle) in [
+            ("idle", UpdatePresentation.Status.idle, 0.0),
+            ("check-1", .checking, 0), ("check-2", .checking, -90),
+            ("check-3", .checking, 180), ("check-4", .checking, 90),
+            ("available", .available("v1.5.0"), 0),
+            ("update-1", .updating, 0), ("update-2", .updating, -90),
+            ("update-3", .updating, 180), ("update-4", .updating, 90),
+            ("complete", .current, 0)
+        ] {
+            let scene = try XCTUnwrap(Phase07Scene.resolve(arguments: ["--phase-07-scene", "both", "--phase-07-state", state]))
+            let demo = Phase07UpdateDemo(scene: scene)
+            let view = demo.source.presentation
+            XCTAssertEqual(view.status, status, state)
+            XCTAssertEqual(view.rotation.degrees(at: .distantPast), angle, state)
+            XCTAssertEqual(view.rotation.degrees(at: .distantFuture), angle, state)
+            XCTAssertEqual(view.displayedVersion, state == "complete" ? "v1.5.0" : nil, state)
+            if status == .checking || status == .updating {
+                XCTAssertFalse(view.canPerformPrimary)
+                demo.source.perform(.primary)
+                XCTAssertEqual(demo.source.presentation, view)
+            }
+        }
+    }
+
+    @MainActor
+    func testPhase07DownloadPromptsOnceAndRevalidatesOnManualContinuation() async throws {
+        let demo = try phase07Demo(state: "available", args: ["--phase-07-blocker", "debugging"])
+        let source = demo.source
+        source.perform(.primary)
+        XCTAssertEqual(source.presentation.status, .updating)
+        let applying = source.presentation
+        source.perform(.primary)
+        XCTAssertEqual(source.presentation, applying)
+        try await eventually { source.presentation.status == .waiting(.debugging) }
+        XCTAssertNil(source.presentation.prompt)
+
+        demo.setBlocker(nil)
+        XCTAssertEqual(source.presentation.prompt, .confirm(version: "v1.5.0"))
+        source.perform(.later)
+        XCTAssertEqual(source.presentation.status, .ready)
+        XCTAssertNil(source.presentation.prompt)
+        demo.setBlocker(.recoveryFailed)
+        XCTAssertEqual(source.presentation.status, .waiting(.recoveryFailed))
+        demo.setBlocker(nil)
+        XCTAssertEqual(source.presentation.status, .ready)
+        XCTAssertNil(source.presentation.prompt)
+
+        source.perform(.primary)
+        XCTAssertEqual(source.presentation.prompt, .confirm(version: "v1.5.0"))
+        demo.setBlocker(.processUnconfirmed)
+        source.perform(.install)
+        XCTAssertEqual(source.presentation.status, .waiting(.processUnconfirmed))
+        XCTAssertNil(source.presentation.prompt)
+        demo.setBlocker(nil)
+        XCTAssertNil(source.presentation.prompt)
+        source.perform(.primary)
+        source.perform(.install)
+        try await eventually { source.presentation.status == .current }
+        XCTAssertEqual(source.presentation.displayedVersion, "v1.5.0")
+    }
+
+    @MainActor
+    func testPhase07FlowsExposeDistinctResultsAndKeepRealBundleVersion() async throws {
+        let appVersion = AboutInformation().versionLabel
+        for (flow, expected) in [
+            ("current", UpdatePresentation.Status.current),
+            ("no-release", .noRelease), ("check-failed", .failed(.check))
+        ] {
+            let demo = try phase07Demo(state: "idle", args: ["--phase-07-flow", flow])
+            demo.source.perform(.primary)
+            XCTAssertEqual(demo.source.presentation.status, .checking)
+            try await eventually { demo.source.presentation.status == expected }
+            XCTAssertNil(demo.source.presentation.displayedVersion)
+        }
+        for (flow, expected) in [
+            ("download-failed", UpdatePresentation.Failure.download), ("verify-failed", .verification),
+            ("replace-failed", .replacement), ("new-launch-failed", .newLaunch), ("old-reopen-failed", .newLaunch)
+        ] {
+            let demo = try phase07Demo(state: "available", args: ["--phase-07-flow", flow])
+            demo.source.perform(.primary)
+            if expected == .replacement || expected == .newLaunch {
+                try await eventually { demo.source.presentation.prompt == .confirm(version: "v1.5.0") }
+                demo.source.perform(.install)
+            }
+            try await eventually { demo.source.presentation.status == .failed(expected) }
+            XCTAssertTrue(demo.source.presentation.showsReleaseAction)
+            XCTAssertNil(demo.source.presentation.displayedVersion)
+            if flow == "old-reopen-failed" {
+                guard case .recovery = demo.source.presentation.prompt else {
+                    return XCTFail("Expected independent recovery feedback")
+                }
+            } else {
+                XCTAssertNil(demo.source.presentation.prompt)
+            }
+        }
+        XCTAssertEqual(AboutInformation().versionLabel, appVersion)
+    }
+
+    @MainActor
+    private func phase07Demo(state: String, args: [String]) throws -> Phase07UpdateDemo {
+        let scene = try XCTUnwrap(Phase07Scene.resolve(arguments: ["--phase-07-scene", "both", "--phase-07-state", state] + args))
+        return Phase07UpdateDemo(scene: scene, stageDuration: .milliseconds(10))
+    }
+
+    @MainActor
+    private func eventually(_ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition() {
+            guard .now < deadline else { throw SessionIssue("Update presentation did not reach the expected state") }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+    #endif
 }

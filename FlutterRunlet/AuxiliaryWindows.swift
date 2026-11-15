@@ -27,6 +27,7 @@ struct SettingsView: View {
     @Binding var selection: Page?
     @Bindable var language: AppLanguageSettings
     var loginItem: LoginItemSettings? = nil
+    var updates = UpdatePresentationSource()
     @State private var showsDoctorOutput = false
     @State private var showsLanguages = false
 
@@ -53,7 +54,7 @@ struct SettingsView: View {
                         case .general: generalSettings
                         case .flutter:
                             if let session, session.usesFlutterToolchain { flutterSettings(session) }
-                        case .about: EmptyView()
+                        case .about: settingsAbout
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -100,7 +101,7 @@ struct SettingsView: View {
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
             Spacer()
-            if let version = AboutInformation().versionLabel {
+            if let version = updates.presentation.displayedVersion ?? AboutInformation().versionLabel {
                 Text(verbatim: version)
                     .font(.system(size: 11))
                     .foregroundStyle(palette.secondary)
@@ -277,6 +278,27 @@ struct SettingsView: View {
         .disabled(!enabled)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    private var settingsAbout: some View {
+        settingsCard {
+            HStack(spacing: 10) {
+                AboutBrandGlyph(size: 28.35)
+                AboutIdentity(updates: updates, inSettings: true)
+                Spacer(minLength: 0)
+                UpdateButton(updates: updates)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 65)
+            rule
+            UpdateFeedback(updates: updates, inSettings: true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+            rule
+            AboutLinks()
+                .padding(.horizontal, 12)
+                .frame(minHeight: 48)
+        }
     }
 
     private func flutterSettings(_ session: SessionController) -> some View {
@@ -552,13 +574,20 @@ struct AboutInformation {
     }
 
     static let upstreamCopyright = "Copyright (c) 2026 huseyiniriss"
+    static let license: LocalizedStringResource = "MIT License"
+    static let copyright = "Copyright (c) 2026 Svame"
+
+    static func licenseDetails(locale: Locale) -> String {
+        [locale.appString(license), copyright, locale.appString("Inspired by Flutter GUI Runner"),
+         upstreamCopyright].joined(separator: "\n")
+    }
 
     enum Destination: CaseIterable {
         case project, documentation, license
 
         var title: LocalizedStringResource {
             switch self {
-            case .project: "Project Home"
+            case .project: "Github"
             case .documentation: "Documentation"
             case .license: "Project License"
             }
@@ -575,50 +604,266 @@ struct AboutInformation {
 }
 
 struct AboutView: View {
-    private let information = AboutInformation()
+    @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) private var scheme
+    let updates: UpdatePresentationSource
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image("BrandGlyph")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
-                .accessibilityLabel("FlutterRunlet Logo")
+        let palette = RunletAppearance(scheme)
+        AuxiliaryWindowLayout(title: "About FlutterRunlet", kind: .about) {
+            ScrollView {
+                VStack(spacing: 15) {
+                    VStack(spacing: 6) {
+                        AboutBrandGlyph(size: 44.1)
+                            .frame(width: 66, height: 66)
+                            .background(palette.raised, in: RoundedRectangle(cornerRadius: 17))
+                            .overlay { RoundedRectangle(cornerRadius: 17).strokeBorder(palette.divider).allowsHitTesting(false) }
 
-            Text("FlutterRunlet")
-                .font(.title.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
+                        AboutIdentity(updates: updates, inSettings: false)
 
-            Text("Lightweight Flutter debugging for macOS.")
-                .multilineTextAlignment(.center)
-
-            VStack(spacing: 4) {
-                if let version = information.version {
-                    Text("Version \(version)")
-                }
-                if let buildNumber = information.buildNumber {
-                    Text("Build \(buildNumber)")
-                }
-            }
-            .foregroundStyle(.secondary)
-
-            VStack(spacing: 4) {
-                Text("Inspired by Flutter GUI Runner")
-                Text(verbatim: AboutInformation.upstreamCopyright)
-                Text("MIT License")
-            }
-            .foregroundStyle(.secondary)
-
-            HStack(spacing: 12) {
-                ForEach(AboutInformation.Destination.allCases, id: \.self) { destination in
-                    Link(destination: destination.url) {
-                        Text(destination.title)
+                        Text("Lightweight Flutter run and debug tool")
+                            .font(RunletType.localized(locale, size: 13))
+                            .foregroundStyle(palette.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(minHeight: 19)
                     }
+
+                    VStack(spacing: 7) {
+                        UpdateButton(updates: updates)
+                        UpdateFeedback(updates: updates, inSettings: false)
+                    }
+
+                    palette.divider.frame(height: 1)
+                    AboutLinks()
+                    VStack(spacing: 3) {
+                        Text(AboutInformation.license)
+                            .font(RunletType.localized(locale, size: 11))
+                            .foregroundStyle(palette.secondary)
+                            .frame(height: 17)
+                        Text(verbatim: AboutInformation.copyright)
+                            .font(.system(size: 11))
+                            .foregroundStyle(palette.muted)
+                            .frame(height: 17)
+                    }
+                    .help(AboutInformation.licenseDetails(locale: locale))
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct AboutBrandGlyph: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image("BrandGlyph")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityLabel("FlutterRunlet Logo")
+    }
+}
+
+private struct AboutIdentity: View {
+    @Environment(\.colorScheme) private var scheme
+    let updates: UpdatePresentationSource
+    let inSettings: Bool
+
+    var body: some View {
+        VStack(alignment: inSettings ? .leading : .center, spacing: inSettings ? 2 : 6) {
+            Text(verbatim: "FlutterRunlet")
+                .font(.system(size: inSettings ? 14 : 26, weight: .semibold))
+                .frame(height: inSettings ? 23 : 32)
+                .accessibilityAddTraits(.isHeader)
+            if let version = updates.presentation.displayedVersion ?? AboutInformation().versionLabel {
+                Text(verbatim: version)
+                    .font(.system(size: inSettings ? 11 : 12))
+                    .foregroundStyle(RunletAppearance(scheme).secondary)
+                    .frame(height: inSettings ? 16 : 18)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(version)
+                    .accessibilityLabel(Text(verbatim: version))
+            }
+        }
+    }
+}
+
+private struct AboutLinks: View {
+    @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(AboutInformation.Destination.allCases, id: \.self) { destination in
+                link(destination)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func link(_ destination: AboutInformation.Destination) -> some View {
+        let details = AboutInformation.licenseDetails(locale: locale)
+        let control = Link(destination: destination.url) {
+            HStack(spacing: 6) {
+                RunletIcon(destination.icon, size: 13)
+                    .foregroundStyle(RunletAppearance(scheme).secondary)
+                Text(destination.title)
+                    .font(destination == .project ? .system(size: 11) : RunletType.localized(locale, size: 11))
+                    .fixedSize()
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 29)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: .link, radius: 6))
+        if destination == .license {
+            control.help(details).accessibilityHint(Text(verbatim: details))
+        } else {
+            control
+        }
+    }
+}
+
+private extension AboutInformation.Destination {
+    var icon: String {
+        switch self {
+        case .project: "AboutGitHub"
+        case .documentation: "AboutDocumentation"
+        case .license: "AboutLicense"
+        }
+    }
+}
+
+private struct UpdateButton: View {
+    @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let updates: UpdatePresentationSource
+
+    var body: some View {
+        let presentation = updates.presentation
+        Button(action: { updates.perform(.primary) }) {
+            HStack(spacing: 5) {
+                switch presentation.status {
+                case .available, .ready, .waiting: RunletIcon("UpdateDownload", size: 14)
+                case .checking, .updating: spinner(presentation.rotation)
+                default: RunletIcon("UpdateCheck", size: 14)
+                }
+                Text(presentation.primaryTitle)
+                    .font(RunletType.localized(locale, size: 11, medium: true))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .truncationMode(.middle)
+                    .frame(height: 16)
+            }
+            .padding(.horizontal, 7)
+            .frame(width: 116, height: 30)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: .accent, radius: 6, preservesDisabledSurface: true))
+        .disabled(!presentation.canPerformPrimary)
+        .accessibilityIdentifier("update-primary")
+        .accessibilityLabel(Text(presentation.primaryTitle))
+        .help(Text(presentation.primaryTitle))
+    }
+
+    @ViewBuilder
+    private func spinner(_ rotation: UpdatePresentation.Rotation) -> some View {
+        if case .animated = rotation, !reduceMotion {
+            TimelineView(.animation) { context in
+                RunletIcon("UpdateSpinner", size: 14)
+                    .rotationEffect(.degrees(rotation.degrees(at: context.date)))
+            }
+        } else {
+            RunletIcon("UpdateSpinner", size: 14)
+                .rotationEffect(.degrees(reduceMotion && rotation.isAnimated ? 0 : rotation.degrees(at: .now)))
+        }
+    }
+}
+
+private extension UpdatePresentation.Rotation {
+    var isAnimated: Bool {
+        if case .animated = self { return true }
+        return false
+    }
+}
+
+private struct UpdateFeedback: View {
+    @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) private var scheme
+    let updates: UpdatePresentationSource
+    let inSettings: Bool
+
+    var body: some View {
+        let presentation = updates.presentation
+        let palette = RunletAppearance(scheme)
+        HStack(spacing: 8) {
+            Text(presentation.feedback)
+                .foregroundStyle(inSettings ? palette.primary : palette.secondary)
+                .multilineTextAlignment(inSettings ? .leading : .center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("update-feedback")
+            if presentation.showsReleaseAction {
+                Button("View Release") { updates.perform(.showRelease) }
+                    .buttonStyle(AuxiliaryButtonStyle(surface: .clear))
+                    .foregroundStyle(palette.accent)
+                    .fixedSize()
+            }
+        }
+        .font(RunletType.localized(locale, size: inSettings ? 12 : 11))
+        .frame(maxWidth: .infinity, minHeight: inSettings ? 19 : 17,
+               alignment: inSettings ? .leading : .center)
+    }
+}
+
+extension UpdatePresentation.Prompt {
+    var title: LocalizedStringResource {
+        switch self {
+        case .confirm: "Install and Restart"
+        case .recovery: "Update Recovery"
+        }
+    }
+}
+
+struct UpdatePromptView: View {
+    let updates: UpdatePresentationSource
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            switch updates.presentation.prompt {
+            case .confirm(let version):
+                Text("Install \(version) and restart FlutterRunlet?")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                Text("The update package is ready.")
+                HStack {
+                    Spacer()
+                    Button("Later") { updates.perform(.later) }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Install and Restart") { updates.perform(.install) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            case .recovery(let path):
+                Text("The previous version was restored but could not open automatically.")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                Text(verbatim: path)
+                    .font(.system(size: 12, design: .monospaced))
+                    .textSelection(.enabled)
+                HStack {
+                    Button("Show in Finder") { updates.perform(.showInFinder) }
+                    Button("View Release") { updates.perform(.showRelease) }
+                    Spacer()
+                    Button("Dismiss") { updates.perform(.dismissRecovery) }
+                        .keyboardShortcut(.cancelAction)
+                }
+            case nil:
+                EmptyView()
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
     }
 }
 
@@ -659,6 +904,8 @@ struct AuxiliaryWindowLayout<Content: View>: View {
                 .strokeBorder(settings ? palette.divider : palette.border)
                 .allowsHitTesting(false)
         }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .containerBackground(palette.toolbar, for: .window)
         .background(WindowChrome(title: locale.appString(title), kind: kind))
         .ignoresSafeArea()
     }
@@ -692,8 +939,9 @@ struct AuxiliaryWindowLayout<Content: View>: View {
             }
 
             @objc private func restoreTitlebar() {
-                guard let window, !window.titlebarAppearsTransparent else { return }
-                window.titlebarAppearsTransparent = true
+                guard let window, let configuration else { return }
+                if window.title != configuration.title { window.title = configuration.title }
+                if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
             }
 
             private func updateWindow() {
@@ -702,18 +950,19 @@ struct AuxiliaryWindowLayout<Content: View>: View {
 
             private func configureWindow() {
                 guard let window, let configuration else { return }
-                window.title = configuration.title
                 window.titleVisibility = .hidden
                 if !window.styleMask.contains(.fullSizeContentView) {
                     window.styleMask.insert(.fullSizeContentView)
                 }
-                window.titlebarAppearsTransparent = true
+                restoreTitlebar()
+                window.titlebarSeparatorStyle = .none
                 let size = configuration.kind == .settings ? SettingsView.windowSize : CGSize(width: 400, height: 412)
                 if window.frame.size != size {
                     window.setFrame(NSRect(x: window.frame.minX, y: window.frame.maxY - size.height,
                                            width: size.width, height: size.height), display: true)
                 }
                 if configuration.kind == .about {
+                    window.styleMask.remove(.resizable)
                     window.standardWindowButton(.miniaturizeButton)?.isHidden = true
                     window.standardWindowButton(.zoomButton)?.isHidden = true
                 }
