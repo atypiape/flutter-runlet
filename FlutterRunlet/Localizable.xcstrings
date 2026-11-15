@@ -385,6 +385,22 @@
         }
       }
     },
+    "Auto": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动"
+          }
+        }
+      }
+    },
     "Automatically launch FlutterRunlet when you log in to macOS.": {
       "localizations": {
         "en": {
@@ -1313,6 +1329,22 @@
         }
       }
     },
+    "Current: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前：%@"
+          }
+        }
+      }
+    },
     "Dart defines must use KEY=VALUE. Check toolArgs": {
       "localizations": {
         "en": {
@@ -1585,6 +1617,38 @@
         }
       }
     },
+    "Environment Check": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Environment Check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "环境检测"
+          }
+        }
+      }
+    },
+    "Environment check finished.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Environment check finished."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "环境检测已完成"
+          }
+        }
+      }
+    },
     "Environment Check Output": {
       "localizations": {
         "en": {
@@ -1773,6 +1837,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "请先在主窗口完成环境恢复。"
+          }
+        }
+      }
+    },
+    "Flutter %@  ·  Dart %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter %@  ·  Dart %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter %1$@  ·  Dart %2$@"
           }
         }
       }
@@ -2337,6 +2417,38 @@
         }
       }
     },
+    "Manual path: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual path: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动路径：%@"
+          }
+        }
+      }
+    },
+    "Manual SDK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual SDK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动"
+          }
+        }
+      }
+    },
     "MIT License": {
       "localizations": {
         "en": {
@@ -2877,6 +2989,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "优先使用项目 FVM"
+          }
+        }
+      }
+    },
+    "Prefer the pinned SDK when the project specifies a version.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prefer the pinned SDK when the project specifies a version."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有项目版本配置时优先使用该 SDK"
           }
         }
       }
@@ -3457,6 +3585,70 @@
         }
       }
     },
+    "SDK Available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK Available"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用"
+          }
+        }
+      }
+    },
+    "SDK Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK 路径"
+          }
+        }
+      }
+    },
+    "SDK Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK Source"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK 来源"
+          }
+        }
+      }
+    },
+    "SDK Unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDK Unavailable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不可用"
+          }
+        }
+      }
+    },
     "Select Device": {
       "localizations": {
         "en": {
@@ -3565,6 +3757,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择启动配置"
+          }
+        }
+      }
+    },
+    "Select Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选路径"
           }
         }
       }
@@ -5169,6 +5377,22 @@
         }
       }
     },
+    "Version & Status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version & Status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本与状态"
+          }
+        }
+      }
+    },
     "VM Service Connected": {
       "localizations": {
         "en": {
@@ -5244,7 +5468,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "查看完整输出"
+            "value": "完整输出"
           }
         }
       }

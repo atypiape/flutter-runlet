@@ -17,6 +17,8 @@ struct RunletAppearance {
     var primary: Color { color(0xf0f5fb, 0x192638) }
     var secondary: Color { color(0xb0bdcd, 0x46576b) }
     var muted: Color { color(0x8594a7, 0x546579) }
+    var disabledText: Color { color(0x738194, 0x647388) }
+    var onAccent: Color { color(0x0b2230, 0xffffff) }
     var accent: Color { color(0x55cfff, 0x006d98) }
     var success: Color { color(0x6dd6a6, 0x136548) }
     var successSurface: Color { color(0x1d3a35, 0xddefe7) }

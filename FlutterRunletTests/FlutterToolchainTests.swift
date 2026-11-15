@@ -160,6 +160,40 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertTrue(session.canCheckEnvironment)
     }
 
+    func testChangingSDKClearsDoctorAndNextCheckUsesTheNewExecutable() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let environment = try sdkEnvironment(fixture)
+        let first = fixture.base.appending(path: "System SDK/bin/flutter")
+        let directory = fixture.base.appending(path: "Manual SDK")
+        let second = try makeSDK(directory, version: "3.45.0")
+        for executable in [first, second] {
+            let probe = try String(contentsOf: executable, encoding: .utf8)
+            let withDoctor = probe.replacingOccurrences(of: "case \"$1\" in", with: #"""
+            case "$1" in
+              --no-version-check)
+                printf '%s\n' "$0"
+                ;;
+            """#)
+            try withDoctor.write(to: executable, atomically: false, encoding: .utf8)
+        }
+        let session = SessionController(store: nil, runner: .bundled, environment: environment,
+                                        toolchain: .production)
+        session.checkFlutterSDKIfNeeded()
+        try await eventually { session.canCheckEnvironment }
+        session.checkEnvironment()
+        try await eventually { session.doctorResult != nil }
+        XCTAssertEqual(session.doctorResult?.stdout, session.sdk?.executable.path.appending("\n"))
+
+        session.selectFlutterSDK(directory)
+        try await eventually { session.sdk?.source == .manual && session.canCheckEnvironment }
+        XCTAssertNil(session.doctorResult)
+        XCTAssertEqual(session.sdk?.executable.resolvingSymlinksInPath(), second.resolvingSymlinksInPath())
+        session.checkEnvironment()
+        try await eventually { session.doctorResult != nil }
+        XCTAssertEqual(session.doctorResult?.stdout, session.sdk?.executable.path.appending("\n"))
+    }
+
     func testTerminationWaitsForCurrentAndCancelledDoctorCleanup() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }

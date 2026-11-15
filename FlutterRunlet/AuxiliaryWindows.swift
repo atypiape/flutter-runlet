@@ -7,6 +7,9 @@ struct SettingsView: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
     @FocusState private var languageButtonFocused: Bool
+    @FocusState private var sdkPickerFocus: SDKPickerTrigger?
+
+    private enum SDKPickerTrigger { case manual, path }
 
     var session: SessionController? = nil
     enum Page: CaseIterable {
@@ -68,26 +71,7 @@ struct SettingsView: View {
             if session?.doctorResult == nil { showsDoctorOutput = false }
         }
         .sheet(isPresented: $showsDoctorOutput) {
-            if let result = session?.doctorResult {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Environment Check Output").font(.headline)
-                    ScrollView([.horizontal, .vertical]) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            doctorOutput("Standard Output", text: result.stdout)
-                            doctorOutput("Standard Error", text: result.stderr)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    HStack {
-                        Spacer()
-                        Button("Dismiss") { showsDoctorOutput = false }
-                            .keyboardShortcut(.cancelAction)
-                    }
-                }
-                .padding(20)
-                .frame(width: 560, height: 360)
-                .environment(\.locale, language.locale)
-            }
+            if let result = session?.doctorResult { doctorPanel(result) }
         }
     }
 
@@ -296,91 +280,229 @@ struct SettingsView: View {
     }
 
     private func flutterSettings(_ session: SessionController) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if session.isCheckingSDK {
-                ProgressView("Checking Flutter SDK")
-                    .controlSize(.small)
-            }
-            if let sdk = session.sdk {
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                    sdkRow("Source", value: locale.appString(sdk.source.title))
-                    sdkRow("Path", value: sdk.directory.path)
-                    sdkRow("Flutter", value: sdk.flutterVersion)
-                    sdkRow("Dart", value: sdk.dartVersion)
-                    if let fvmVersion = sdk.projectFVMVersion {
-                        sdkRow("Project FVM Version", value: fvmVersion)
-                    }
-                }
-            }
-            if let issue = session.sdkIssue {
-                Text(issue).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 7) {
+            groupTitle("Flutter SDK", systemFont: true)
+            settingsCard { sdkSettings(session) }
+
+            groupTitle("FVM", systemFont: true)
+            settingsCard {
+                preferenceSwitch("Prefer Project FVM", detail: "Prefer the pinned SDK when the project specifies a version.",
+                                 isOn: Binding(get: { session.preferProjectFVM }, set: session.setPreferProjectFVM),
+                                 enabled: session.canEditFlutterSDK)
             }
 
-            Toggle("Prefer Project FVM", isOn: Binding(
-                get: { session.preferProjectFVM }, set: session.setPreferProjectFVM
-            ))
-            .disabled(!session.canEditFlutterSDK)
-
-            if let path = session.manualSDKPath, session.sdk?.source != .manual {
-                Text(verbatim: path)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(path)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 8) {
-                Button("Select Flutter SDK Path") { chooseSDK(for: session) }
-                if session.manualSDKPath != nil {
-                    Button("Clear Manual Path", action: session.clearManualFlutterSDK)
-                }
-            }
-            .disabled(!session.canEditFlutterSDK)
-            if session.isCheckingSDKSelection {
-                ProgressView("Validating Selected Path").controlSize(.small)
-            } else if !session.canEditFlutterSDK {
-                Text("Stop the current session and finish environment recovery to change SDK settings.")
-                    .foregroundStyle(.secondary)
-            }
-            if let issue = session.sdkSelectionIssue {
-                Text(issue).foregroundStyle(.secondary)
-            }
-            Divider()
-            environmentCheck(session)
+            groupTitle("Environment Check")
+            settingsCard { environmentCheck(session) }
         }
     }
 
-    private func environmentCheck(_ session: SessionController) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                if session.isCheckingEnvironment {
-                    ProgressView("Checking Environment").controlSize(.small)
-                    Button("Cancel", action: session.cancelEnvironmentCheck)
-                } else {
-                    Button(action: session.checkEnvironment) {
-                        if session.doctorResult?.failure != nil { Text("Retry") }
-                        else { Text("Check Environment") }
+    private func sdkSettings(_ session: SessionController) -> some View {
+        let source = session.sdk?.source
+        let mode: LocalizedStringResource = switch source {
+        case .projectFVM: "Project FVM"
+        case .manual: "Manual SDK"
+        default: session.manualSDKPath == nil ? "Auto" : "Manual SDK"
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            sdkRow("SDK Source") {
+                HStack(spacing: 4) {
+                    settingsAction("Auto") {
+                        if session.manualSDKPath != nil { session.clearManualFlutterSDK() }
+                        else { session.recheckInvalidFlutterSDK() }
                     }
-                    .disabled(!session.canCheckEnvironment)
-                }
-                if let result = session.doctorResult, !result.stdout.isEmpty || !result.stderr.isEmpty {
-                    Button("View Full Output") { showsDoctorOutput = true }
+                    .disabled(!session.canEditFlutterSDK)
+                    settingsAction("Manual SDK") { chooseSDK(for: session, from: .manual) }
+                        .focused($sdkPickerFocus, equals: .manual)
+                        .disabled(!session.canEditFlutterSDK)
+                    Text("Current: \(locale.appString(mode))")
+                        .font(RunletType.localized(locale, size: 11))
+                        .foregroundStyle(palette.secondary)
                 }
             }
+            rule
+            sdkRow("SDK Path") {
+                HStack(spacing: 8) {
+                    if let path = session.sdk?.directory.path ?? session.manualSDKPath {
+                        let home = NSHomeDirectory()
+                        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
+                        Text(verbatim: display)
+                            .font(.system(size: 12))
+                            .foregroundStyle(palette.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(path)
+                            .accessibilityLabel(Text(verbatim: path))
+                            .textSelection(.enabled)
+                    } else {
+                        Text(verbatim: "—").foregroundStyle(palette.muted)
+                    }
+                    if session.manualSDKPath != nil {
+                        settingsAction("Select Path") { chooseSDK(for: session, from: .path) }
+                            .focused($sdkPickerFocus, equals: .path)
+                            .disabled(!session.canEditFlutterSDK)
+                    }
+                }
+            }
+            rule
+            sdkRow("Version & Status") {
+                if session.isCheckingSDK {
+                    ProgressView("Checking Flutter SDK").controlSize(.small)
+                        .font(RunletType.localized(locale, size: 11))
+                } else if let sdk = session.sdk {
+                    Text("Flutter \(sdk.flutterVersion)  ·  Dart \(sdk.dartVersion)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(palette.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text("SDK Available")
+                        .font(RunletType.localized(locale, size: 11, medium: true))
+                        .foregroundStyle(palette.success)
+                        .fixedSize()
+                } else {
+                    Text("SDK Unavailable")
+                        .font(RunletType.localized(locale, size: 11))
+                        .foregroundStyle(palette.warning)
+                }
+            }
+
+            if session.isCheckingSDKSelection || !session.canEditFlutterSDK || session.sdkIssue != nil ||
+                session.sdkSelectionIssue != nil || (source == .projectFVM && session.manualSDKPath != nil) {
+                rule
+                VStack(alignment: .leading, spacing: 5) {
+                    if session.isCheckingSDKSelection {
+                        ProgressView("Validating Selected Path").controlSize(.small)
+                    } else if !session.canEditFlutterSDK {
+                        Text("Stop the current session and finish environment recovery to change SDK settings.")
+                    }
+                    if let issue = session.sdkIssue { Text(issue).foregroundStyle(palette.warning) }
+                    if let issue = session.sdkSelectionIssue { Text(issue).foregroundStyle(palette.warning) }
+                    if source == .projectFVM, let manual = session.manualSDKPath {
+                        Text("Manual path: \(manual)").textSelection(.enabled)
+                    }
+                }
+                .font(RunletType.localized(locale, size: 11))
+                .foregroundStyle(palette.secondary)
+                .padding(8)
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private func sdkRow<Trailing: View>(_ title: LocalizedStringResource,
+                                        @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(RunletType.localized(locale, size: 13))
+                .frame(minHeight: 19)
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private func settingsAction(_ title: LocalizedStringResource, emphasized: Bool = false,
+                                 action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(RunletType.localized(locale, size: 11, medium: true))
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, outlined: true))
+    }
+
+    private func environmentCheck(_ session: SessionController) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text(verbatim: "Flutter Doctor").font(.system(size: 13))
+                Spacer(minLength: 0)
+                if session.isCheckingEnvironment {
+                    ProgressView("Checking Environment").controlSize(.small)
+                        .font(RunletType.localized(locale, size: 11))
+                    settingsAction("Cancel", action: session.cancelEnvironmentCheck)
+                } else {
+                    settingsAction(session.doctorResult?.failure == nil ? "Check Environment" : "Retry",
+                                   emphasized: true, action: session.checkEnvironment)
+                        .disabled(!session.canCheckEnvironment)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 42)
             if let result = session.doctorResult {
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                rule
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        doctorStatus(result)
+                        Spacer(minLength: 0)
+                        if !result.stdout.isEmpty || !result.stderr.isEmpty {
+                            settingsAction("View Full Output") { showsDoctorOutput = true }
+                        }
+                    }
                     ForEach(FlutterDoctorResult.Tool.allCases, id: \.self) { tool in
-                        GridRow {
-                            Text(tool.title)
-                            Text((result.summary[tool] ?? .unknown).title).foregroundStyle(.secondary)
+                        if let status = result.summary[tool], result.failure == nil || status != .unknown {
+                            HStack(spacing: 8) {
+                                Text(tool.title)
+                                Spacer()
+                                Text(status.title).foregroundStyle(doctorStatusColor(status))
+                            }
                         }
                     }
                 }
-                if let failure = result.failure {
-                    Text("Environment check could not complete: \(failure.reason). Check the Flutter SDK and try again.")
-                        .foregroundStyle(.secondary)
-                }
+                .font(RunletType.localized(locale, size: 11))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
         }
+    }
+
+    private func doctorStatus(_ result: FlutterDoctorResult) -> some View {
+        Group {
+            if let failure = result.failure {
+                if failure == .cancelled { Text(failure.reason) }
+                else { Text("Environment check could not complete: \(failure.reason). Check the Flutter SDK and try again.") }
+            } else {
+                Text("Environment check finished.")
+            }
+        }
+        .foregroundStyle(result.failure == nil ? palette.success : palette.warning)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func doctorStatusColor(_ status: FlutterDoctorResult.Status) -> Color {
+        switch status {
+        case .passed: palette.success
+        case .warning: palette.warning
+        case .failed: palette.error
+        case .unknown: palette.secondary
+        }
+    }
+
+    private func doctorPanel(_ result: FlutterDoctorResult) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Environment Check Output")
+                .font(RunletType.localized(locale, size: 14, medium: true))
+                .frame(height: 23)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView([.horizontal, .vertical]) {
+                VStack(alignment: .leading, spacing: 12) {
+                    doctorOutput("Standard Output", text: result.stdout)
+                    doctorOutput("Standard Error", text: result.stderr)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(palette.console, in: RoundedRectangle(cornerRadius: 5))
+            settingsAction("Dismiss") { showsDoctorOutput = false }
+                .keyboardShortcut(.cancelAction)
+        }
+        .padding(13)
+        .frame(width: 500, height: 360)
+        .foregroundStyle(palette.primary)
+        .background(palette.toolbar)
+        .environment(\.locale, language.locale)
     }
 
     private func doctorOutput(_ title: LocalizedStringKey, text: String) -> some View {
@@ -397,18 +519,7 @@ struct SettingsView: View {
         }
     }
 
-    private func sdkRow(_ title: LocalizedStringKey, value: String) -> some View {
-        GridRow {
-            Text(title).foregroundStyle(.secondary)
-            Text(verbatim: value)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(value)
-                .textSelection(.enabled)
-        }
-    }
-
-    private func chooseSDK(for session: SessionController) {
+    private func chooseSDK(for session: SessionController, from trigger: SDKPickerTrigger) {
         let panel = NSOpenPanel()
         panel.title = locale.appString("Select Flutter SDK Path")
         panel.message = locale.appString("Select the directory containing the Flutter SDK.")
@@ -421,16 +532,7 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             session.selectFlutterSDK(url)
         }
-    }
-}
-
-private extension FlutterSDK.Source {
-    var title: LocalizedStringResource {
-        switch self {
-        case .projectFVM: "Project FVM"
-        case .manual: "Manual"
-        case .system: "System PATH"
-        }
+        sdkPickerFocus = trigger
     }
 }
 
@@ -572,11 +674,26 @@ struct AuxiliaryWindowLayout<Content: View>: View {
         }
 
         final class ChromeView: NSView {
+            private weak var observedWindow: NSWindow?
             var configuration: WindowChrome? { didSet { updateWindow() } }
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
+                let notifications = NotificationCenter.default
+                if let observedWindow {
+                    notifications.removeObserver(self, name: NSWindow.didUpdateNotification, object: observedWindow)
+                }
+                observedWindow = window
+                if let window {
+                    notifications.addObserver(self, selector: #selector(restoreTitlebar),
+                                              name: NSWindow.didUpdateNotification, object: window)
+                }
                 updateWindow()
+            }
+
+            @objc private func restoreTitlebar() {
+                guard let window, !window.titlebarAppearsTransparent else { return }
+                window.titlebarAppearsTransparent = true
             }
 
             private func updateWindow() {
@@ -614,6 +731,7 @@ struct AuxiliaryButtonStyle: ButtonStyle {
     var surface: Surface = .raised
     var radius: CGFloat = 5
     var preservesDisabledSurface = false
+    var outlined = false
 
     func makeBody(configuration: Configuration) -> some View {
         let palette = RunletAppearance(scheme)
@@ -628,10 +746,11 @@ struct AuxiliaryButtonStyle: ButtonStyle {
         let stroke: Color = switch surface {
         case .raised: palette.divider
         case .link: palette.border
-        default: .clear
+        default: outlined ? palette.divider : .clear
         }
         let visuallyEnabled = enabled || preservesDisabledSurface
         configuration.label
+            .foregroundStyle(visuallyEnabled ? (surface == .accent ? palette.onAccent : palette.primary) : palette.disabledText)
             .contentShape(Rectangle())
             .background(configuration.isPressed ? fill.opacity(0.75) : (visuallyEnabled ? fill : palette.disabled), in: shape)
             .overlay { shape.strokeBorder(stroke).allowsHitTesting(false) }
