@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E04100000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E04100000000000000000002 /* Localizable.xcstrings */; };
 		E03100000000000000000006 /* FlutterDebugSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000004 /* FlutterDebugSession.swift */; };
+		E03600000000000000000001 /* InspectorBrowserTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03600000000000000000002 /* InspectorBrowserTabs.swift */; };
 		E03100000000000000000005 /* FlutterToolchain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000003 /* FlutterToolchain.swift */; };
 		E03100000000000000000001 /* FlutterDebugSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03100000000000000000002 /* FlutterDebugSessionTests.swift */; };
 		E03300000000000000000001 /* SessionLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03300000000000000000002 /* SessionLogTests.swift */; };
@@ -80,6 +81,7 @@
 /* Begin PBXFileReference section */
 		E04100000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		E03100000000000000000004 /* FlutterDebugSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterDebugSession.swift; sourceTree = "<group>"; };
+		E03600000000000000000002 /* InspectorBrowserTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorBrowserTabs.swift; sourceTree = "<group>"; };
 		E03100000000000000000003 /* FlutterToolchain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterToolchain.swift; sourceTree = "<group>"; };
 		E03100000000000000000002 /* FlutterDebugSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlutterDebugSessionTests.swift; sourceTree = "<group>"; };
 		E03300000000000000000002 /* SessionLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLogTests.swift; sourceTree = "<group>"; };
@@ -197,6 +199,7 @@
 				63BA63B8DDC8ABEDBE29BDEF /* SessionController.swift */,
 				203B8524D266CF1B1089DC86 /* SessionProcess.swift */,
 				E03100000000000000000004 /* FlutterDebugSession.swift */,
+				E03600000000000000000002 /* InspectorBrowserTabs.swift */,
 				E03100000000000000000003 /* FlutterToolchain.swift */,
 				668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */,
 				19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */,
@@ -393,6 +396,7 @@
 				11F933C4B0A08EEA0EE34810 /* SessionController.swift in Sources */,
 				C5291B88C5812805202EDBA2 /* SessionProcess.swift in Sources */,
 				E03100000000000000000006 /* FlutterDebugSession.swift in Sources */,
+				E03600000000000000000001 /* InspectorBrowserTabs.swift in Sources */,
 				E03100000000000000000005 /* FlutterToolchain.swift in Sources */,
 				6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */,
 				36644C1C7EBBC4877258AB5D /* LaunchPresentation.swift in Sources */,
@@ -459,12 +463,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FlutterRunlet/FlutterRunlet.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "FlutterRunlet 使用浏览器自动化切换到当前调试会话已有的 Inspector 标签页。";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;
@@ -540,12 +546,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FlutterRunlet/FlutterRunlet.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "FlutterRunlet 使用浏览器自动化切换到当前调试会话已有的 Inspector 标签页。";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;

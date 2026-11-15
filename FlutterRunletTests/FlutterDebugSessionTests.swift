@@ -528,9 +528,12 @@ final class FlutterDebugSessionTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dart.path)
 
         var opened: [URL] = []
+        var focused: [URL] = []
+        var inspectorStillOpen = true
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = controller(fixture, store: store, executable: executable,
-                                 openURL: { opened.append($0); return true }) { _ in true }
+                                 openURL: { opened.append($0); return true },
+                                 focusInspector: { focused.append($0); return inspectorStillOpen }) { _ in true }
         try fixture.select("test", in: session)
         session.selectStandaloneDevTools(directory)
         XCTAssertEqual(session.standaloneDevToolsVersion, "2.61.0")
@@ -545,9 +548,16 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertTrue(opened.isEmpty)
             try Data().write(to: fixture.state("devtools-ready"))
             try await eventually { opened.count == 1 }
+            session.openBrowser(.inspector)
+            try await eventually { focused.count == 1 }
+            XCTAssertEqual(focused, opened)
+            inspectorStillOpen = false
+            session.openBrowser(.inspector)
+            try await eventually { opened.count == 2 }
+            XCTAssertEqual(opened[0], opened[1])
             session.openBrowser(.devTools)
-            XCTAssertEqual(opened.map(\.path), ["/inspector", "/"])
-            XCTAssertEqual(opened.map(\.port), [9123, 9123])
+            XCTAssertEqual(opened.map(\.path), ["/inspector", "/inspector", "/"])
+            XCTAssertEqual(opened.map(\.port), [9123, 9123, 9123])
             for url in opened {
                 XCTAssertEqual(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
                                [URLQueryItem(name: "uri", value: "ws://127.0.0.1:8181/private=/ws")])
@@ -564,6 +574,21 @@ final class FlutterDebugSessionTests: XCTestCase {
             session.stop()
             await session.waitUntilIdle()
             throw error
+        }
+    }
+
+    func testInspectorTabMatchingIgnoresBrowserOptionsButNotSessionOrPage() throws {
+        let origin = "http://127.0.0.1:9100"
+        let inspector = try XCTUnwrap(URL(string: origin + "/inspector?uri=ws://127.0.0.1:8181/current=/ws"))
+        let encoded = try XCTUnwrap(URL(string: origin + "/inspector?compiler=wasm&uri=ws%3A%2F%2F127.0.0.1%3A8181%2Fcurrent%3D%2Fws"))
+        XCTAssertTrue(InspectorBrowserTabs.matches(encoded, inspector: inspector))
+        for other in [
+            origin + "/inspector?uri=ws://127.0.0.1:8181/previous=/ws",
+            origin + "/inspector?uri=ws://127.0.0.1:8181/current=/ws&uri=other",
+            origin + "/memory?uri=ws://127.0.0.1:8181/current=/ws",
+            "http://127.0.0.1:9101/inspector?uri=ws://127.0.0.1:8181/current=/ws"
+        ] {
+            XCTAssertFalse(InspectorBrowserTabs.matches(try XCTUnwrap(URL(string: other)), inspector: inspector))
         }
     }
 
@@ -810,6 +835,7 @@ final class FlutterDebugSessionTests: XCTestCase {
                             timing: FlutterDebugTiming = .continuous, discovery: DeviceDiscovery? = nil,
                             flutterVersion: String = "test", devToolsVersion: String? = nil,
                             openURL: @escaping (URL) -> Bool = { _ in false },
+                            focusInspector: @escaping @MainActor (URL) async -> Bool = { _ in false },
                             verify: @escaping @MainActor (URL) async -> Bool) -> SessionController {
         let device = self.device
         return SessionController(store: store, runner: .bundled, environment: fixture.environment,
@@ -826,7 +852,7 @@ final class FlutterDebugSessionTests: XCTestCase {
                                         guard let discovery else { return [] }
                                         return discovery.shutdown
                                     }
-                                 ), verifyVM: verify, debugTiming: timing, openURL: openURL)
+                                 ), verifyVM: verify, debugTiming: timing, openURL: openURL, focusInspector: focusInspector)
     }
 
     private func makeFlutter(in fixture: SessionFixture, script: String) throws -> URL {

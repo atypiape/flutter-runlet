@@ -45,6 +45,8 @@ Choose VS Code (default), Cursor, or Zed in **Settings → General → Source Ed
 
 In **Settings → Flutter → DevTools**, you can choose a separate Dart SDK directory. Dart 3.14.0 includes DevTools 2.61.0. FlutterRunlet starts it on demand and connects the Inspector to the active session. The project continues to use its configured Flutter and Dart SDK. Select **Use Bundled** to switch back.
 
+Click **Open Inspector** again to return to its existing tab for the current session. After closing the tab, click again to reopen it. Edge, Chrome, and Safari require macOS browser automation permission for this feature.
+
 Both views control the same session. Changing the device while debugging sets up the next run; the current session stays on its original device. The app supports English and Simplified Chinese and follows the system's light or dark appearance.
 
 FlutterRunlet supports **Debug** configurations. Profile and Release configurations, long-running background tasks, complex interactive tasks, and some VS Code extension variables are outside its scope. It leaves your configuration files alone and runs the pre-launch and post-debug tasks you configured. Try the [sample VS Code configurations](docs/examples/sample-flutter-app/README.md) or see the [compatibility details](docs/02-TECHNICAL.md#2-launchjson-基本契约v01) (Simplified Chinese).
