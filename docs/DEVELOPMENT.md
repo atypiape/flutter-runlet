@@ -20,21 +20,11 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 把可重建的编译缓存和试打包产物放在 `.build/`，把原始验收截图、日志、测试结果包和与签核摘要绑定的候选留在 `.private/`，只提交脱敏结论。清理时保留签核引用的原始证据及候选；重新构建的二进制不能替代锁定摘要的原件。
 
-更新用户文档时，同步维护[英文首页](../README.md)和[简体中文说明](../README.zh-CN.md)。为每种语言拍摄对应的 [README 截图](screenshots/)。用隔离示例取图，保留完整窗口、标题栏和原生窗口按钮。逐张检查窗口四角，发现共享或录屏标记、鼠标指针、桌面背景时重新取图。提交前按[协作约定](../AGENTS.md#文档与边界)检查各语言版正文、链接、截图内容和图像元数据。
+更新用户文档时，同步维护[英文首页](../README.md)和[简体中文说明](../README.zh-CN.md)。各语言的 [README 截图](screenshots/)按[公开文档与截图约定](../AGENTS.md#公开文档与截图)完成脱敏、压缩和确认。
 
-取图完成后，将截图和相关文档留在工作区。等用户完成图片压缩并明确确认脱敏后，再暂存、提交和推送。如果敏感截图已经进入待合并分支的提交历史，从干净的 `main` 创建分支，仅带入确认脱敏的改动并新建 PR。
+## 打包与发布
 
-## 打包本地候选
-
-```sh
-./scripts/package-release.sh v0.2.0
-```
-
-版本参数可省略 `v` 前缀，只覆盖本次打包；不传参数则使用 Xcode 工程的 Release 默认版本。构建号取 `git rev-list --count HEAD` 的结果。浅克隆先用 `git fetch --unshallow` 补齐提交历史。
-
-Xcode 在签名前剥离主程序、会话 worker 和更新助手的调试符号。脚本创建 DMG 后以只读方式挂载，逐个核对三者的 arm64 与 x86_64 架构、签名和构建机路径。全部检查通过后才输出 `FlutterRunlet-v<版本>-macOS-universal.dmg` 和配套 `.dmg.sha256`，每次结果位于 `.build/release/` 下独立目录。在输出目录用 `shasum -a 256 -c *.dmg.sha256` 复核摘要，再从 DMG 安装并验证启动。
-
-该脚本生成 ad hoc 签名的本地测试包，不执行 Apple 公证。供授权测试者手动下载的预发布应标为 GitHub pre-release，并附带校验文件。正式分发及应用内更新还需配置受信发行签名、完成公证，并验证正式 Release 元数据和资产；公开前按[脱敏记录](PUBLIC-RELEASE-AUDIT.md)复核。当前公开发布仍暂缓。
+按照 [Release 模板](RELEASE-TEMPLATE.md)构建和校验 DMG、准备中英文更新说明并上传发布资产。
 
 ## 项目文档
 
