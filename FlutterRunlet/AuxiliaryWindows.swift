@@ -6,9 +6,6 @@ struct SettingsView: View {
 
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
-    @FocusState private var sdkPickerFocus: SDKPickerTrigger?
-
-    private enum SDKPickerTrigger { case flutterSource, flutterPath, devToolsSource, devToolsPath }
 
     var session: SessionController? = nil
     enum Page: CaseIterable {
@@ -39,31 +36,42 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        AuxiliaryWindowLayout(title: "Settings", kind: .settings) {
+        AuxiliaryWindowLayout(title: page.title, kind: .settings) {
             HStack(spacing: 0) {
                 sidebar
                 palette.divider.frame(width: 1)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 7) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        navigationIcon(page).foregroundStyle(palette.secondary)
                         Text(page.title)
-                            .font(page == .flutter || page == .devTools ? .system(size: 17, weight: .semibold)
-                                  : RunletType.localized(locale, size: 17, medium: true))
-                            .frame(height: 23)
+                            .font(RunletType.localized(locale, size: 15, medium: true))
                             .accessibilityAddTraits(.isHeader)
-                        switch page {
-                        case .general: generalSettings
-                        case .flutter:
-                            if let session, session.usesFlutterToolchain { flutterSettings(session) }
-                        case .devTools:
-                            if let session { devToolsSettings(session) }
-                        case .about: settingsAbout
-                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 15)
-                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 47)
+                    .background(palette.toolbar)
+                    .contentShape(Rectangle())
+                    .gesture(WindowDragGesture())
+                    palette.divider.frame(height: 1)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 7) {
+                            switch page {
+                            case .general: generalSettings
+                            case .flutter:
+                                if let session, session.usesFlutterToolchain { flutterSettings(session) }
+                            case .devTools:
+                                if let session { devToolsSettings(session) }
+                            case .about: settingsAbout
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 14)
+                    }
                 }
             }
+            .focusEffectDisabled()
         }
         .onChange(of: selection, initial: true) {
             if selection == .flutter { session?.checkFlutterSDKIfNeeded() }
@@ -79,6 +87,11 @@ struct SettingsView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 4) {
+            Color.clear
+                .frame(height: 43)
+                .contentShape(Rectangle())
+                .gesture(WindowDragGesture())
+                .accessibilityHidden(true)
             ForEach(Page.allCases, id: \.self) { option in
                 let selected = page == option
                 let prominentGear = page == .about && option == .general
@@ -113,7 +126,7 @@ struct SettingsView: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 14)
+        .padding(.bottom, 14)
         .frame(width: 128)
         .frame(maxHeight: .infinity)
         .background(palette.toolbar)
@@ -312,6 +325,7 @@ struct SettingsView: View {
         let path = session.standaloneDevToolsPath
         let version = path == nil ? session.sdk?.devToolsVersion : session.standaloneDevToolsVersion
         return VStack(alignment: .leading, spacing: 7) {
+            groupTitle("DevTools", systemFont: true)
             settingsCard {
                 settingsRow("DevTools Source") {
                     settingsMenu("DevTools Source", value: path == nil ? Text("Bundled with Flutter") : Text("Standalone Dart SDK")) {
@@ -319,10 +333,9 @@ struct SettingsView: View {
                             session.selectStandaloneDevTools(nil)
                         }
                         menuOption(Text("Standalone Dart SDK…"), selected: path != nil) {
-                            chooseDevToolsSDK(for: session, returningTo: .devToolsSource)
+                            chooseDevToolsSDK(for: session)
                         }
                     }
-                    .focused($sdkPickerFocus, equals: .devToolsSource)
                     .disabled(!session.canEditFlutterSDK)
                 }
                 if let version {
@@ -333,27 +346,29 @@ struct SettingsView: View {
                             .foregroundStyle(palette.secondary)
                     }
                 }
-                if let path {
-                    rule
-                    sdkPath("Dart SDK Path", path: path, focus: .devToolsPath, enabled: session.canEditFlutterSDK) {
-                        chooseDevToolsSDK(for: session, returningTo: .devToolsPath)
-                    }
-                }
-                if let issue = session.standaloneDevToolsIssue {
-                    Text(issue)
-                        .font(RunletType.localized(locale, size: 11))
-                        .foregroundStyle(palette.warning)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 9)
-                }
-            }
-            groupTitle("Source Navigation")
-            settingsCard {
+                rule
                 settingsRow("Source Editor") {
                     settingsPicker("Source Editor", selection: Bindable(session).inspectorEditor,
                                    choices: InspectorEditor.allCases) {
                         Text(verbatim: $0.title)
+                    }
+                }
+            }
+            if path != nil || session.standaloneDevToolsIssue != nil {
+                groupTitle("Dart SDK", systemFont: true)
+                settingsCard {
+                    if let path {
+                        sdkPath("Dart SDK Path", path: path, enabled: session.canEditFlutterSDK) {
+                            chooseDevToolsSDK(for: session)
+                        }
+                    }
+                    if let issue = session.standaloneDevToolsIssue {
+                        Text(issue)
+                            .font(RunletType.localized(locale, size: 11))
+                            .foregroundStyle(palette.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
                     }
                 }
             }
@@ -377,10 +392,9 @@ struct SettingsView: View {
                         else { session.recheckInvalidFlutterSDK() }
                     }
                     menuOption(Text("Manual SDK…"), selected: manualPath != nil) {
-                        chooseSDK(for: session, from: .flutterSource)
+                        chooseSDK(for: session)
                     }
                 }
-                .focused($sdkPickerFocus, equals: .flutterSource)
                 .disabled(!session.canEditFlutterSDK)
             }
             if let effectiveSource {
@@ -416,16 +430,16 @@ struct SettingsView: View {
             rule
             if let path {
                 if manualPath == path {
-                    sdkPath("SDK Path", path: path, focus: .flutterPath, enabled: session.canEditFlutterSDK) {
-                        chooseSDK(for: session, from: .flutterPath)
+                    sdkPath("SDK Path", path: path, enabled: session.canEditFlutterSDK) {
+                        chooseSDK(for: session)
                     }
                 } else {
                     sdkPath("SDK Path", path: path)
                 }
                 if let manualPath, manualPath != path {
                     rule
-                    sdkPath("Manual SDK Path", path: manualPath, focus: .flutterPath, enabled: session.canEditFlutterSDK) {
-                        chooseSDK(for: session, from: .flutterPath)
+                    sdkPath("Manual SDK Path", path: manualPath, enabled: session.canEditFlutterSDK) {
+                        chooseSDK(for: session)
                     }
                 }
             } else {
@@ -452,19 +466,11 @@ struct SettingsView: View {
         }
     }
 
-    private func sdkPath(_ title: LocalizedStringResource, path: String,
-                         focus: SDKPickerTrigger = .flutterPath, enabled: Bool = true,
+    private func sdkPath(_ title: LocalizedStringResource, path: String, enabled: Bool = true,
                          change: (() -> Void)? = nil) -> some View {
         let home = NSHomeDirectory()
         let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
-        return VStack(alignment: .leading, spacing: 0) {
-            settingsRow(title) {
-                if let change {
-                    settingsAction("Change…", action: change)
-                        .focused($sdkPickerFocus, equals: focus)
-                        .disabled(!enabled)
-                }
-            }
+        return settingsRow(title) {
             Text(verbatim: display)
                 .font(.system(size: 12))
                 .foregroundStyle(palette.secondary)
@@ -473,8 +479,10 @@ struct SettingsView: View {
                 .help(path)
                 .accessibilityLabel(Text(verbatim: path))
                 .textSelection(.enabled)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 9)
+            if let change {
+                settingsAction("Change…", emphasized: true, action: change)
+                    .disabled(!enabled)
+            }
         }
     }
 
@@ -494,14 +502,9 @@ struct SettingsView: View {
 
     private func settingsAction(_ title: LocalizedStringResource, emphasized: Bool = false,
                                  action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        AuxiliaryActionButton(emphasized: emphasized, action: action) {
             Text(title)
-                .font(RunletType.localized(locale, size: 11, medium: true))
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .fixedSize(horizontal: true, vertical: false)
         }
-        .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, outlined: true))
     }
 
     private func environmentCheck(_ session: SessionController) -> some View {
@@ -609,7 +612,7 @@ struct SettingsView: View {
         }
     }
 
-    private func chooseSDK(for session: SessionController, from trigger: SDKPickerTrigger) {
+    private func chooseSDK(for session: SessionController) {
         let panel = NSOpenPanel()
         panel.title = locale.appString("Select Flutter SDK Path")
         panel.message = locale.appString("Select the directory containing the Flutter SDK.")
@@ -622,10 +625,9 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             session.selectFlutterSDK(url)
         }
-        sdkPickerFocus = trigger
     }
 
-    private func chooseDevToolsSDK(for session: SessionController, returningTo trigger: SDKPickerTrigger) {
+    private func chooseDevToolsSDK(for session: SessionController) {
         let panel = NSOpenPanel()
         panel.title = locale.appString("Select Dart SDK…")
         panel.message = locale.appString("Select a Dart SDK directory that includes DevTools.")
@@ -638,7 +640,6 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             session.selectStandaloneDevTools(url)
         }
-        sdkPickerFocus = trigger
     }
 }
 
@@ -824,7 +825,6 @@ private extension AboutInformation.Destination {
 }
 
 private struct UpdateButton: View {
-    @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let updates: UpdatePresentationSource
     let backdrop: Color
@@ -832,7 +832,8 @@ private struct UpdateButton: View {
     var body: some View {
         let presentation = updates.presentation
         let isSpinning = presentation.status == .checking || presentation.status == .updating
-        Button(action: { updates.perform(.primary) }) {
+        AuxiliaryActionButton(emphasized: true, width: 116, preservesDisabledSurface: true,
+                              action: { updates.perform(.primary) }) {
             HStack(spacing: 5) {
                 switch presentation.status {
                 case .available, .ready, .waiting: RunletIcon("UpdateDownload", size: 14)
@@ -840,16 +841,12 @@ private struct UpdateButton: View {
                 default: RunletIcon("UpdateCheck", size: 14)
                 }
                 Text(presentation.primaryTitle)
-                    .font(RunletType.localized(locale, size: 11, medium: true))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .truncationMode(.middle)
                     .frame(height: 16)
             }
-            .padding(.horizontal, 7)
-            .frame(width: 116, height: 30)
         }
-        .buttonStyle(AuxiliaryButtonStyle(surface: .accent, radius: 6, preservesDisabledSurface: true))
         .modifier(UpdateButtonOpacity(isSpinning: isSpinning, backdrop: backdrop))
         .disabled(!presentation.canPerformPrimary)
         .accessibilityIdentifier("update-primary")
@@ -989,16 +986,17 @@ struct AuxiliaryWindowLayout<Content: View>: View {
         let settings = kind == .settings
         let size = settings ? SettingsView.windowSize : CGSize(width: 400, height: 412)
         VStack(spacing: 0) {
-            Text(title)
-                .font(RunletType.localized(locale, size: settings ? 14 : 12, medium: true))
-                .padding(.leading, settings ? 75 : 0)
-                .frame(maxWidth: .infinity, alignment: settings ? .leading : .center)
-                .frame(height: settings ? 47 : 35)
-                .background(palette.toolbar)
-                .contentShape(Rectangle())
-                .gesture(WindowDragGesture())
-                .accessibilityHidden(true)
-            palette.divider.frame(height: 1)
+            if !settings {
+                Text(title)
+                    .font(RunletType.localized(locale, size: 12, medium: true))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 35)
+                    .background(palette.toolbar)
+                    .contentShape(Rectangle())
+                    .gesture(WindowDragGesture())
+                    .accessibilityHidden(true)
+                palette.divider.frame(height: 1)
+            }
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -1086,6 +1084,27 @@ struct AuxiliaryWindowLayout<Content: View>: View {
                 }
             }
         }
+    }
+}
+
+private struct AuxiliaryActionButton<Label: View>: View {
+    @Environment(\.locale) private var locale
+    var emphasized = false
+    var width: CGFloat? = nil
+    var preservesDisabledSurface = false
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        Button(action: action) {
+            label()
+                .font(RunletType.localized(locale, size: 11, medium: true))
+                .padding(.horizontal, 10)
+                .frame(width: width, height: 30)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, radius: 6,
+                                           preservesDisabledSurface: preservesDisabledSurface))
     }
 }
 

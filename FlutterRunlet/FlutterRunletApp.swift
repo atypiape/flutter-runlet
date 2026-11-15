@@ -323,7 +323,7 @@ struct FlutterRunletApp: App {
                     return restore
                 }
             )
-            .background(PanelWindowAnchor(reference: panelWindow, windowKeys: windowKeys))
+            .background(WindowKeyAnchor(reference: panelWindow, windowKeys: windowKeys))
             .environment(\.locale, language.locale)
         } label: {
             Image(nsImage: makeMenuBarTemplate())
@@ -349,6 +349,7 @@ struct FlutterRunletApp: App {
                 SettingsView(session: liveSession, selection: $settingsPage, language: language,
                              appearance: Bindable(appearance).selection, loginItem: loginItem, updates: updates)
                     .environment(\.locale, language.locale)
+                    .background(WindowKeyAnchor(windowKeys: windowKeys))
             }
             .ignoresSafeArea()
         }
@@ -543,23 +544,25 @@ struct FlutterRunletApp: App {
         }
     }
 
-    private struct PanelWindowAnchor: NSViewRepresentable {
-        let reference: PanelWindowReference
+    private struct WindowKeyAnchor: NSViewRepresentable {
+        var reference: PanelWindowReference? = nil
         let windowKeys: WindowKeys
 
         func makeNSView(context: Context) -> NSView {
-            let anchor = PanelAnchorView(windowKeys: windowKeys)
-            reference.anchor = anchor
+            let anchor = KeyAnchorView(windowKeys: windowKeys, isMenuBar: reference != nil)
+            reference?.anchor = anchor
             return anchor
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {}
 
-        private final class PanelAnchorView: NSView {
+        private final class KeyAnchorView: NSView {
             private let windowKeys: WindowKeys
+            private let isMenuBar: Bool
 
-            init(windowKeys: WindowKeys) {
+            init(windowKeys: WindowKeys, isMenuBar: Bool) {
                 self.windowKeys = windowKeys
+                self.isMenuBar = isMenuBar
                 super.init(frame: .zero)
             }
 
@@ -568,7 +571,10 @@ struct FlutterRunletApp: App {
 
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
-                if let window { windowKeys.register(window, source: .menuBar) }
+                if let window {
+                    if isMenuBar { windowKeys.register(window, source: .menuBar) }
+                    else { windowKeys.registerSettings(window) }
+                }
             }
         }
     }
@@ -579,6 +585,7 @@ private final class WindowKeys {
     private weak var session: SessionController?
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private let menuPanels = NSHashTable<NSWindow>.weakObjects()
+    private let settingsWindows = NSHashTable<NSWindow>.weakObjects()
     private var monitor: Any?
 
     init(session: SessionController?) { self.session = session }
@@ -588,6 +595,15 @@ private final class WindowKeys {
         case .mainWindow: mainWindows.add(window)
         case .menuBar: menuPanels.add(window)
         }
+        installMonitor()
+    }
+
+    func registerSettings(_ window: NSWindow) {
+        settingsWindows.add(window)
+        installMonitor()
+    }
+
+    private func installMonitor() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handleKey(event) == true }
@@ -605,23 +621,19 @@ private final class WindowKeys {
               window.isVisible, window.attachedSheet == nil else {
             return false
         }
-        let source: DebugActionSource
-        if mainWindows.contains(window) {
-            source = .mainWindow
-        } else if menuPanels.contains(window) {
-            source = .menuBar
-        } else {
-            return false
-        }
+        let inMainWindow = mainWindows.contains(window)
+        let inMenuPanel = menuPanels.contains(window)
+        guard inMainWindow || inMenuPanel || settingsWindows.contains(window) else { return false }
         if event.keyCode == kVK_Tab,
            event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
             return true
         }
-        guard let session, let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
+        guard inMainWindow || inMenuPanel, let session,
+              let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
                                                     isRepeat: event.isARepeat) else {
             return false
         }
-        return session.performDebugAction(action, source: source)
+        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar)
     }
 }
 

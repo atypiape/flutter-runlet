@@ -375,13 +375,13 @@ final class LaunchPresentationTests: XCTestCase {
 
     @MainActor
     func testSettingsChromeRestoresHiddenLocalizedTitleWhileWindowIsNotVisible() async throws {
-        for (code, title) in [("en", "Settings"), ("zh-Hans", "设置")] {
+        for (code, title) in [("en", "General"), ("zh-Hans", "通用")] {
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: SettingsView.windowSize),
                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             defer { window.close() }
             window.contentView = NSHostingView(rootView:
-                AuxiliaryWindowLayout(title: "Settings", kind: .settings) { Color.clear }
+                AuxiliaryWindowLayout(title: SettingsView.Page.general.title, kind: .settings) { Color.clear }
                     .environment(\.locale, Locale(identifier: code))
             )
             window.contentView?.layoutSubtreeIfNeeded()
