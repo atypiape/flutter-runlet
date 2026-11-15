@@ -42,6 +42,7 @@
 		30F3F5649EC32D575AD1F629 /* ProjectConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95C77D05F631BA17E148933 /* ProjectConcurrencyTests.swift */; };
 		E07200000000000000000012 /* AppTermination.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07200000000000000000011 /* AppTermination.swift */; };
 		E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07200000000000000000021 /* UpdatePresentationSource.swift */; };
+		E07400000000000000000012 /* ReleaseUpdates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000011 /* ReleaseUpdates.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 		E95C77D05F631BA17E148933 /* ProjectConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConcurrencyTests.swift; sourceTree = "<group>"; };
 		E07200000000000000000011 /* AppTermination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTermination.swift; sourceTree = "<group>"; };
 		E07200000000000000000021 /* UpdatePresentationSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePresentationSource.swift; sourceTree = "<group>"; };
+		E07400000000000000000011 /* ReleaseUpdates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseUpdates.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,6 +174,7 @@
 				CE9F041C6038D3D7BEC608E5 /* MenuBarPanelView.swift */,
 				E07200000000000000000011 /* AppTermination.swift */,
 				E07200000000000000000021 /* UpdatePresentationSource.swift */,
+				E07400000000000000000011 /* ReleaseUpdates.swift */,
 				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
 				E04100000000000000000002 /* Localizable.xcstrings */,
 				C468FE71AFE64B16AD2909BD /* Assets.xcassets */,
@@ -341,6 +344,7 @@
 				3879F0059D3D0FC10CA242CB /* MenuBarPanelView.swift in Sources */,
 				E07200000000000000000012 /* AppTermination.swift in Sources */,
 				E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */,
+				E07400000000000000000012 /* ReleaseUpdates.swift in Sources */,
 				F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
