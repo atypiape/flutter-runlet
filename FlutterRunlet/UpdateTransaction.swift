@@ -232,7 +232,7 @@ final class UpdateReservation: Sendable {
 }
 #endif
 
-struct UpdateJournal: Codable, Sendable {
+struct UpdateJournal: Codable, Equatable, Sendable {
     enum Phase: String, Codable, Sendable {
         case prepared, waitingForNew, restoring, committed, restored, preserved
     }
@@ -263,6 +263,8 @@ struct UpdateJournal: Codable, Sendable {
     var reopenedProcess: UpdateProcessIdentity?
     var candidateExitConfirmed: Bool?
     var deliveryFailure: String?
+    var reentryProcess: UpdateProcessIdentity?
+    var originalWaitMilliseconds: Int64?
 
     var product: String { original.app.productID }
     var releaseURL: URL { UpdateRepository.releases.appending(path: "tag/\(releaseTag)") }
@@ -270,6 +272,7 @@ struct UpdateJournal: Codable, Sendable {
     var copiedHelper: URL { stage.appending(path: Self.stagedHelper, directoryHint: .isDirectory) }
     var socket: URL { stage.appending(path: "peer") }
     var targetExecutable: String { target.appending(path: "Contents/MacOS/FlutterRunlet").path }
+    var authorizingProcess: UpdateProcessIdentity { reentryProcess ?? oldProcess }
 
     func validate(fixture: IsolatedUpdateBuild?) throws -> (parent: UpdateDirectory, staging: UpdateDirectory) {
         guard target.lastPathComponent == Self.appName,
@@ -312,6 +315,15 @@ struct UpdateJournal: Codable, Sendable {
         try parent.exchange(Self.appName, expected: restoring ? candidateObject : originalObject,
                             with: staging, name: Self.appName, expected: restoring ? originalObject : candidateObject)
         try verifyArrangement(!restoring, fixture: fixture)
+    }
+
+    func currentArrangement(fixture: IsolatedUpdateBuild?) throws -> Bool {
+        let (parent, _) = try validate(fixture: fixture)
+        let active = try parent.directoryIdentity(Self.appName)
+        guard active == originalObject || active == candidateObject else { throw UpdateDirectory.Issue.identity }
+        let exchanged = active == candidateObject
+        try verifyArrangement(exchanged, fixture: fixture)
+        return exchanged
     }
 
     static func fault(_ fixture: IsolatedUpdateBuild?, _ name: String) -> Bool {
@@ -497,7 +509,35 @@ final class UpdateHandoff: Sendable {
         try staging.write(record, to: UpdateJournal.intent)
         try recovery.write(record, to: UpdateJournal.pending)
         marked = true
+        let handoff = try await spawn(record, reservation: reservation)
+        keep = true
+        return handoff
+    }
 
+    static func resume(_ interrupted: UpdateJournal, reservation: UpdateReservation) async throws -> UpdateHandoff {
+        let fixture = IsolatedUpdateBuild.read()
+        let recovery = reservation.recovery
+        guard try recovery.read(UpdateJournal.pending, as: UpdateJournal.self) == interrupted,
+              interrupted.recoveryIdentity == recovery.identity,
+              interrupted.helperProcess?.hasExited != false,
+              Bundle.main.bundleURL.resolvingSymlinksInPath().path == interrupted.target.path,
+              let process = UpdateProcessIdentity(getpid()) else { throw UpdateDirectory.Issue.record }
+        let exchanged = try interrupted.currentArrangement(fixture: fixture)
+        let signed = exchanged ? interrupted.candidate : interrupted.original
+        guard process.verifies(signed, executable: interrupted.targetExecutable),
+              try UpdatePackageService.copiedHelperHashes(at: interrupted.copiedHelper, productID: interrupted.product,
+                                                         fixture: fixture) == interrupted.original.helperCodeHashes else {
+            throw UpdateDirectory.Issue.identity
+        }
+        let (_, staging) = try interrupted.validate(fixture: fixture)
+        var resumed = interrupted
+        resumed.reentryProcess = process
+        try staging.write(resumed, to: UpdateJournal.intent)
+        try recovery.write(resumed, to: UpdateJournal.pending)
+        return try await spawn(resumed, reservation: reservation)
+    }
+
+    private static func spawn(_ record: UpdateJournal, reservation: UpdateReservation) async throws -> UpdateHandoff {
         var sockets = [Int32](repeating: -1, count: 2)
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else { throw UpdateChannel.Issue.channel }
         var child = sockets[1]
@@ -506,7 +546,7 @@ final class UpdateHandoff: Sendable {
         let inherited = reservation.inherited
         let helper = try SessionSpawn.spawn(
             record.copiedHelper.appending(path: UpdatePackageService.helperExecutable).path,
-            arguments: [staging.url.path, recovery.url.path] + inherited.map(String.init), environment: [:],
+            arguments: [record.stage.path, reservation.recovery.url.path] + inherited.map(String.init), environment: [:],
             flags: Int16(POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETPGROUP)
         ) { actions in
             let control = posix_spawn_file_actions_adddup2(&actions, child, STDIN_FILENO)
@@ -524,7 +564,6 @@ final class UpdateHandoff: Sendable {
               peer.executable == record.copiedHelper.appending(path: UpdatePackageService.helperExecutable).path else {
             throw UpdateChannel.Issue.peer
         }
-        keep = true
         return UpdateHandoff(reservation: reservation, journal: record, channel: channel, helperPID: helper)
     }
 
@@ -535,6 +574,7 @@ final class UpdateHandoff: Sendable {
     }
 
     func abandon() {
+        guard journal.reentryProcess == nil else { return }
         if let pending = try? reservation.recovery.read(UpdateJournal.pending, as: UpdateJournal.self), pending.id == journal.id {
             try? reservation.recovery.remove(UpdateJournal.pending)
         }
@@ -559,6 +599,17 @@ struct UpdateAppLaunch: Sendable {
               recovery.identity == journal.recoveryIdentity, Bundle.main.bundleURL.resolvingSymlinksInPath().path == journal.target.path,
               journal.phase == .waitingForNew || journal.phase == .restoring else { throw UpdateDirectory.Issue.record }
         return Self(journal: journal, role: journal.phase)
+    }
+
+    static func interrupted(arguments: [String], namespace: URL) -> UpdateJournal? {
+        guard UpdatePackageService.installsEnabled,
+              !arguments.contains("--runlet-update-trial"),
+              let directory = try? UpdateDirectory(namespace, privateAccess: true),
+              let record = try? directory.read(UpdateJournal.pending, as: UpdateJournal.self),
+              record.recoveryIdentity == directory.identity,
+              record.target.path == Bundle.main.bundleURL.resolvingSymlinksInPath().path,
+              record.helperProcess?.hasExited != false else { return nil }
+        return record
     }
 
     func awaitCommit() async throws {

@@ -28,11 +28,15 @@ final class AppTermination: NSObject, NSApplicationDelegate {
         Self.current = self
         guard let session else { return }
         if session.updateStartupBlocked {
-            NSApp.terminate(nil)
+            if let interrupted = session.interruptedUpdate {
+                Task { await resumeInterruptedUpdate(interrupted) }
+            } else {
+                NSApp.terminate(nil)
+            }
             return
         }
         guard let trial = session.updateTrial else {
-            readUpdateReceipt()
+            Task { await readUpdateReceipt() }
             return
         }
         Task {
@@ -41,28 +45,58 @@ final class AppTermination: NSObject, NSApplicationDelegate {
                 session.completeUpdateStartup()
                 FlutterRunletApp.setActivationPolicy(launchActivationPolicy)
                 if session.shouldPresentMainWindowOnLaunch { reopenMainWindow?() }
-                readUpdateReceipt()
+                await readUpdateReceipt()
             } catch {
                 NSApp.terminate(nil)
             }
         }
     }
 
-    private func readUpdateReceipt() {
+    private func resumeInterruptedUpdate(_ record: UpdateJournal) async {
+        do {
+            let namespace = SessionController.recoveryNamespace
+            let handoff = try await Task.detached {
+                let store = try ProjectRecoveryStore(directory: namespace)
+                let reservation = try UpdateReservation(store: store, productID: record.product)
+                return try await UpdateHandoff.resume(record, reservation: reservation)
+            }.value
+            if requestUpdateExit(handoff) { return }
+        } catch {}
+        FlutterRunletApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        let key = "Automatic update recovery could not be confirmed. The update files were preserved."
+        let helper = Bundle(url: record.copiedHelper)
+        let localization = helper?.url(forResource: record.language, withExtension: "lproj").flatMap(Bundle.init(url:))
+        alert.messageText = localization?.localizedString(forKey: key, value: key, table: nil) ?? key
+        alert.informativeText = record.stage.path
+        alert.addButton(withTitle: locale.appString("Dismiss"))
+        alert.runModal()
+        NSApp.terminate(nil)
+    }
+
+    private func readUpdateReceipt() async {
         guard UpdatePackageService.installsEnabled,
               let directory = try? UpdateDirectory(SessionController.recoveryNamespace, privateAccess: true),
               let receipt = try? directory.read(UpdateJournal.receipt, as: UpdateReceipt.self),
               let actual = try? UpdatePackageService.installationIdentity(at: Bundle.main.bundleURL,
                     productID: receipt.active.app.productID, fixture: IsolatedUpdateBuild.read()),
               actual == receipt.active else { return }
-        do {
-            let lease = try UpdateActivityLease(directory: directory.url, installing: true)
-            guard try directory.read(UpdateJournal.receipt, as: UpdateReceipt.self)?.transaction == receipt.transaction else { return }
-            try directory.remove(UpdateJournal.receipt)
-            withExtendedLifetime(lease) {}
-            updateReceipt = receipt
-            NotificationCenter.default.post(name: Self.receivedUpdate, object: self)
-        } catch { return }
+        let deadline = ContinuousClock.now + .seconds(3)
+        while .now < deadline {
+            do {
+                let lease = try UpdateActivityLease(directory: directory.url, installing: true)
+                defer { withExtendedLifetime(lease) {} }
+                guard try directory.read(UpdateJournal.receipt, as: UpdateReceipt.self)?.transaction == receipt.transaction else { return }
+                try directory.remove(UpdateJournal.receipt)
+                updateReceipt = receipt
+                NotificationCenter.default.post(name: Self.receivedUpdate, object: self)
+                return
+            } catch UpdateActivityLease.Issue.busy {
+                try? await Task.sleep(for: .milliseconds(50))
+            } catch { return }
+        }
     }
 
     func requestUpdateExit(_ handoff: UpdateHandoff) -> Bool {
@@ -101,7 +135,7 @@ final class AppTermination: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let session else { return .terminateNow }
-        if session.updateTrial != nil || session.updateStartupBlocked { return .terminateNow }
+        if session.updateTrial != nil || (session.updateStartupBlocked && handoff == nil) { return .terminateNow }
         if session.updateReserved {
             guard let handoff, session.canTerminate, !session.hasPendingEnvironmentChecks,
                   handoff.authorizeExit() else { return .terminateCancel }

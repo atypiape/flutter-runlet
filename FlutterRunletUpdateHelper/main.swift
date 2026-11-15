@@ -25,12 +25,15 @@ private final class UpdateHelper {
         guard let record = try staging.read(UpdateJournal.intent, as: UpdateJournal.self),
               try recovery.read(UpdateJournal.pending, as: UpdateJournal.self)?.id == record.id,
               Bundle.main.bundleURL.path == record.copiedHelper.path,
-              record.oldProcess.pid == getppid(), record.stageIdentity == staging.identity,
+              record.authorizingProcess.pid == getppid(), record.stageIdentity == staging.identity,
               record.recoveryIdentity == recovery.identity, record.stage.path == staging.url.path,
               fixture == nil || recovery.url.path == fixture?.recovery.path,
-              record.oldProcess.verifies(record.original, executable: record.targetExecutable),
               try UpdatePackageService.copiedHelperHashes(at: record.copiedHelper, productID: record.product, fixture: fixture)
                 == record.original.helperCodeHashes else { throw UpdateChannel.Issue.peer }
+        let active = try record.currentArrangement(fixture: fixture) ? record.candidate : record.original
+        guard record.authorizingProcess.verifies(active, executable: record.targetExecutable) else {
+            throw UpdateChannel.Issue.peer
+        }
         for (descriptor, name) in zip(inherited, [UpdateActivityLease.name, "installation.lock"]) {
             var actual = stat()
             var expected = stat()
@@ -48,27 +51,54 @@ private final class UpdateHelper {
         defer { releaseLocks(); unlink(journal.socket.path) }
         do {
             let parent = try UpdateChannel(taking: STDIN_FILENO)
-            guard parent.matchesPeer(journal.oldProcess) else { return }
-            try journal.verifyArrangement(false, fixture: fixture)
+            guard parent.matchesPeer(journal.authorizingProcess) else { return }
+            if journal.reentryProcess == nil {
+                try journal.verifyArrangement(false, fixture: fixture)
+            } else {
+                _ = try journal.currentArrangement(fixture: fixture)
+                guard unlink(journal.socket.path) == 0 || errno == ENOENT else { return }
+            }
             listener = try UpdateChannel.listen(journal.socket)
             guard let helper = UpdateProcessIdentity(getpid()) else { return }
             journal.helperProcess = helper
             try persist()
             if fault("helper-no-ready"), let fixture {
                 try UpdateDirectory(fixture.root, privateAccess: true).write(journal, to: "helper-refused.json")
+                if fault("observe-reservation") { try await Task.sleep(for: .seconds(4)) }
                 return
             }
             try parent.send(UpdateMessage.ready)
             guard try await parent.receive(until: .now + .seconds(20)) == UpdateMessage.proceed,
-                  await waitForExit(journal.oldProcess, until: .now + .seconds(12)) else { return }
+                  await waitForExit(journal.authorizingProcess, until: .now + .seconds(12)) else { return }
         } catch {
             return
         }
-        await replaceAndLaunch()
+        if journal.reentryProcess == nil {
+            await replaceAndLaunch()
+        } else {
+            await recoverInterrupted()
+        }
+    }
+
+    private func recoverInterrupted() async {
+        do {
+            try UpdateProcessIdentity.requireNoOtherInstances(journal.product, excluding: nil)
+            let exchanged = try journal.currentArrangement(fixture: fixture)
+            if !exchanged {
+                await reopenOriginal(failure: journal.phase == .restoring || journal.phase == .restored ? .newLaunch : .replacement)
+            } else if journal.phase == .committed {
+                journal.phase = .waitingForNew
+                try persist()
+                await launchCandidate()
+            } else {
+                await rollback()
+            }
+        } catch { preserve() }
     }
 
     private func replaceAndLaunch() async {
         do {
+            try await mutationBarrier("compatibility")
             try UpdateProcessIdentity.requireNoOtherInstances(journal.product, excluding: nil)
             try recovery.verify()
             let contents = try FileManager.default.contentsOfDirectory(atPath: recovery.url.path)
@@ -76,15 +106,26 @@ private final class UpdateHelper {
                   !fault("exchange-before") else { throw UpdateDirectory.Issue.exchange }
             journal.phase = .waitingForNew
             try persist()
+            interrupt("before-exchange")
+            try await mutationBarrier("before-swap")
             try journal.exchange(restoring: false, fixture: fixture)
+            interrupt("after-exchange")
+            try await mutationBarrier("after-swap")
+            try journal.verifyArrangement(true, fixture: fixture)
         } catch {
             if (try? journal.verifyArrangement(false, fixture: fixture)) != nil {
                 await reopenOriginal(failure: .replacement)
+            } else if (try? journal.verifyArrangement(true, fixture: fixture)) != nil {
+                await rollback()
             } else {
                 preserve()
             }
             return
         }
+        await launchCandidate()
+    }
+
+    private func launchCandidate() async {
         switch await launch(journal.candidate, role: "b", timeout: .seconds(8)) {
         case .ready(let channel, let process):
             do {
@@ -96,17 +137,14 @@ private final class UpdateHelper {
                 }
                 journal.phase = .committed
                 try persist()
+                interrupt("after-commit")
                 guard process.isRunning else { throw UpdateChannel.Issue.peer }
                 try recovery.remove(UpdateJournal.pending)
                 try channel.send(UpdateMessage.proceed)
                 releaseLocks()
             } catch {
-                if process.hasExited {
-                    await rollback()
-                } else if process.verifies(journal.candidate, executable: journal.targetExecutable),
-                          let app = NSRunningApplication(processIdentifier: process.pid) {
-                    await stopFailedCandidate(app, process)
-                } else { preserve() }
+                journal.deliveryFailure = "candidate-exited-before-commit"
+                await stopFailedCandidate(NSRunningApplication(processIdentifier: process.pid), process)
             }
         case .unready(let app, let process):
             await stopFailedCandidate(app, process)
@@ -119,12 +157,12 @@ private final class UpdateHelper {
         }
     }
 
-    private func stopFailedCandidate(_ app: NSRunningApplication, _ process: UpdateProcessIdentity) async {
-        guard process.verifies(journal.candidate, executable: journal.targetExecutable) || process.hasExited else {
-            preserve()
-            return
+    private func stopFailedCandidate(_ app: NSRunningApplication?, _ process: UpdateProcessIdentity) async {
+        if let app, process.verifies(journal.candidate, executable: journal.targetExecutable) {
+            _ = app.terminate()
         }
-        if !process.hasExited { _ = app.terminate() }
+        // Code identity can become unreadable while a process is exiting. Only signal a
+        // verified candidate, and give the kernel time to confirm an exit in either case.
         guard await waitForExit(process, until: .now + .seconds(8)) else { preserve(); return }
         journal.candidateExitConfirmed = true
         await rollback()
@@ -151,7 +189,10 @@ private final class UpdateHelper {
             let receipt = UpdateReceipt(transaction: journal.id, failure: failure, active: journal.original,
                                         version: journal.candidate.app.version, releaseTag: journal.releaseTag)
             try recovery.write(receipt, to: UpdateJournal.receipt)
+            let start = ContinuousClock.now
             let opened = await launch(journal.original, role: "a", timeout: .seconds(30))
+            let elapsed = start.duration(to: .now).components
+            journal.originalWaitMilliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
             journal.phase = .restored
             try persist()
             if case .ready(let channel, let process) = opened, process.isRunning {
@@ -230,10 +271,17 @@ private final class UpdateHelper {
         do {
             try persist()
             let channel = try await listener.accept(until: deadline, peer: process)
-            guard try await channel.receive(until: deadline) == UpdateMessage.ready,
-                  process.verifies(signed, executable: journal.targetExecutable) else { return .unready(application, process) }
+            guard try await channel.receive(until: deadline) == UpdateMessage.ready else {
+                if role == "b" { journal.deliveryFailure = "candidate-protocol" }
+                return .unready(application, process)
+            }
+            guard process.verifies(signed, executable: journal.targetExecutable) else {
+                if role == "b" { journal.deliveryFailure = "candidate-identity" }
+                return .unready(application, process)
+            }
             try await Task.sleep(for: .milliseconds(250))
-            return process.isRunning ? .ready(channel, process) : .unready(application, process)
+            return process.isRunning && ContinuousClock.now < deadline
+                ? .ready(channel, process) : .unready(application, process)
         } catch UpdateChannel.Issue.deadline {
             if role == "b" { journal.deliveryFailure = process.isRunning ? "candidate-timeout" : "candidate-early-exit" }
             return .unready(application, process)
@@ -254,6 +302,24 @@ private final class UpdateHelper {
     }
 
     private func fault(_ name: String) -> Bool { UpdateJournal.fault(fixture, name) }
+
+    private func interrupt(_ point: String) {
+        if journal.reentryProcess == nil, fault("interrupt-" + point) { Darwin.exit(95) }
+    }
+
+    private func mutationBarrier(_ point: String) async throws {
+        #if PHASE07_UPDATE
+        guard let fixture, fault("pause-" + point) else { return }
+        let root = try UpdateDirectory(fixture.root, privateAccess: true)
+        try root.write(journal.id, to: "mutation-ready.json")
+        let deadline = ContinuousClock.now + .seconds(12)
+        while ContinuousClock.now < deadline {
+            if try root.read("mutation-done.json", as: UUID.self) == journal.id { return }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        throw UpdateChannel.Issue.deadline
+        #endif
+    }
 
     private func showRecovery(restored: Bool) {
         NSApp.setActivationPolicy(.regular)

@@ -333,6 +333,7 @@ final class SessionController {
     private(set) var updateReserved = false
     @ObservationIgnored private(set) var updateTrial: UpdateAppLaunch?
     @ObservationIgnored private(set) var updateStartupBlocked = false
+    @ObservationIgnored private(set) var interruptedUpdate: UpdateJournal?
     @ObservationIgnored private var finishUpdateStartup: (() -> Void)?
 
     convenience init(
@@ -513,6 +514,7 @@ final class SessionController {
             let blocked = SessionController(store: nil, runner: .bundled, preferences: nil)
             blocked.updateStartupBlocked = true
             blocked.updateReserved = true
+            blocked.interruptedUpdate = UpdateAppLaunch.interrupted(arguments: arguments, namespace: support)
             return blocked
         }
         if let trial {
