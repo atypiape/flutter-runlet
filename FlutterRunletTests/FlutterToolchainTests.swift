@@ -4,6 +4,24 @@ import XCTest
 
 @MainActor
 final class FlutterToolchainTests: XCTestCase {
+    func testFlutterSettingsExplainsSDKAvailabilityInBothLanguages() throws {
+        let messages = [
+            "SDK Source": "SDK 来源",
+            "SDK Path": "SDK 路径",
+            "Version & Status": "版本与状态",
+            "SDK Available": "可用",
+            "Select Path": "选路径"
+        ]
+        let localized = try ["en", "zh-Hans"].map { language in
+            let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(url: url))
+            return Dictionary(uniqueKeysWithValues: messages.keys.map { key in
+                (key, bundle.localizedString(forKey: key, value: "<missing>", table: nil))
+            })
+        }
+        XCTAssertEqual(localized, [Dictionary(uniqueKeysWithValues: messages.keys.map { ($0, $0) }), messages])
+    }
+
     func testEnvironmentCheckLabelsArePackagedInBothLanguages() throws {
         for (language, expected) in [("en", "Check Environment"), ("zh-Hans", "检查环境")] {
             let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
