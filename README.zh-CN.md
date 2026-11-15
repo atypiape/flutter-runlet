@@ -23,10 +23,10 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 | 主窗口 | 菜单栏 |
 | :---: | :---: |
 | [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.jpg)](docs/screenshots/zh-CN/main-window.jpg) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.jpg)](docs/screenshots/zh-CN/menu-bar.jpg) |
-| **设置** | **关于** |
-| [![FlutterRunlet 通用设置](docs/screenshots/zh-CN/settings.jpg)](docs/screenshots/zh-CN/settings.jpg) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
+| **DevTools 设置** | **关于** |
+| [![FlutterRunlet DevTools 设置，显示独立 Dart SDK 和省略后的路径](docs/screenshots/zh-CN/devtools.jpg)](docs/screenshots/zh-CN/devtools.jpg) | [![关于 FlutterRunlet 窗口、检查更新和四个链接](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
 
-截图来自 v0.2.0 开发构建，使用示例数据。
+DevTools、[完整路径浮窗](docs/screenshots/zh-CN/devtools-path.jpg)、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截图来自 v0.3.0 build 223。主窗口和菜单栏截图拍摄于 v0.2.0，使用示例数据。
 
 ## 安装
 
@@ -43,7 +43,9 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 
 在「设置 → DevTools → 源码编辑器」选择 VS Code（默认）、Cursor 或 Zed。在 DevTools 2.61.0 或更新版本中，选中 Widget 后点击详情面板的源码位置。SDK 自带的 DevTools 2.60.0 中，选中 Widget 时会跳到源码。编辑器按需启动，跳转范围为当前项目的 Dart 文件。
 
-可在「设置 → DevTools → DevTools 来源」选择独立的 Dart SDK 目录。例如 Dart 3.14.0 自带 DevTools 2.61.0。点击「打开 Inspector」时，FlutterRunlet 会启动独立 DevTools 并连接当前会话。项目仍使用原来的 Flutter 和 Dart。选择「Flutter 自带」可切回。
+在「设置 → DevTools → DevTools 来源」选择「独立 Dart SDK」并指定目录，例如自带 DevTools 2.61.0 的 Dart 3.14.0。之后可在「Dart SDK」分组点击「路径」右侧的「更换…」。地址单独显示在下一行，太长时用省略号显示。悬停可查看完整路径，也可以点击行尾的「…」，在浮窗中查看和复制路径。
+
+点击「打开 Inspector」时，FlutterRunlet 会启动独立 DevTools 并连接当前会话。项目仍使用原来的 Flutter 和 Dart。选择「Flutter 自带」可切回。
 
 同一会话再次点击「打开 Inspector」时，FlutterRunlet 会切回已打开的 Inspector 标签页。关闭标签页后，再点击会重新打开。Edge、Chrome 和 Safari 需要允许 FlutterRunlet 使用 macOS 浏览器自动化。
 
