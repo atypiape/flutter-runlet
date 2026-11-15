@@ -60,6 +60,14 @@ final class LaunchPresentationTests: XCTestCase {
         }
     }
 
+    func testSharedUpdateAndRecoveryActionsHaveBundleTranslations() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "zh-Hans", withExtension: "lproj"))
+        let chinese = try XCTUnwrap(Bundle(url: url))
+        let keys = ["Check for Updates", "Install and Restart", "Show in Finder", "Continue Installation"]
+        XCTAssertEqual(keys.map { chinese.localizedString(forKey: $0, value: "<missing>", table: nil) },
+                       ["检查更新", "安装并重启", "在访达中显示", "继续安装"])
+    }
+
     func testMainWindowLaunchPreferenceHasBothBundleTranslations() throws {
         for (language, expected) in [
             ("en", "Show Main Window on Launch"), ("zh-Hans", "启动后显示主窗口")
