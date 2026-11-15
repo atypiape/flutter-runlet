@@ -22,6 +22,7 @@
 		6272AC2ACF8F1A57669DFC3C /* FlutterRunletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */; };
 		80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */; };
 		E07400000000000000000002 /* ReleaseUpdatesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000001 /* ReleaseUpdatesTests.swift */; };
+		E07400000000000000000004 /* UpdatePackageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000003 /* UpdatePackageTests.swift */; };
 		82CD2FF6C07AD6803154D53D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
 		A42F1AB68922F927CF5A5E54 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57BEE8A906CC6442778D4D6F /* Cocoa.framework */; };
 		BC4D97D449AB42DF9A8EC25F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C468FE71AFE64B16AD2909BD /* Assets.xcassets */; };
@@ -71,6 +72,7 @@
 		19E612BEEAEB5CF7C009B219 /* LaunchPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentation.swift; sourceTree = "<group>"; };
 		408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPresentationTests.swift; sourceTree = "<group>"; };
 		E07400000000000000000001 /* ReleaseUpdatesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReleaseUpdatesTests.swift; sourceTree = "<group>"; };
+		E07400000000000000000003 /* UpdatePackageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UpdatePackageTests.swift; sourceTree = "<group>"; };
 		57BEE8A906CC6442778D4D6F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		668E3767CB81EA11D5DAAF95 /* FlutterRunletApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FlutterRunletApp.swift; sourceTree = "<group>"; };
 		69E2E0A5310F8BBD3F7FC248 /* MainWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
@@ -132,6 +134,7 @@
 				E03200000000000000000002 /* FlutterToolchainTests.swift */,
 				408BC278462CEDC45ECCF3DF /* LaunchPresentationTests.swift */,
 				E07400000000000000000001 /* ReleaseUpdatesTests.swift */,
+				E07400000000000000000003 /* UpdatePackageTests.swift */,
 			);
 			name = FlutterRunletTests;
 			path = FlutterRunletTests;
@@ -363,6 +366,7 @@
 				E03200000000000000000001 /* FlutterToolchainTests.swift in Sources */,
 				80BA12C8F34363B0E20F582E /* LaunchPresentationTests.swift in Sources */,
 				E07400000000000000000002 /* ReleaseUpdatesTests.swift in Sources */,
+				E07400000000000000000004 /* UpdatePackageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
