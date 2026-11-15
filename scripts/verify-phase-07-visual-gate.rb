@@ -252,6 +252,7 @@ module Phase07VisualGate
         bytes = file.read(size)
         crc = file.read(4).unpack1('N')
         assert(Zlib.crc32(bytes, Zlib.crc32(kind)) == crc, "invalid PNG chunk checksum: #{path.basename}")
+        yield(kind, bytes) if block_given?
         unless dimensions
           assert(kind == 'IHDR' && size == 13, "missing PNG header: #{path.basename}")
           dimensions = bytes.unpack('NN')
@@ -349,6 +350,7 @@ module Phase07VisualGate
         pid, window, time, surface = validate_native_capture(visual, item, path, capture_ids, identity[2], identity[3])
         item['capture_event'] = [pid, window, time]
         item['pixel_size'] = surface.first
+        item['native_path'] = path
         assert(!capture_events.key?(item['capture_event']), "candidate capture event reused: #{id}")
         capture_events[item['capture_event']] = id
         if (previous = native_hashes[sha])
@@ -404,6 +406,76 @@ module Phase07VisualGate
            "interaction has no screenshot from its candidate process: #{id}")
   end
 
+  def paeth_predictor(left, above, diagonal)
+    prediction = left + above - diagonal
+    left_error = (prediction - left).abs
+    above_error = (prediction - above).abs
+    diagonal_error = (prediction - diagonal).abs
+    return left if left_error <= above_error && left_error <= diagonal_error
+
+    above_error <= diagonal_error ? above : diagonal
+  end
+
+  def motion_crop_checksum(path, crop)
+    compressed = ''.b
+    dimensions = validate_png(path) do |kind, bytes|
+      if kind == 'IHDR'
+        width, height, depth, color, method, filter, interlace = bytes.unpack('NNCCCCC')
+        assert([[400, 412], [520, 520]].include?([width, height]) &&
+               [depth, color, method, filter, interlace] == [8, 6, 0, 0, 0],
+               "unexpected native motion PNG format: #{path.basename}")
+      end
+      compressed << bytes if kind == 'IDAT'
+    end
+    region_size(crop, dimensions, path.basename)
+    width, height = dimensions
+    x, y, crop_width, crop_height = crop
+    row_stride = width * 4 + 1
+    byte_limit = row_stride * height
+    scanlines = ''.b
+    decoder = Zlib::Inflate.new
+    begin
+      decoder.inflate(compressed) do |part|
+        assert(scanlines.bytesize + part.bytesize <= byte_limit, "oversized PNG image: #{path.basename}")
+        scanlines << part
+      end
+      assert(decoder.finished? && scanlines.bytesize == byte_limit, "incomplete PNG pixels: #{path.basename}")
+    ensure
+      decoder.close
+    end
+
+    crop_start = x * 4
+    crop_length = crop_width * 4
+    needed_bytes = crop_start + crop_length
+    previous = "\0".b * needed_bytes
+    digest = Digest::SHA256.new
+    (y + crop_height).times do |line|
+      offset = line * row_stride
+      filter = scanlines.getbyte(offset)
+      assert(filter <= 4, "unknown PNG scanline filter: #{path.basename}")
+      row = scanlines.byteslice(offset + 1, needed_bytes)
+      if filter.nonzero?
+        needed_bytes.times do |column|
+          left = column >= 4 ? row.getbyte(column - 4) : 0
+          above = previous.getbyte(column)
+          diagonal = column >= 4 ? previous.getbyte(column - 4) : 0
+          prediction = case filter
+                       when 1 then left
+                       when 2 then above
+                       when 3 then (left + above) / 2
+                       when 4 then paeth_predictor(left, above, diagonal)
+                       end
+          row.setbyte(column, (row.getbyte(column) + prediction) & 255)
+        end
+      end
+      digest.update(row.byteslice(crop_start, crop_length)) if line >= y
+      previous = row
+    end
+    digest.hexdigest
+  rescue Zlib::Error => e
+    raise Invalid, "invalid PNG pixels: #{path.basename}: #{e.message}"
+  end
+
   def verify_motion(item, natives)
     record = item.fetch('record')
     id = item.fetch('case_id')
@@ -424,6 +496,8 @@ module Phase07VisualGate
            times.each_cons(2).all? { |a, b| a < b } && times.last - times.first >= 1.6 &&
            frames.map { |frame| frame.fetch('sha256') }.uniq.size >= 4,
            "motion has insufficient timing, window continuity or image changes: #{id}")
+    actual_pixels = frames.map { |frame| motion_crop_checksum(frame.fetch('native_path'), expected_crop) }
+    assert(actual_pixels.uniq.size >= 4, "spinner button pixels do not demonstrate motion: #{id}")
   end
 
   def matches_case(item, fields)
@@ -561,6 +635,31 @@ module Phase07VisualGate
       chunk.call('IHDR', [20, 20, 8, 2, 0, 0, 0].pack('NNCCCCC')) +
       chunk.call('IDAT', Zlib.deflate(pixel_rows)) +
       chunk.call('IEND', ''.b)
+  end
+
+  def fixture_motion_frames(root, crop, changed_coordinates)
+    width = 400
+    height = 412
+    chunk = lambda do |type, bytes|
+      payload = type.b + bytes
+      [bytes.bytesize].pack('N') + payload + [Zlib.crc32(payload)].pack('N')
+    end
+    rows = ("\0".b + [32, 40, 48, 255].pack('C4') * width) * height
+    case_id = 'V04-about-check-motion-en-dark'
+    frames = 4.times.map do |index|
+      data = rows.dup
+      x, y = changed_coordinates
+      data.setbyte(y * (width * 4 + 1) + x * 4 + 1, index * 16)
+      path = root.join("motion-fixture-#{index}.png")
+      path.binwrite("\x89PNG\r\n\x1a\n".b +
+                    chunk.call('IHDR', [width, height, 8, 6, 0, 0, 0].pack('NNCCCCC')) +
+                    chunk.call('IDAT', Zlib.deflate(data)) + chunk.call('IEND', ''.b))
+      { 'id' => "frame-#{index}", 'native_path' => path, 'sha256' => checksum(path),
+        'capture_event' => [123, 456, "2026-11-15T00:00:0#{index}Z"] }
+    end
+    declared = frames.to_h { |frame| [frame.fetch('id'), frame.fetch('sha256')] }
+    record = { 'case_id' => case_id, 'frames' => declared.keys, 'button_crop' => crop, 'button_sha256' => declared }
+    [{ 'case_id' => case_id, 'window' => 'about', 'record' => record }, frames]
   end
 
   def self_test(project_file)
@@ -770,6 +869,18 @@ module Phase07VisualGate
       bridge.write(bridge.read.sub('UpdatePresentation: Equatable {}',
                                    'UpdatePresentation: Equatable { var unexpectedLabel = "changed" }'))
       expect_invalid.call('visual state model changed inside the bridge', /presentation state or wording changed/)
+
+      crop = [142, 223, 116, 30]
+      item, frames = fixture_motion_frames(root, crop, [150, 230])
+      verify_motion(item, frames)
+      item, frames = fixture_motion_frames(root, crop, [0, 0])
+      begin
+        verify_motion(item, frames)
+      rescue Invalid => e
+        assert(e.message.include?('spinner button pixels'), 'wrong static spinner rejection')
+      else
+        raise Invalid, 'self-test accepted a fixed spinner in changing windows'
+      end
     end
   end
 end
