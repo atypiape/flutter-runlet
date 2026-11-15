@@ -43,6 +43,7 @@ final class AppTermination: NSObject, NSApplicationDelegate {
             do {
                 try await trial.awaitCommit()
                 session.completeUpdateStartup()
+                launchActivationPolicy = session.shouldPresentMainWindowOnLaunch ? .regular : .accessory
                 FlutterRunletApp.setActivationPolicy(launchActivationPolicy)
                 if session.shouldPresentMainWindowOnLaunch { reopenMainWindow?() }
                 await readUpdateReceipt()
@@ -61,6 +62,7 @@ final class AppTermination: NSObject, NSApplicationDelegate {
                 return try await UpdateHandoff.resume(record, reservation: reservation)
             }.value
             if requestUpdateExit(handoff) { return }
+            handoff.abandon()
         } catch {}
         FlutterRunletApp.setActivationPolicy(.regular)
         NSApp.activate()

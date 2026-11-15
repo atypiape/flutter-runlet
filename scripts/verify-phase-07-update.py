@@ -31,6 +31,15 @@ WORKER = Path("Contents/Helpers/FlutterRunletSessionWorker")
 HELPER = Path("Contents/Helpers/FlutterRunletUpdateHelper.app")
 VERSION_A, BUILD_A = "7.5.0", "750"
 VERSION_B, BUILD_B = "7.5.1", "751"
+ORIGINAL_LAUNCH_FAULTS = {"exit-a", "hold-a", "wrong-a", "launch-a"}
+PREPARE_FAULTS = {"delay-pending-publish", "fail-prepare-sync"}
+DELIVERY_REPLAYS = {
+    "committed-before-proceed": ("",),
+    "committed-after-proceed": ("",),
+    "committed-repeated-reentry": ("interrupt-committed-reentry", ""),
+    "restored-before-proceed": ("",),
+    "restored-after-proceed": ("",),
+}
 
 
 def run(*args, **options):
@@ -143,6 +152,11 @@ def path_for_pid(pid):
     return None
 
 
+def process_exited(pid):
+    status = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "state="], capture_output=True, text=True, check=False)
+    return status.returncode == 1 or status.stdout.strip().startswith("Z")
+
+
 def matching_processes(root):
     pids = subprocess.check_output(["/bin/ps", "-U", str(os.getuid()), "-o", "pid="], text=True).split()
     return {int(pid): path for pid in pids if (path := path_for_pid(int(pid))) and path.is_relative_to(root)
@@ -243,6 +257,8 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
     target = parent / APP
     home = root / "home"
     support = home / "Library/Application Support"
+    pending = support / "FlutterRunlet/update-pending.json"
+    original_launch_fault = bool(ORIGINAL_LAUNCH_FAULTS.intersection(fault.split(",")))
     support.mkdir(parents=True, exist_ok=True)
     clean_candidates(root)
     preserve_prior_target(root, target, into)
@@ -255,6 +271,7 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
     install_fault = root / "install-fault.json"
     dump(install_fault, fault)
     (root / "helper-refused.json").unlink(missing_ok=True)
+    (root / "prepare-renamed.json").unlink(missing_ok=True)
     (root / "mutation-ready.json").unlink(missing_ok=True)
     (root / "mutation-done.json").unlink(missing_ok=True)
     run("/usr/bin/ditto", a_source, target)
@@ -271,7 +288,7 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
                                 stdin=subprocess.DEVNULL, stdout=logs, stderr=subprocess.STDOUT, start_new_session=True)
 
     process = launch_original_path()
-    reentry = None
+    reentries = []
     late_legacy = None
     result["oldPID"] = process.pid
     desk = Desktop(None, process, result, language)
@@ -291,6 +308,12 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
             capture(desk, target / BINARY, into, "confirm", "prompt")
             desk.press(desk.say("安装并重启", "Install and Restart"), role="AXButton", modal=True)
         if expected == "untouched":
+            refused = None
+            if fault == "delay-pending-publish":
+                def delayed_helper():
+                    intent = new_intent(parent, before, "prepared")
+                    return intent[1] if intent and intent[1].get("helperProcess") else None
+                refused = wait(delayed_helper, "helper wrote intent before publishing pending", timeout=15)
             if "observe-reservation" in fault:
                 wait(lambda: read_json(root / "helper-refused.json"), "helper holds reservation without reporting ready", timeout=25)
                 desk.command("activate").check_returncode()
@@ -301,17 +324,56 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
                 result["reservedAStillRunning"] = path_for_pid(process.pid) == target / BINARY
             wait_update(desk, desk.say("更新包无法存储", "The package could not be stored."), timeout=45)
             assert process.poll() is None and signed(target) == original
-            assert not (support / "FlutterRunlet/update-pending.json").exists()
-            refused = read_json(root / "helper-refused.json")
-            assert refused["phase"] == "prepared" and refused["oldProcess"]["pid"] == process.pid
-            assert refused["helperProcess"]["pid"] != process.pid
+            assert not pending.exists() and set(parent.glob(".update-*")) == before
+            if fault == "fail-prepare-sync":
+                refused = read_json(root / "prepare-renamed.json")
+                require(refused and "helperProcess" not in refused, "post-rename failure did not precede spawn")
+            else:
+                refused = refused or read_json(root / "helper-refused.json")
+                helper_pid = refused["helperProcess"]["pid"]
+                require(helper_pid != process.pid and process_exited(helper_pid), "assistant remained active after cleanup")
+            require(refused["phase"] == "prepared" and refused["oldProcess"]["pid"] == process.pid,
+                    "missing preparation evidence")
             result["helperRefusal"] = refused
+            result["after"] = signed(target)
             result["screenshots"] = [capture(desk, target / BINARY, into, "handoff-refused", "about")]
+            if fault in PREPARE_FAULTS:
+                process.terminate()
+                process.wait(timeout=8)
+                reopened = launch_original_path()
+                reentries.append(reopened)
+                Desktop(None, reopened, result, language).await_window("main")
+                require(signed(target) == original and not pending.exists() and reopened.poll() is None,
+                        "old app failed to restart after preparation cleanup")
+                result["sameVersionRestartPID"] = reopened.pid
         elif expected != "download-rejected":
             assert wait(lambda: process.poll() is not None, "normal A exit", timeout=45)
             assert process.returncode == 0, process.returncode
-            pending = support / "FlutterRunlet/update-pending.json"
-            if fault.startswith("interrupt-"):
+            if name in DELIVERY_REPLAYS:
+                helper_pid = None
+                result["deliveryInterruptions"] = []
+                for next_fault in DELIVERY_REPLAYS[name]:
+                    def stopped_attempt():
+                        intent = new_intent(parent, before, expected)
+                        if not intent:
+                            return None
+                        stage, item = intent
+                        helper = item.get("helperProcess", {}).get("pid")
+                        trial = item.get("attemptedProcess", {}).get("pid")
+                        if helper and helper != helper_pid and process_exited(helper) and trial and process_exited(trial):
+                            return stage, item
+                        return None
+                    stage, item = wait(stopped_attempt, "terminal helper and its trial both exited", timeout=30)
+                    helper_pid = item["helperProcess"]["pid"]
+                    require(read_json(pending) == item and "acknowledgedProcess" not in item,
+                            "terminal decision was lost, downgraded, or acknowledged before reentry")
+                    result["deliveryInterruptions"].append({"journal": item, "disk": signed(target)})
+                    dump(install_fault, next_fault)
+                    resumed = launch_original_path()
+                    reentries.append(resumed)
+                    require(resumed.wait(timeout=50) == 0, "recovery bootstrap did not exit normally")
+                result["restartPIDs"] = [resumed.pid for resumed in reentries]
+            elif fault.startswith("interrupt-"):
                 earlier = "committed" if fault == "interrupt-after-commit" else "waitingForNew"
                 def interrupted():
                     item = read_json(pending)
@@ -323,6 +385,7 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
                 record = wait(interrupted, "interrupted helper and trial have exited", timeout=45)
                 result.update(interruption=record, interruptedDisk=signed(target))
                 reentry = launch_original_path()
+                reentries.append(reentry)
                 assert wait(lambda: reentry.poll() is not None, "normal exit of the recovery bootstrap", timeout=50)
                 assert reentry.returncode == 0
             if fault.startswith("pause-"):
@@ -351,12 +414,20 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
                 observed = read_json(pending)
                 if expected != "preserved" and observed and observed["phase"] == "preserved":
                     raise AssertionError(f"unexpected preserved transaction {observed['id']}: {observed.get('deliveryFailure')}")
-                if expected != "preserved" and pending.exists():
+                if original_launch_fault:
+                    ready = new_intent(parent, before, expected)
+                    return ready if ready and ready[1] == observed and "originalWaitMilliseconds" in observed else None
+                if expected != "preserved" and observed is not None:
                     return None
                 return new_intent(parent, before, expected)
             stage, journal = wait(completed, f"journal {expected}", timeout=75)
-            if reentry:
-                assert journal["reentryProcess"]["pid"] == reentry.pid
+            if reentries:
+                assert journal["reentryProcess"]["pid"] == reentries[-1].pid
+            if original_launch_fault:
+                result["pendingAtRecoveryAlert"] = journal
+            if name in DELIVERY_REPLAYS:
+                require(journal["acknowledgedProcess"] == journal["attemptedProcess"],
+                        "terminal attempt did not durably acknowledge startup")
             if expected == "preserved":
                 helper_pid = journal["helperProcess"]["pid"]
                 helper = Desktop(None, SimpleNamespace(pid=helper_pid), result, language)
@@ -388,7 +459,7 @@ def run_install(root, a_source, image, b, into, name, fault, expected, language=
             late_legacy.wait(timeout=12)
         clean_candidates(root)
         process.wait(timeout=8)
-        if reentry:
+        for reentry in reentries:
             reentry.wait(timeout=8)
         logs.close()
 
@@ -418,7 +489,7 @@ def record_install_result(result, expected, root, stage, journal, original, b, l
         assert journal["candidateProcess"]["pid"] != journal["reopenedProcess"]["pid"]
     if fault == "exit-before-commit":
         assert journal["deliveryFailure"] == "candidate-exited-before-commit" and journal["candidateExitConfirmed"]
-    if any(item in {"exit-a", "hold-a", "wrong-a", "launch-a"} for item in fault.split(",")):
+    if ORIGINAL_LAUNCH_FAULTS.intersection(fault.split(",")):
         helper_pid = journal["helperProcess"]["pid"]
         helper = Desktop(None, SimpleNamespace(pid=helper_pid), result, language)
         window = wait(lambda: next(iter(helper.windows()), None), "independent recovery alert", timeout=12)
@@ -429,7 +500,7 @@ def record_install_result(result, expected, root, stage, journal, original, b, l
         result["screenshots"] = [capture(helper, path_for_pid(helper_pid), into, "independent-recovery", "prompt",
                                           number=window["kCGWindowNumber"])]
         if "hold-a" in fault:
-            assert path_for_pid(journal["attemptedProcess"]["pid"]) == target / BINARY
+            assert process_exited(journal["attemptedProcess"]["pid"]) and journal["originalExitConfirmed"]
             assert 29_500 <= journal["originalWaitMilliseconds"] <= 30_500, journal["originalWaitMilliseconds"]
         if "wrong-a" in fault or "launch-a" in fault:
             from collect import browser_url, frontmost
@@ -753,18 +824,37 @@ def verify_manifest(path, specifications):
             if expected == "untouched":
                 require(result["helperRefusal"]["oldProcess"]["pid"] == expected_pid
                         and result["helperRefusal"]["phase"] == "prepared", "missing readiness-failure evidence")
+                if fault in PREPARE_FAULTS:
+                    require(result["after"] == result["before"] and result["sameVersionRestartPID"] != expected_pid,
+                            "preparation failure changed the installed app or blocked restart")
+                    require(("helperProcess" in result["helperRefusal"]) == (fault == "delay-pending-publish"),
+                            "preparation failure was recorded at the wrong boundary")
                 expected_sizes = {"handoff-refused.png": (400, 412)}
             else:
                 expected_sizes = {"checksum-refused.png": (400, 412)}
         else:
             journal = verify_installation(result, expected, root, original, candidate)
+            if name in DELIVERY_REPLAYS:
+                restarts = result["restartPIDs"]
+                interruptions = result["deliveryInterruptions"]
+                require(len(interruptions) == len(restarts) == len(DELIVERY_REPLAYS[name])
+                        and len(set(restarts)) == len(restarts)
+                        and journal["reentryProcess"]["pid"] == restarts[-1]
+                        and journal["acknowledgedProcess"] == journal["attemptedProcess"],
+                        "missing reentry or durable startup acknowledgement")
+                for index, interruption in enumerate(interruptions):
+                    item = interruption["journal"]
+                    require(item["id"] == journal["id"] and item["phase"] == expected
+                            and "acknowledgedProcess" not in item and interruption["disk"] == result["after"]
+                            and item["helperProcess"]["pid"] != journal["helperProcess"]["pid"]
+                            and (index == 0 or item["reentryProcess"]["pid"] == restarts[index - 1]),
+                            "interruption changed the terminal decision, bundle, or process evidence")
             if expected == "committed":
                 expected_pid = journal["attemptedProcess"]["pid"]
                 require(expected_pid != result["oldPID"], "new version did not get a new process")
                 digest_for_capture = candidate["sha256"]
                 expected_sizes = {"new-settings-about-and-sidebar.png": (520, 520), "new-about.png": (400, 412)}
-            elif expected == "preserved" or any(action in fault.split(",") for action in
-                                                ("exit-a", "hold-a", "wrong-a", "launch-a")):
+            elif expected == "preserved" or ORIGINAL_LAUNCH_FAULTS.intersection(fault.split(",")):
                 expected_pid = journal["helperProcess"]["pid"]
                 digest_for_capture = helper_digest
                 expected_sizes = {
@@ -791,7 +881,8 @@ def verify_manifest(path, specifications):
 
 def main():
     argument = argparse.ArgumentParser(description=__doc__)
-    argument.add_argument("--scenario", choices=("bootstrap-safety", "success", "gate", "rollback"), required=True)
+    argument.add_argument("--scenario", choices=("bootstrap-safety", "success", "gate", "rollback", "handoff-boundaries"),
+                          required=True)
     argument.add_argument("--workspace", type=Path, required=True)
     argument.add_argument("--verify-manifest", type=Path)
     config = argument.parse_args()
@@ -807,6 +898,15 @@ def main():
                              ("original-early-exit", "launch-b,exit-a", "restored"),
                              ("original-timeout", "launch-b,hold-a", "restored")],
         "success": [("upgrade", "", "committed")],
+        "handoff-boundaries": [
+            ("prepare-delay", "delay-pending-publish", "untouched"),
+            ("prepare-post-rename-sync", "fail-prepare-sync", "untouched"),
+            ("committed-before-proceed", "interrupt-before-proceed-b", "committed"),
+            ("committed-after-proceed", "interrupt-after-proceed-b,exit-before-ack-b", "committed"),
+            ("committed-repeated-reentry", "interrupt-after-commit", "committed"),
+            ("restored-before-proceed", "launch-b,interrupt-before-proceed-a", "restored"),
+            ("restored-after-proceed", "launch-b,interrupt-after-proceed-a,exit-before-ack-a", "restored"),
+        ],
         "rollback": [("bad-bytes", "bad-bytes", "download-rejected"),
                      ("before-exchange", "exchange-before", "restored"), ("candidate-early-exit", "exit-b", "restored"),
                      ("candidate-wrong-reply", "wrong-b", "restored"), ("candidate-dies-before-commit", "exit-before-commit", "restored"),

@@ -95,7 +95,7 @@ final class UpdateDirectory: Sendable {
         guard try directoryIdentity(name) == other, try peer.directoryIdentity(peerName) == expected else { throw Issue.identity }
     }
 
-    func write<Value: Encodable>(_ value: Value, to name: String) throws {
+    func write<Value: Encodable>(_ value: Value, to name: String, afterRename: () throws -> Void = {}) throws {
         guard Self.validName(name) else { throw Issue.path }
         let data = try JSONEncoder().encode(value)
         guard data.count <= 65_536 else { throw Issue.record }
@@ -107,6 +107,7 @@ final class UpdateDirectory: Sendable {
         try handle.write(contentsOf: data)
         guard fcntl(fd, F_FULLFSYNC, 0) == 0,
               renameat(descriptor, temporary, descriptor, name) == 0 else { throw Issue.durability }
+        try afterRename()
         try synchronize()
     }
 
@@ -217,11 +218,12 @@ final class UpdateReservation: Sendable {
         var keep = false
         defer { if !keep { held.forEach { close($0) } } }
         let entries = try FileManager.default.contentsOfDirectory(atPath: recovery.url.path)
-        guard try store.allRecords().isEmpty, !entries.contains(where: { $0.hasPrefix("update-worker-") }) else {
+        guard try store.allRecords().isEmpty else {
             throw UpdateActivityLease.Issue.workersUnconfirmed
         }
         held += try UpdateActivityLease.legacyProjectLocks(entries, in: recovery.descriptor)
         try UpdateProcessIdentity.requireNoOtherInstances(productID, excluding: getpid())
+        try activity.reconcileWorkers(entries)
         legacy = held
         keep = true
     }
@@ -265,6 +267,9 @@ struct UpdateJournal: Codable, Equatable, Sendable {
     var deliveryFailure: String?
     var reentryProcess: UpdateProcessIdentity?
     var originalWaitMilliseconds: Int64?
+    var originalExitConfirmed: Bool?
+    var rollbackFailure: UpdateReceipt.Failure?
+    var acknowledgedProcess: UpdateProcessIdentity?
 
     var product: String { original.app.productID }
     var releaseURL: URL { UpdateRepository.releases.appending(path: "tag/\(releaseTag)") }
@@ -273,6 +278,42 @@ struct UpdateJournal: Codable, Equatable, Sendable {
     var socket: URL { stage.appending(path: "peer") }
     var targetExecutable: String { target.appending(path: "Contents/MacOS/FlutterRunlet").path }
     var authorizingProcess: UpdateProcessIdentity { reentryProcess ?? oldProcess }
+
+    var isTerminal: Bool { phase == .committed || phase == .restored }
+
+    static func discardPreparation(id: UUID, recovery: UpdateDirectory, staging: UpdateDirectory) throws {
+        try recovery.verify()
+        try staging.verify()
+        if let pending = try recovery.read(Self.pending, as: Self.self) {
+            guard pending.id == id, pending.stageIdentity == staging.identity, pending.phase == .prepared,
+                  pending.reentryProcess == nil else { throw UpdateDirectory.Issue.record }
+        }
+        // A failed write may have renamed the record before failing to sync the directory.
+        try recovery.remove(Self.pending)
+        guard try recovery.read(Self.pending, as: Self.self) == nil else { throw UpdateDirectory.Issue.record }
+        try staging.verify()
+        try FileManager.default.removeItem(at: staging.url)
+    }
+
+    func acknowledgeStartup(process: UpdateProcessIdentity, phase expected: Phase,
+                            recovery: UpdateDirectory, staging: UpdateDirectory) throws {
+        let lease = try UpdateActivityLease(directory: recovery.url, installing: true)
+        defer { withExtendedLifetime(lease) {} }
+        try recovery.verify()
+        try staging.verify()
+        let initialization = try UpdateActivityLease.lock("installation.lock", in: recovery.descriptor, LOCK_EX)
+        defer { close(initialization) }
+        guard let pending = try recovery.read(Self.pending, as: Self.self),
+              pending.id == id, pending.phase == expected, pending.isTerminal,
+              pending.helperProcess == helperProcess, pending.attemptedProcess == process,
+              pending.recoveryIdentity == recovery.identity, pending.stageIdentity == staging.identity else {
+            throw UpdateDirectory.Issue.record
+        }
+        var acknowledged = pending
+        acknowledged.acknowledgedProcess = process
+        try staging.write(acknowledged, to: Self.intent)
+        try recovery.remove(Self.pending)
+    }
 
     func validate(fixture: IsolatedUpdateBuild?) throws -> (parent: UpdateDirectory, staging: UpdateDirectory) {
         guard target.lastPathComponent == Self.appName,
@@ -370,6 +411,8 @@ final class UpdateChannel: Sendable {
 
     deinit { close(descriptor) }
 
+    func shutdown() { _ = Darwin.shutdown(descriptor, SHUT_RDWR) }
+
     func send(_ byte: UInt8) throws {
         var value = byte
         guard write(descriptor, &value, 1) == 1 else { throw Issue.closed }
@@ -444,6 +487,7 @@ enum UpdateMessage {
     static let verify: UInt8 = 86
     static let verified: UInt8 = 65
     static let proceed: UInt8 = 71
+    static let acknowledged: UInt8 = 75
 }
 
 struct UpdateReceipt: Codable, Sendable {
@@ -460,17 +504,40 @@ extension IsolatedUpdateBuild {
     var projects: URL { root.deletingLastPathComponent().appending(path: "flutter-fixtures", directoryHint: .isDirectory) }
 }
 
+struct UpdateHelperChild: Sendable {
+    let pid: pid_t
+
+    func cancel(on channel: UpdateChannel) -> Bool {
+        channel.shutdown()
+        // Only signal an unreaped direct child. Its PID cannot be recycled before waitpid.
+        if let result = reap(until: .now + .milliseconds(250)) { return result }
+        guard kill(pid, SIGKILL) == 0 || errno == ESRCH else { return false }
+        return reap(until: .now + .seconds(1)) == true
+    }
+
+    private func reap(until deadline: ContinuousClock.Instant) -> Bool? {
+        while .now < deadline {
+            var status: Int32 = 0
+            let result = waitpid(pid, &status, WNOHANG)
+            if result == pid { return true }
+            if result == -1 && errno != EINTR { return false }
+            usleep(10_000)
+        }
+        return nil
+    }
+}
+
 final class UpdateHandoff: Sendable {
     let reservation: UpdateReservation
     let journal: UpdateJournal
     let channel: UpdateChannel
-    let helperPID: pid_t
+    private let child: UpdateHelperChild
 
-    fileprivate init(reservation: UpdateReservation, journal: UpdateJournal, channel: UpdateChannel, helperPID: pid_t) {
+    private init(reservation: UpdateReservation, journal: UpdateJournal, channel: UpdateChannel, child: UpdateHelperChild) {
         self.reservation = reservation
         self.journal = journal
         self.channel = channel
-        self.helperPID = helperPID
+        self.child = child
     }
 
     static func prepare(_ update: PreparedUpdate, reservation: UpdateReservation, language: String) async throws -> UpdateHandoff {
@@ -481,18 +548,18 @@ final class UpdateHandoff: Sendable {
         let parent = try UpdateDirectory(target.deletingLastPathComponent())
         try parent.requireLocalAPFS()
         let object = try parent.directoryIdentity(UpdateJournal.appName)
+        let recovery = reservation.recovery
+        guard try recovery.read(UpdateJournal.pending, as: UpdateJournal.self) == nil else { throw UpdateDirectory.Issue.record }
         let id = UUID()
         let staging = try parent.createPrivateDirectory(".update-" + String(id.uuidString.prefix(8)))
-        let recovery = reservation.recovery
         var keep = false
-        var marked = false
+        var launched: UpdateHandoff?
         defer {
-            if !keep {
-                if marked { try? recovery.remove(UpdateJournal.pending) }
-                if (try? staging.verify()) != nil { try? FileManager.default.removeItem(at: staging.url) }
+            if !keep, launched?.cancelPreparation() != false {
+                try? UpdateJournal.discardPreparation(id: id, recovery: recovery, staging: staging)
             }
+            withExtendedLifetime(reservation) {}
         }
-        guard try recovery.read(UpdateJournal.pending, as: UpdateJournal.self) == nil else { throw UpdateDirectory.Issue.record }
         let original = try UpdatePackageService.stage(update, replacing: target, in: staging.url)
         guard process.verifies(original, executable: target.appending(path: "Contents/MacOS/FlutterRunlet").path) else {
             throw UpdateDirectory.Issue.identity
@@ -507,9 +574,16 @@ final class UpdateHandoff: Sendable {
                 == original.helperCodeHashes else { throw UpdateDirectory.Issue.identity }
         try record.verifyArrangement(false, fixture: fixture)
         try staging.write(record, to: UpdateJournal.intent)
-        try recovery.write(record, to: UpdateJournal.pending)
-        marked = true
-        let handoff = try await spawn(record, reservation: reservation)
+        try recovery.write(record, to: UpdateJournal.pending) {
+            if let fixture, UpdateJournal.fault(fixture, "fail-prepare-sync") {
+                let root = try UpdateDirectory(fixture.root, privateAccess: true)
+                try root.write(record, to: "prepare-renamed.json")
+                throw UpdateDirectory.Issue.durability
+            }
+        }
+        let handoff = try spawn(record, reservation: reservation)
+        launched = handoff
+        try await handoff.awaitReadiness()
         keep = true
         return handoff
     }
@@ -534,10 +608,17 @@ final class UpdateHandoff: Sendable {
         resumed.reentryProcess = process
         try staging.write(resumed, to: UpdateJournal.intent)
         try recovery.write(resumed, to: UpdateJournal.pending)
-        return try await spawn(resumed, reservation: reservation)
+        let handoff = try spawn(resumed, reservation: reservation)
+        do {
+            try await handoff.awaitReadiness()
+            return handoff
+        } catch {
+            _ = handoff.cancelPreparation()
+            throw error
+        }
     }
 
-    private static func spawn(_ record: UpdateJournal, reservation: UpdateReservation) async throws -> UpdateHandoff {
+    private static func spawn(_ record: UpdateJournal, reservation: UpdateReservation) throws -> UpdateHandoff {
         var sockets = [Int32](repeating: -1, count: 2)
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else { throw UpdateChannel.Issue.channel }
         var child = sockets[1]
@@ -559,31 +640,37 @@ final class UpdateHandoff: Sendable {
         }.get()
         close(child)
         child = -1
+        return UpdateHandoff(reservation: reservation, journal: record, channel: channel, child: UpdateHelperChild(pid: helper))
+    }
+
+    private func awaitReadiness() async throws {
         guard try await channel.receive(until: .now + .seconds(8)) == UpdateMessage.ready,
-              let peer = UpdateProcessIdentity(helper), peer.isRunning,
-              peer.executable == record.copiedHelper.appending(path: UpdatePackageService.helperExecutable).path else {
+              let peer = UpdateProcessIdentity(child.pid), peer.isRunning,
+              peer.executable == journal.copiedHelper.appending(path: UpdatePackageService.helperExecutable).path else {
             throw UpdateChannel.Issue.peer
         }
-        return UpdateHandoff(reservation: reservation, journal: record, channel: channel, helperPID: helper)
     }
 
     func authorizeExit() -> Bool {
-        guard UpdateProcessIdentity(helperPID)?.isRunning == true else { return false }
+        guard UpdateProcessIdentity(child.pid)?.isRunning == true else { return false }
         do { try channel.send(UpdateMessage.proceed); return true }
         catch { return false }
     }
 
     func abandon() {
-        guard journal.reentryProcess == nil else { return }
-        if let pending = try? reservation.recovery.read(UpdateJournal.pending, as: UpdateJournal.self), pending.id == journal.id {
-            try? reservation.recovery.remove(UpdateJournal.pending)
-        }
+        guard cancelPreparation(), journal.reentryProcess == nil,
+              let staging = try? UpdateDirectory(journal.stage, privateAccess: true),
+              staging.identity == journal.stageIdentity else { return }
+        try? UpdateJournal.discardPreparation(id: journal.id, recovery: reservation.recovery, staging: staging)
     }
+
+    private func cancelPreparation() -> Bool { child.cancel(on: channel) }
 }
 
 struct UpdateAppLaunch: Sendable {
     let journal: UpdateJournal
-    let role: UpdateJournal.Phase
+    let recovery: UpdateDirectory
+    let isCandidate: Bool
     var fixture: IsolatedUpdateBuild? { IsolatedUpdateBuild.read() }
 
     static func resolve(arguments: [String], namespace: URL) throws -> UpdateAppLaunch? {
@@ -597,8 +684,10 @@ struct UpdateAppLaunch: Sendable {
               let marker, arguments.indices.contains(marker + 1), UUID(uuidString: arguments[marker + 1]) == journal.id,
               let helper = journal.helperProcess, helper.isRunning,
               recovery.identity == journal.recoveryIdentity, Bundle.main.bundleURL.resolvingSymlinksInPath().path == journal.target.path,
-              journal.phase == .waitingForNew || journal.phase == .restoring else { throw UpdateDirectory.Issue.record }
-        return Self(journal: journal, role: journal.phase)
+              journal.phase == .waitingForNew || journal.phase == .committed || journal.phase == .restored else {
+            throw UpdateDirectory.Issue.record
+        }
+        return Self(journal: journal, recovery: recovery, isCandidate: journal.phase != .restored)
     }
 
     static func interrupted(arguments: [String], namespace: URL) -> UpdateJournal? {
@@ -613,7 +702,7 @@ struct UpdateAppLaunch: Sendable {
     }
 
     func awaitCommit() async throws {
-        let prefix = role == .waitingForNew ? "b" : "a"
+        let prefix = isCandidate ? "b" : "a"
         if UpdateJournal.fault(fixture, "exit-" + prefix) { Darwin.exit(71) }
         if UpdateJournal.fault(fixture, "hold-" + prefix) {
             // Remain in restricted startup so the assistant observes a live process with no response.
@@ -623,7 +712,7 @@ struct UpdateAppLaunch: Sendable {
         let channel = try UpdateChannel.connect(journal.socket)
         guard channel.matchesPeer(helper) else { throw UpdateChannel.Issue.peer }
         try channel.send(UpdateJournal.fault(fixture, "wrong-" + prefix) ? 88 : UpdateMessage.ready)
-        if role == .waitingForNew {
+        if isCandidate {
             guard try await channel.receive(until: .now + .seconds(15)) == UpdateMessage.verify else {
                 throw UpdateChannel.Issue.peer
             }
@@ -631,6 +720,15 @@ struct UpdateAppLaunch: Sendable {
             try channel.send(UpdateMessage.verified)
         }
         guard try await channel.receive(until: .now + .seconds(35)) == UpdateMessage.proceed else { throw UpdateChannel.Issue.peer }
+        if UpdateJournal.fault(fixture, "exit-before-ack-" + prefix) { Darwin.exit(73) }
+        guard let process = UpdateProcessIdentity(getpid()), process.executable == journal.targetExecutable else {
+            throw UpdateChannel.Issue.peer
+        }
+        let (_, staging) = try journal.validate(fixture: fixture)
+        try journal.acknowledgeStartup(process: process, phase: isCandidate ? .committed : .restored,
+                                       recovery: recovery, staging: staging)
+        // The durable acknowledgement is authoritative if the helper has already exited.
+        try? channel.send(UpdateMessage.acknowledged)
     }
 }
 #endif

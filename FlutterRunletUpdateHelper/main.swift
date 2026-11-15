@@ -61,7 +61,11 @@ private final class UpdateHelper {
             listener = try UpdateChannel.listen(journal.socket)
             guard let helper = UpdateProcessIdentity(getpid()) else { return }
             journal.helperProcess = helper
-            try persist()
+            try staging.write(journal, to: UpdateJournal.intent)
+            if journal.phase == .prepared, journal.reentryProcess == nil, fault("delay-pending-publish") {
+                try await Task.sleep(for: .seconds(10))
+            }
+            try recovery.write(journal, to: UpdateJournal.pending)
             if fault("helper-no-ready"), let fixture {
                 try UpdateDirectory(fixture.root, privateAccess: true).write(journal, to: "helper-refused.json")
                 if fault("observe-reservation") { try await Task.sleep(for: .seconds(4)) }
@@ -84,14 +88,20 @@ private final class UpdateHelper {
         do {
             try UpdateProcessIdentity.requireNoOtherInstances(journal.product, excluding: nil)
             let exchanged = try journal.currentArrangement(fixture: fixture)
-            if !exchanged {
-                await reopenOriginal(failure: journal.phase == .restoring || journal.phase == .restored ? .newLaunch : .replacement)
-            } else if journal.phase == .committed {
-                journal.phase = .waitingForNew
-                try persist()
+            switch journal.phase {
+            case .committed:
+                guard exchanged else { throw UpdateDirectory.Issue.identity }
+                if fault("interrupt-committed-reentry") { Darwin.exit(95) }
                 await launchCandidate()
-            } else {
-                await rollback()
+            case .restored:
+                guard !exchanged else { throw UpdateDirectory.Issue.identity }
+                await reopenOriginal()
+            default:
+                if exchanged {
+                    await rollback()
+                } else {
+                    await reopenOriginal(failure: journal.rollbackFailure ?? (journal.phase == .restoring ? .newLaunch : .replacement))
+                }
             }
         } catch { preserve() }
     }
@@ -128,24 +138,27 @@ private final class UpdateHelper {
     private func launchCandidate() async {
         switch await launch(journal.candidate, role: "b", timeout: .seconds(8)) {
         case .ready(let channel, let process):
+            do { try journal.verifyArrangement(true, fixture: fixture) } catch {
+                channel.shutdown()
+                preserve()
+                return
+            }
             do {
-                try journal.verifyArrangement(true, fixture: fixture)
                 try channel.send(UpdateMessage.verify)
                 guard try await channel.receive(until: .now + .seconds(3)) == UpdateMessage.verified,
                       process.verifies(journal.candidate, executable: journal.targetExecutable) else {
                     throw UpdateChannel.Issue.peer
                 }
-                journal.phase = .committed
-                try persist()
-                interrupt("after-commit")
-                guard process.isRunning else { throw UpdateChannel.Issue.peer }
-                try recovery.remove(UpdateJournal.pending)
-                try channel.send(UpdateMessage.proceed)
-                releaseLocks()
             } catch {
-                journal.deliveryFailure = "candidate-exited-before-commit"
+                channel.shutdown()
+                journal.deliveryFailure = journal.isTerminal ? "candidate-failed-relaunch" : "candidate-exited-before-commit"
                 await stopFailedCandidate(NSRunningApplication(processIdentifier: process.pid), process)
+                return
             }
+            journal.phase = .committed
+            do { try persist() } catch { preserve(); return }
+            interrupt("after-commit")
+            _ = await deliverStartup(channel, process: process, role: "b")
         case .unready(let app, let process):
             await stopFailedCandidate(app, process)
         case .absent:
@@ -158,12 +171,7 @@ private final class UpdateHelper {
     }
 
     private func stopFailedCandidate(_ app: NSRunningApplication?, _ process: UpdateProcessIdentity) async {
-        if let app, process.verifies(journal.candidate, executable: journal.targetExecutable) {
-            _ = app.terminate()
-        }
-        // Code identity can become unreadable while a process is exiting. Only signal a
-        // verified candidate, and give the kernel time to confirm an exit in either case.
-        guard await waitForExit(process, until: .now + .seconds(8)) else { preserve(); return }
+        guard await stopTrial(app, process, signed: journal.candidate) else { preserve(); return }
         journal.candidateExitConfirmed = true
         await rollback()
     }
@@ -172,6 +180,7 @@ private final class UpdateHelper {
         do {
             try UpdateProcessIdentity.requireNoOtherInstances(journal.product, excluding: nil)
             journal.phase = .restoring
+            journal.rollbackFailure = .newLaunch
             try persist()
             try journal.exchange(restoring: true, fixture: fixture)
         } catch {
@@ -181,25 +190,31 @@ private final class UpdateHelper {
         await reopenOriginal(failure: .newLaunch)
     }
 
-    private func reopenOriginal(failure: UpdateReceipt.Failure) async {
+    private func reopenOriginal(failure: UpdateReceipt.Failure? = nil) async {
         do {
             try journal.verifyArrangement(false, fixture: fixture)
-            journal.phase = .restoring
-            try persist()
+            let previous = try recovery.read(UpdateJournal.receipt, as: UpdateReceipt.self)
+            let failure = failure ?? journal.rollbackFailure
+                ?? (previous?.transaction == journal.id ? previous?.failure : nil) ?? .newLaunch
+            journal.rollbackFailure = failure
             let receipt = UpdateReceipt(transaction: journal.id, failure: failure, active: journal.original,
                                         version: journal.candidate.app.version, releaseTag: journal.releaseTag)
-            try recovery.write(receipt, to: UpdateJournal.receipt)
+            if previous?.transaction != journal.id { try recovery.write(receipt, to: UpdateJournal.receipt) }
+            journal.phase = .restored
+            journal.originalExitConfirmed = nil
+            try persist()
             let start = ContinuousClock.now
             let opened = await launch(journal.original, role: "a", timeout: .seconds(30))
             let elapsed = start.duration(to: .now).components
             journal.originalWaitMilliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
-            journal.phase = .restored
-            try persist()
-            if case .ready(let channel, let process) = opened, process.isRunning {
-                try releaseAndPermit(channel)
-                return
+            if case .unready(let app, let process) = opened {
+                journal.originalExitConfirmed = await stopTrial(app, process, signed: journal.original)
             }
-            try recovery.remove(UpdateJournal.pending)
+            try persist()
+            if case .ready(let channel, let process) = opened {
+                try journal.verifyArrangement(false, fixture: fixture)
+                if await deliverStartup(channel, process: process, role: "a") { return }
+            }
             releaseLocks()
             showRecovery(restored: true)
         } catch {
@@ -211,14 +226,26 @@ private final class UpdateHelper {
     }
 
     private func persist() throws {
-        try staging.write(journal, to: UpdateJournal.intent)
+        // Bootstraps read pending first. Publish the decision there before its staged copy.
         try recovery.write(journal, to: UpdateJournal.pending)
+        try staging.write(journal, to: UpdateJournal.intent)
     }
 
-    private func releaseAndPermit(_ channel: UpdateChannel) throws {
-        try recovery.remove(UpdateJournal.pending)
+    private func deliverStartup(_ channel: UpdateChannel, process: UpdateProcessIdentity, role: String) async -> Bool {
+        defer { channel.shutdown() }
         releaseLocks()
-        try channel.send(UpdateMessage.proceed)
+        if fault("interrupt-before-proceed-" + role) { Darwin.exit(95) }
+        do {
+            guard process.isRunning else { return false }
+            try channel.send(UpdateMessage.proceed)
+            if fault("interrupt-after-proceed-" + role) { Darwin.exit(95) }
+            if try await channel.receive(until: .now + .seconds(8)) == UpdateMessage.acknowledged { return true }
+        } catch {}
+        // The app may have completed the disk handoff just before its socket closed.
+        guard let recorded = try? staging.read(UpdateJournal.intent, as: UpdateJournal.self),
+              recorded.id == journal.id, recorded.acknowledgedProcess == process else { return false }
+        do { return try recovery.read(UpdateJournal.pending, as: UpdateJournal.self)?.id != journal.id }
+        catch { return false }
     }
 
     private func releaseLocks() {
@@ -227,7 +254,7 @@ private final class UpdateHelper {
     }
 
     private func preserve() {
-        journal.phase = .preserved
+        if !journal.isTerminal { journal.phase = .preserved }
         try? persist()
         releaseLocks()
         showRecovery(restored: false)
@@ -266,10 +293,11 @@ private final class UpdateHelper {
         }
         guard process.executable == journal.targetExecutable else { return .unknown }
         journal.attemptedProcess = process
+        journal.acknowledgedProcess = nil
         if role == "b" { journal.candidateProcess = process }
         else { journal.reopenedProcess = process }
+        do { try persist() } catch { return .unknown }
         do {
-            try persist()
             let channel = try await listener.accept(until: deadline, peer: process)
             guard try await channel.receive(until: deadline) == UpdateMessage.ready else {
                 if role == "b" { journal.deliveryFailure = "candidate-protocol" }
@@ -294,6 +322,13 @@ private final class UpdateHelper {
     @MainActor private final class OpenResult {
         var processID: pid_t?
         var completed = false
+    }
+
+    private func stopTrial(_ app: NSRunningApplication?, _ process: UpdateProcessIdentity,
+                           signed: PreparedUpdate.SignedIdentity) async -> Bool {
+        // Code identity can become unreadable during exit. Only signal a verified trial.
+        if let app, process.verifies(signed, executable: journal.targetExecutable) { _ = app.terminate() }
+        return await waitForExit(process, until: .now + .seconds(8))
     }
 
     private func waitForExit(_ process: UpdateProcessIdentity, until deadline: ContinuousClock.Instant) async -> Bool {
