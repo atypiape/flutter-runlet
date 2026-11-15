@@ -42,7 +42,7 @@
 
 ## 3. 设置窗口：通用
 
-设置窗口为 **520 × 520 pt**，左侧依次为「通用」「Flutter」「DevTools」「关于」。右侧为设置表单。
+设置窗口为 **640 × 520 pt**，左侧依次为「通用」「Flutter」「DevTools」「关于」。右侧为设置表单。语言、外观、Flutter SDK 来源、DevTools 来源和源码编辑器复用一种下拉菜单。Flutter 和 Dart SDK 的更换操作使用同一种次要按钮，目录路径占独立一行。
 
 | 项目 | 控件/说明 |
 |---|---|
@@ -58,7 +58,7 @@ Flutter SDK 路径、Flutter/Dart 版本、FVM 和环境检测均在 Flutter 设
 
 | 分组 | 内容 | 行为 |
 |---|---|---|
-| Flutter SDK | SDK 来源（自动/手动）、路径选择、Flutter 版本、Dart 版本、SDK 状态 | 当前实测信息，不写死示例版本；手动路径无效时明确报错 |
+| Flutter SDK | SDK 来源（自动/手动）、生效来源、版本与状态、SDK 路径 | 选择模式和实际来源分行；手动路径无效时明确报错，已保存的手动路径未生效时单独显示 |
 | FVM | 优先使用项目 FVM、检测状态、项目实际 Flutter 版本 | 有效项目 pin 使用对应 SDK，显示与运行一致 |
 | 环境检测 | 「检查环境」、Flutter/Xcode/Android Toolchain 简要结果，「查看完整输出」 | 实际运行 `flutter doctor`；加载/失败/无工具时有状态 |
 

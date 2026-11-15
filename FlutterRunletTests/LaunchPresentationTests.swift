@@ -16,7 +16,7 @@ final class LaunchPresentationTests: XCTestCase {
         let settings = SettingsView(session: session, selection: .constant(.general),
                                     language: AppLanguageSettings(defaults: defaults))
         let host = NSHostingView(rootView: settings)
-        XCTAssertEqual(host.fittingSize, CGSize(width: 520, height: 520))
+        XCTAssertEqual(host.fittingSize, CGSize(width: 640, height: 520))
         let launchSwitch = SettingsView.launchWindowPreference(session)
         XCTAssertTrue(launchSwitch.wrappedValue)
         launchSwitch.wrappedValue = false

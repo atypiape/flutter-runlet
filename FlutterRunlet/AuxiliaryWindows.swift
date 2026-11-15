@@ -2,14 +2,13 @@ import AppKit
 import SwiftUI
 
 struct SettingsView: View {
-    static let windowSize = CGSize(width: 520, height: 520)
+    static let windowSize = CGSize(width: 640, height: 520)
 
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
-    @FocusState private var languageButtonFocused: Bool
     @FocusState private var sdkPickerFocus: SDKPickerTrigger?
 
-    private enum SDKPickerTrigger { case manual, path, devToolsSource, devToolsPath }
+    private enum SDKPickerTrigger { case flutterSource, flutterPath, devToolsSource, devToolsPath }
 
     var session: SessionController? = nil
     enum Page: CaseIterable {
@@ -31,7 +30,6 @@ struct SettingsView: View {
     var loginItem: LoginItemSettings? = nil
     var updates = UpdatePresentationSource()
     @State private var showsDoctorOutput = false
-    @State private var showsLanguages = false
 
     private var palette: RunletAppearance { RunletAppearance(scheme) }
     private var page: Page { selection ?? .general }
@@ -67,7 +65,6 @@ struct SettingsView: View {
                 }
             }
         }
-        .onExitCommand { if showsLanguages { showsLanguages = false } }
         .onChange(of: selection, initial: true) {
             if selection == .flutter { session?.checkFlutterSDKIfNeeded() }
             else { loginItem?.refresh() }
@@ -152,25 +149,19 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 7) {
             groupTitle("Language")
             settingsCard {
-                HStack(spacing: 8) {
-                    Text("Interface Language").font(RunletType.localized(locale, size: 13))
-                    Spacer()
-                    languageMenu
+                settingsRow("Interface Language") {
+                    settingsPicker("Interface Language", selection: $language.selection, choices: AppLanguage.allCases) {
+                        Text($0.label)
+                    }
                 }
-                .padding(.horizontal, 12)
-                .frame(height: 45)
             }
             if let appearance {
                 groupTitle("Appearance")
                 settingsCard {
-                    sdkRow("App Appearance") {
-                        Picker("App Appearance", selection: appearance) {
-                            ForEach(AppAppearance.allCases, id: \.self) { mode in
-                                Text(mode.label).tag(mode)
-                            }
+                    settingsRow("App Appearance") {
+                        settingsPicker("App Appearance", selection: appearance, choices: AppAppearance.allCases) {
+                            Text($0.label)
                         }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
                     }
                 }
             }
@@ -184,8 +175,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             if let status = loginItem.statusMessage { Text(status) }
                             if let issue = loginItem.issue { Text(issue) }
-                            Button("Open Login Items in System Settings", action: loginItem.openSystemSettings)
-                                .buttonStyle(AuxiliaryButtonStyle())
+                            settingsAction("Open Login Items in System Settings", action: loginItem.openSystemSettings)
                         }
                         .font(RunletType.localized(locale, size: 11))
                         .foregroundStyle(palette.secondary)
@@ -205,61 +195,38 @@ struct SettingsView: View {
         }
     }
 
-    private var languageMenu: some View {
-        Button {
-            showsLanguages.toggle()
-        } label: {
-            HStack(spacing: 8) {
-                Text(language.selection.label)
-                    .font(RunletType.localized(locale, size: 12))
-                Path { path in
-                    path.addLines([CGPoint(x: 4.375, y: 6.25), CGPoint(x: 7.5, y: 9.375), CGPoint(x: 10.625, y: 6.25)])
-                }
-                .stroke(style: StrokeStyle(lineWidth: 1.0625, lineCap: .round, lineJoin: .round))
-                .foregroundStyle(palette.secondary)
-                .frame(width: 15, height: 15)
-                .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 9)
-            .frame(height: 29)
-        }
-        .buttonStyle(AuxiliaryButtonStyle())
-        .focused($languageButtonFocused)
-        .accessibilityLabel(Text("Choose Language"))
-        .accessibilityValue(Text(language.selection.label))
-        .popover(isPresented: $showsLanguages, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Choose Language")
-                    .font(RunletType.localized(locale, size: 14, medium: true))
-                    .frame(height: 23)
-                    .accessibilityAddTraits(.isHeader)
-                ForEach(AppLanguage.allCases, id: \.self) { option in
-                    Button {
-                        language.selection = option
-                        showsLanguages = false
-                    } label: {
-                        Text(option.label)
-                            .font(option == .english ? .system(size: 11, weight: .semibold)
-                                  : RunletType.localized(locale, size: 11, medium: true))
-                            .padding(.horizontal, 10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 26)
-                    }
-                    .buttonStyle(AuxiliaryButtonStyle())
-                    .accessibilityAddTraits(language.selection == option ? .isSelected : [])
+    private func settingsPicker<Option: Hashable>(
+        _ title: LocalizedStringResource, selection: Binding<Option>, choices: [Option],
+        label: @escaping (Option) -> Text
+    ) -> some View {
+        settingsMenu(title, value: label(selection.wrappedValue)) {
+            ForEach(choices, id: \.self) { option in
+                let isSelected = selection.wrappedValue == option
+                menuOption(label(option), selected: isSelected) {
+                    selection.wrappedValue = option
                 }
             }
-            .padding(13)
-            .frame(width: 310)
-            .foregroundStyle(palette.primary)
-            .background(palette.toolbar)
-            .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(palette.divider).allowsHitTesting(false) }
-            .onExitCommand { showsLanguages = false }
-            .environment(\.locale, language.locale)
         }
-        .onChange(of: showsLanguages) { _, isShowing in
-            if !isShowing { languageButtonFocused = true }
+    }
+
+    private func settingsMenu<Content: View>(
+        _ title: LocalizedStringResource, value: Text, @ViewBuilder content: () -> Content
+    ) -> some View {
+        Menu(content: content) {
+            value
         }
+        .controlSize(.regular)
+        .fixedSize()
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(value)
+    }
+
+    private func menuOption(_ title: Text, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if selected { Label { title } icon: { Image(systemName: "checkmark") } }
+            else { title }
+        }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func groupTitle(_ title: LocalizedStringResource, systemFont: Bool = false) -> some View {
@@ -346,33 +313,21 @@ struct SettingsView: View {
         let version = path == nil ? session.sdk?.devToolsVersion : session.standaloneDevToolsVersion
         return VStack(alignment: .leading, spacing: 7) {
             settingsCard {
-                sdkRow("DevTools Source") {
-                    Menu {
-                        Button {
+                settingsRow("DevTools Source") {
+                    settingsMenu("DevTools Source", value: path == nil ? Text("Bundled with Flutter") : Text("Standalone Dart SDK")) {
+                        menuOption(Text("Bundled with Flutter"), selected: path == nil) {
                             session.selectStandaloneDevTools(nil)
-                        } label: {
-                            if path == nil { Label("Bundled with Flutter", systemImage: "checkmark") }
-                            else { Text("Bundled with Flutter") }
                         }
-                        Button {
+                        menuOption(Text("Standalone Dart SDK…"), selected: path != nil) {
                             chooseDevToolsSDK(for: session, returningTo: .devToolsSource)
-                        } label: {
-                            if path != nil { Label("Standalone Dart SDK…", systemImage: "checkmark") }
-                            else { Text("Standalone Dart SDK…") }
                         }
-                    } label: {
-                        if path == nil { Text("Bundled with Flutter") }
-                        else { Text("Standalone Dart SDK") }
                     }
-                    .accessibilityLabel(Text("DevTools Source"))
-                    .accessibilityValue(path == nil ? Text("Bundled with Flutter") : Text("Standalone Dart SDK"))
-                    .fixedSize()
                     .focused($sdkPickerFocus, equals: .devToolsSource)
                     .disabled(!session.canEditFlutterSDK)
                 }
                 if let version {
                     rule
-                    sdkRow("Version") {
+                    settingsRow("Version") {
                         Text(verbatim: version)
                             .font(.system(size: 12))
                             .foregroundStyle(palette.secondary)
@@ -380,25 +335,8 @@ struct SettingsView: View {
                 }
                 if let path {
                     rule
-                    VStack(alignment: .leading, spacing: 0) {
-                        sdkRow("Dart SDK Path") {
-                            Button("Change…") { chooseDevToolsSDK(for: session, returningTo: .devToolsPath) }
-                                .controlSize(.small)
-                                .focused($sdkPickerFocus, equals: .devToolsPath)
-                                .disabled(!session.canEditFlutterSDK)
-                        }
-                        let home = NSHomeDirectory()
-                        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
-                        Text(verbatim: display)
-                            .font(.system(size: 12))
-                            .foregroundStyle(palette.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(path)
-                            .accessibilityLabel(Text(verbatim: path))
-                            .textSelection(.enabled)
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 9)
+                    sdkPath("Dart SDK Path", path: path, focus: .devToolsPath, enabled: session.canEditFlutterSDK) {
+                        chooseDevToolsSDK(for: session, returningTo: .devToolsPath)
                     }
                 }
                 if let issue = session.standaloneDevToolsIssue {
@@ -412,68 +350,49 @@ struct SettingsView: View {
             }
             groupTitle("Source Navigation")
             settingsCard {
-                sdkRow("Source Editor") {
-                    Picker("Source Editor", selection: Bindable(session).inspectorEditor) {
-                        ForEach(InspectorEditor.allCases, id: \.self) { editor in
-                            Text(verbatim: editor.title).tag(editor)
-                        }
+                settingsRow("Source Editor") {
+                    settingsPicker("Source Editor", selection: Bindable(session).inspectorEditor,
+                                   choices: InspectorEditor.allCases) {
+                        Text(verbatim: $0.title)
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
                 }
             }
         }
     }
 
     private func sdkSettings(_ session: SessionController) -> some View {
-        let source = session.sdk?.source
-        let mode: LocalizedStringResource = switch source {
+        let manualPath = session.manualSDKPath
+        let path = session.sdk?.directory.path ?? manualPath
+        let effectiveSource: LocalizedStringResource? = switch session.sdk?.source {
         case .projectFVM: "Project FVM"
         case .manual: "Manual SDK"
-        default: session.manualSDKPath == nil ? "Auto" : "Manual SDK"
+        case .system: "System PATH"
+        case nil: nil
         }
         return VStack(alignment: .leading, spacing: 0) {
-            sdkRow("SDK Source") {
-                HStack(spacing: 4) {
-                    settingsAction("Auto") {
-                        if session.manualSDKPath != nil { session.clearManualFlutterSDK() }
+            settingsRow("SDK Source") {
+                settingsMenu("SDK Source", value: manualPath == nil ? Text("Auto") : Text("Manual SDK")) {
+                    menuOption(Text("Auto"), selected: manualPath == nil) {
+                        if manualPath != nil { session.clearManualFlutterSDK() }
                         else { session.recheckInvalidFlutterSDK() }
                     }
-                    .disabled(!session.canEditFlutterSDK)
-                    settingsAction("Manual SDK") { chooseSDK(for: session, from: .manual) }
-                        .focused($sdkPickerFocus, equals: .manual)
-                        .disabled(!session.canEditFlutterSDK)
-                    Text("Current: \(locale.appString(mode))")
-                        .font(RunletType.localized(locale, size: 11))
+                    menuOption(Text("Manual SDK…"), selected: manualPath != nil) {
+                        chooseSDK(for: session, from: .flutterSource)
+                    }
+                }
+                .focused($sdkPickerFocus, equals: .flutterSource)
+                .disabled(!session.canEditFlutterSDK)
+            }
+            if let effectiveSource {
+                rule
+                settingsRow("Effective Source") {
+                    Text(effectiveSource)
+                        .font(RunletType.localized(locale, size: 12))
                         .foregroundStyle(palette.secondary)
                 }
             }
             rule
-            sdkRow("SDK Path") {
-                HStack(spacing: 8) {
-                    if let path = session.sdk?.directory.path ?? session.manualSDKPath {
-                        let home = NSHomeDirectory()
-                        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
-                        Text(verbatim: display)
-                            .font(.system(size: 12))
-                            .foregroundStyle(palette.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(path)
-                            .accessibilityLabel(Text(verbatim: path))
-                            .textSelection(.enabled)
-                    } else {
-                        Text(verbatim: "—").foregroundStyle(palette.muted)
-                    }
-                    if session.manualSDKPath != nil {
-                        settingsAction("Select Path") { chooseSDK(for: session, from: .path) }
-                            .focused($sdkPickerFocus, equals: .path)
-                            .disabled(!session.canEditFlutterSDK)
-                    }
-                }
-            }
-            rule
-            sdkRow("Version & Status") {
+            settingsRow("Version & Status") {
                 if session.isCheckingSDK {
                     ProgressView("Checking Flutter SDK").controlSize(.small)
                         .font(RunletType.localized(locale, size: 11))
@@ -494,8 +413,27 @@ struct SettingsView: View {
                 }
             }
 
+            rule
+            if let path {
+                if manualPath == path {
+                    sdkPath("SDK Path", path: path, focus: .flutterPath, enabled: session.canEditFlutterSDK) {
+                        chooseSDK(for: session, from: .flutterPath)
+                    }
+                } else {
+                    sdkPath("SDK Path", path: path)
+                }
+                if let manualPath, manualPath != path {
+                    rule
+                    sdkPath("Manual SDK Path", path: manualPath, focus: .flutterPath, enabled: session.canEditFlutterSDK) {
+                        chooseSDK(for: session, from: .flutterPath)
+                    }
+                }
+            } else {
+                settingsRow("SDK Path") { Text(verbatim: "—").foregroundStyle(palette.muted) }
+            }
+
             if session.isCheckingSDKSelection || !session.canEditFlutterSDK || session.sdkIssue != nil ||
-                session.sdkSelectionIssue != nil || (source == .projectFVM && session.manualSDKPath != nil) {
+                session.sdkSelectionIssue != nil {
                 rule
                 VStack(alignment: .leading, spacing: 5) {
                     if session.isCheckingSDKSelection {
@@ -505,9 +443,6 @@ struct SettingsView: View {
                     }
                     if let issue = session.sdkIssue { Text(issue).foregroundStyle(palette.warning) }
                     if let issue = session.sdkSelectionIssue { Text(issue).foregroundStyle(palette.warning) }
-                    if source == .projectFVM, let manual = session.manualSDKPath {
-                        Text("Manual path: \(manual)").textSelection(.enabled)
-                    }
                 }
                 .font(RunletType.localized(locale, size: 11))
                 .foregroundStyle(palette.secondary)
@@ -517,8 +452,34 @@ struct SettingsView: View {
         }
     }
 
-    private func sdkRow<Trailing: View>(_ title: LocalizedStringResource,
-                                        @ViewBuilder trailing: () -> Trailing) -> some View {
+    private func sdkPath(_ title: LocalizedStringResource, path: String,
+                         focus: SDKPickerTrigger = .flutterPath, enabled: Bool = true,
+                         change: (() -> Void)? = nil) -> some View {
+        let home = NSHomeDirectory()
+        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
+        return VStack(alignment: .leading, spacing: 0) {
+            settingsRow(title) {
+                if let change {
+                    settingsAction("Change…", action: change)
+                        .focused($sdkPickerFocus, equals: focus)
+                        .disabled(!enabled)
+                }
+            }
+            Text(verbatim: display)
+                .font(.system(size: 12))
+                .foregroundStyle(palette.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(path)
+                .accessibilityLabel(Text(verbatim: path))
+                .textSelection(.enabled)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 9)
+        }
+    }
+
+    private func settingsRow<Trailing: View>(_ title: LocalizedStringResource,
+                                             @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack(spacing: 8) {
             Text(title)
                 .font(RunletType.localized(locale, size: 13))
