@@ -1,0 +1,72 @@
+name: Branch policy
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: branch-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  branch-policy:
+    name: branch-policy (${{ github.base_ref }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PR source and hotfix history
+        shell: bash
+        env:
+          PR_BASE: ${{ github.base_ref }}
+          PR_HEAD: ${{ github.head_ref }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+
+          fail() {
+            printf '::error::%s\n' "$1"
+            exit 1
+          }
+
+          case "$PR_BASE" in
+            dev)
+              case "$PR_HEAD" in
+                codex/?*|feat/?*|fix/?*) exit 0 ;;
+                *) fail "PRs into dev must come from a codex/, feat/, or fix/ branch." ;;
+              esac
+              ;;
+            main)
+              [[ "$PR_HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] ||
+                fail "PRs into main must come from this repository."
+              case "$PR_HEAD" in
+                dev) exit 0 ;;
+                fix/?*) ;;
+                *) fail "PRs into main must come from dev or from a fix/ branch based on main." ;;
+              esac
+              ;;
+            *) fail "Unexpected PR target." ;;
+          esac
+
+          [[ "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "Invalid PR head commit."
+
+          # Fetch history into a bare repository so the check never needs a checkout.
+          graph=$(mktemp -d "$RUNNER_TEMP/branch-policy.XXXXXXXX")
+          git -C "$graph" init --bare --quiet
+          git -C "$graph" fetch --quiet --no-tags --filter=tree:0 \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            'refs/heads/main:refs/policy/main' \
+            'refs/heads/dev:refs/policy/dev' \
+            "$PR_HEAD_SHA:refs/policy/head"
+
+          git -C "$graph" merge-base --is-ancestor refs/policy/main refs/policy/head ||
+            fail "A fix/ PR into main must include the current main tip."
+
+          git -C "$graph" rev-list refs/policy/main..refs/policy/head | sort > "$graph/fix-commits"
+          git -C "$graph" rev-list refs/policy/main..refs/policy/dev | sort > "$graph/dev-commits"
+          shared_commits=$(comm -12 "$graph/fix-commits" "$graph/dev-commits")
+          [[ -z "$shared_commits" ]] || fail "A fix/ PR into main cannot include commits unique to dev."
