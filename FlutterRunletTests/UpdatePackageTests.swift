@@ -63,6 +63,20 @@ final class UpdatePackageTests: XCTestCase {
     }
 
     #if DEBUG
+    func testSignedDMGWithoutUpdateHelperIsRejected() async throws {
+        let fixture = try PackageFixture()
+        defer { fixture.cleanUp() }
+        let app = try fixture.makeApp(folder: "without-helper", version: "7.3.0", build: "73")
+        let artifact = try fixture.makeArtifact(app: app)
+        let server = try await AssetHTTPServer.start(replies: ["/asset": .ok(artifact.bytes)])
+        defer { server.stop() }
+        let release = try packageRelease(digest: artifact.trust.imageSHA256, size: Int64(artifact.bytes.count))
+        let running = RunningUpdateApp(productID: PackageFixture.productID, version: "7.2.0", build: "1")
+        await expectIssue(.invalidBundle) {
+            try await prepare(release, running: running, trust: artifact.trust, server: server)
+        }
+    }
+
     func testSignedDMGIsDownloadedAndPreparedWithoutChangingRunningApp() async throws {
         let fixture = try PackageFixture()
         defer { fixture.cleanUp() }
