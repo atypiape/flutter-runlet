@@ -79,7 +79,7 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 4（须有 07-03 的有效视觉签核）**
 
-- [ ] [07-04 真实 Release 检查与下载校验](phases/07-settings-about-updates/07-04-PLAN.md)
+- [x] [07-04 真实 Release 检查与下载校验](phases/07-settings-about-updates/07-04-PLAN.md)
 
 **Wave 5（依赖 07-04 及 07-03 的有效视觉签核）**
 

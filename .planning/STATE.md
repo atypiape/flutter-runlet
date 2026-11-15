@@ -5,17 +5,17 @@ milestone_name: 界面与调试体验
 current_phase: 07
 current_phase_name: 设置、关于与更新
 status: executing
-stopped_at: 07-03 视觉签核通过，正在执行 07-04
-last_updated: "2026-11-15T08:53:54Z"
+stopped_at: 07-04 正式版本查询和下载预检通过，正在执行 07-05
+last_updated: "2026-11-15T09:38:18Z"
 last_activity: 2026-11-15
-last_activity_desc: 完成 07-03 同一原生候选的 512 项逐状态签核
-state_head: e0a6e15686a7a8dde24d6dd08cf661063838f9bc
+last_activity_desc: 完成 07-04 正式 Release 查询、下载预检和原生复拍
+state_head: 517bbf571f4179354769d3c46ff0cb9f87c73a6d
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -23,15 +23,15 @@ progress:
 ## Current Position
 
 Phase: 07 设置、关于与更新
-Plan: 正在执行 07-04，已完成 3 / 6
+Plan: 正在执行 07-05，已完成 4 / 6
 Status: 执行中
-Last activity: 2026-11-15 — 完成 07-03 同一原生候选的 512 项逐状态签核
+Last activity: 2026-11-15 — 完成 07-04 正式 Release 查询、下载预检和原生复拍
 
 ## Session
 
-**Last session:** 2026-11-15T08:53:54Z
-**Stopped at:** 07-03 视觉签核通过，正在执行 07-04
-**Resume file:** .planning/phases/07-settings-about-updates/07-04-PLAN.md
+**Last session:** 2026-11-15T09:38:18Z
+**Stopped at:** 07-04 正式版本查询和下载预检通过，正在执行 07-05
+**Resume file:** .planning/phases/07-settings-about-updates/07-05-PLAN.md
 
 ## Performance Metrics
 
@@ -60,4 +60,4 @@ Last activity: 2026-11-15 — 完成 07-03 同一原生候选的 512 项逐状�
 
 ## Operator Next Steps
 
-- 在同一工作区复验视觉签核后，执行 07-04 的正式版本查询、下载校验与安装包预检。
+- 使用同一视觉签核和 07-04 验包结果，实测隔离版本的事务交接、重启、回退和跨实例活动门禁。
