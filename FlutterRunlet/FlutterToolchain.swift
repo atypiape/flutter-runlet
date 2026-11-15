@@ -407,10 +407,11 @@ struct FlutterToolchain {
     }
 
     static func doctor(using sdk: FlutterSDK, environment: [String: String], project: URL?,
-                       timeout: Duration = .seconds(25), outputLimit: Int = 1024 * 1024) async -> FlutterDoctorResult {
+                       timeout: Duration = .seconds(25), outputLimit: Int = 1024 * 1024,
+                       activity: UpdateActivityLease? = nil) async -> FlutterDoctorResult {
         let environment = probeEnvironment(environment, project)
         let operation = Task.detached(priority: .utility) {
-            readDoctor(sdk.executable, environment: environment, timeout: timeout, outputLimit: outputLimit)
+            readDoctor(sdk.executable, environment: environment, timeout: timeout, outputLimit: outputLimit, activity: activity)
         }
         return await withTaskCancellationHandler {
             await operation.value
@@ -420,7 +421,7 @@ struct FlutterToolchain {
     }
 
     private static func readDoctor(_ executable: URL, environment: [String: String],
-                                   timeout: Duration, outputLimit: Int) -> FlutterDoctorResult {
+                                   timeout: Duration, outputLimit: Int, activity: UpdateActivityLease?) -> FlutterDoctorResult {
         guard !Task.isCancelled else { return FlutterDoctorResult(failure: .cancelled) }
         guard executable.isFileURL, executable.path.hasPrefix("/") else { return FlutterDoctorResult(failure: .launch) }
         let directory = FileManager.default.temporaryDirectory.appending(path: "FlutterRunlet-doctor-\(UUID())")
@@ -446,6 +447,10 @@ struct FlutterToolchain {
             for (stream, fd) in [(stdout, STDOUT_FILENO), (stderr, STDERR_FILENO)] {
                 let status = posix_spawn_file_actions_adddup2(&actions, stream.writer.fileDescriptor, fd)
                 if status != 0 { return status }
+            }
+            if let activity {
+                let inherited = posix_spawn_file_actions_addinherit_np(&actions, activity.descriptor)
+                if inherited != 0 { return inherited }
             }
             if #available(macOS 26, *) {
                 return posix_spawn_file_actions_addchdir(&actions, directory.path)

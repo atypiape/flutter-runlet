@@ -104,7 +104,7 @@ final class SessionController {
     private(set) var project: URL?
     private(set) var recentProjects: [URL] = []
     var canChangeProject: Bool {
-        !fixtureConfigurationFailed && !isBusy && !executionIsUnconfirmed && recovery == nil
+        !fixtureConfigurationFailed && !updateReserved && !isBusy && !executionIsUnconfirmed && recovery == nil
     }
     private(set) var choices: [LaunchChoice] = []
     private(set) var selectedID: Int?
@@ -424,6 +424,7 @@ final class SessionController {
     var updateBlocker: UpdatePresentation.Blocker? {
         if executionIsUnconfirmed { return .processUnconfirmed }
         if recoveryStoreIssue != nil || store == nil { return .recoveryUnreadable }
+        if status == .restoringEnvironment { return .recoveryPending }
         if recoveryFailure != nil { return .recoveryFailed }
         if isBusy || isFinishingTermination || updateReserved { return .debugging }
         if recovery != nil { return .recoveryPending }
@@ -431,15 +432,19 @@ final class SessionController {
         do {
             if try !store.allRecords().isEmpty { return .recoveryPending }
         } catch { return .recoveryUnreadable }
+        let lease: UpdateActivityLease
         do {
-            let lease = try UpdateActivityLease(directory: store.directory, installing: true)
-            defer { withExtendedLifetime(lease) {} }
+            lease = try UpdateActivityLease(directory: store.directory, installing: true)
+        } catch UpdateActivityLease.Issue.busy {
+            return .debugging
+        } catch { return .processUnconfirmed }
+        do {
             let entries = try FileManager.default.contentsOfDirectory(atPath: store.directory.path)
             guard !entries.contains(where: { $0.hasPrefix("update-worker-") }),
                   let product = RunningUpdateApp()?.productID else { return .processUnconfirmed }
+            let legacy = try UpdateActivityLease.legacyProjectLocks(entries, in: lease.directoryDescriptor)
+            defer { legacy.forEach { close($0) }; withExtendedLifetime(lease) {} }
             try UpdateProcessIdentity.requireNoOtherInstances(product, excluding: getpid())
-        } catch UpdateActivityLease.Issue.busy {
-            return .debugging
         } catch { return .processUnconfirmed }
         return nil
     }
@@ -901,7 +906,7 @@ final class SessionController {
         isCheckingEnvironment = true
         doctorTasks[request] = Task { [weak self, environment, activity] in
             defer { withExtendedLifetime(activity) {} }
-            let result = await FlutterToolchain.doctor(using: sdk, environment: environment, project: project)
+            let result = await FlutterToolchain.doctor(using: sdk, environment: environment, project: project, activity: activity)
             guard let self else { return }
             self.doctorTasks.removeValue(forKey: request)
             guard self.doctorRequest == request, self.project == project, self.sdk == sdk else { return }

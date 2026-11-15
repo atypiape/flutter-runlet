@@ -59,7 +59,11 @@ struct ProjectRecoveryStore: Sendable {
     }
 
     static func privateDirectory(_ url: URL) throws -> URL {
-        let parent = url.deletingLastPathComponent().resolvingSymlinksInPath()
+        guard let canonical = realpath(url.deletingLastPathComponent().path, nil) else {
+            throw SessionIssue(localized: "Could not open the directory for syncing")
+        }
+        defer { free(canonical) }
+        let parent = URL(filePath: String(cString: canonical), directoryHint: .isDirectory)
         let target = parent.appending(path: url.lastPathComponent)
         guard mkdir(target.path, 0o700) == 0 || errno == EEXIST else {
             throw SessionIssue(localized: "Could not create the private recovery directory")

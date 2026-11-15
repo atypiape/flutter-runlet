@@ -220,9 +220,7 @@ final class UpdateReservation: Sendable {
         guard try store.allRecords().isEmpty, !entries.contains(where: { $0.hasPrefix("update-worker-") }) else {
             throw UpdateActivityLease.Issue.workersUnconfirmed
         }
-        for name in entries where name.hasSuffix(".lock") && name != "installation.lock" && name != UpdateActivityLease.name {
-            held.append(try UpdateActivityLease.lock(name, in: recovery.descriptor, LOCK_EX))
-        }
+        held += try UpdateActivityLease.legacyProjectLocks(entries, in: recovery.descriptor)
         try UpdateProcessIdentity.requireNoOtherInstances(productID, excluding: getpid())
         legacy = held
         keep = true

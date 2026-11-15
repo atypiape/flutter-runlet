@@ -48,6 +48,19 @@ final class UpdateActivityLease: Sendable {
         return fd
     }
 
+    static func legacyProjectLocks(_ names: [String], in directory: Int32) throws -> [Int32] {
+        var locks: [Int32] = []
+        do {
+            for name in names where name.hasSuffix(".lock") && name != "installation.lock" && name != Self.name {
+                locks.append(try lock(name, in: directory, LOCK_EX))
+            }
+            return locks
+        } catch {
+            locks.forEach { close($0) }
+            throw error
+        }
+    }
+
     func beginWorker() throws -> String {
         let marker = "update-worker-\(UUID().uuidString)"
         let fd = openat(directoryDescriptor, marker, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
