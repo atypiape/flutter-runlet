@@ -47,6 +47,8 @@
 		E07400000000000000000022 /* UpdatePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000021 /* UpdatePackage.swift */; };
 		E07400000000000000000032 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000031 /* UpdateCoordinator.swift */; };
 		E07500000000000000000002 /* UpdateTransactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000001; };
+		E07500000000000000000004 /* UpdateActivityLease.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000003; };
+		E07500000000000000000005 /* UpdateActivityLease.swift in Worker Sources */ = {isa = PBXBuildFile; fileRef = E07500000000000000000003; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +107,7 @@
 		E07400000000000000000021 /* UpdatePackage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePackage.swift; sourceTree = "<group>"; };
 		E07400000000000000000031 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
 		E07500000000000000000001 /* UpdateTransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateTransactionTests.swift; sourceTree = "<group>"; };
+		E07500000000000000000003 /* UpdateActivityLease.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateActivityLease.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +188,7 @@
 				E07200000000000000000011 /* AppTermination.swift */,
 				E07200000000000000000021 /* UpdatePresentationSource.swift */,
 				E07400000000000000000011 /* ReleaseUpdates.swift */,
+				E07500000000000000000003 /* UpdateActivityLease.swift */,
 				E07400000000000000000021 /* UpdatePackage.swift */,
 				E07400000000000000000031 /* UpdateCoordinator.swift */,
 				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
@@ -357,6 +361,7 @@
 				E07200000000000000000012 /* AppTermination.swift in Sources */,
 				E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */,
 				E07400000000000000000012 /* ReleaseUpdates.swift in Sources */,
+				E07500000000000000000004 /* UpdateActivityLease.swift in Sources */,
 				E07400000000000000000022 /* UpdatePackage.swift in Sources */,
 				E07400000000000000000032 /* UpdateCoordinator.swift in Sources */,
 				F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */,
@@ -386,6 +391,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E07500000000000000000005 /* UpdateActivityLease.swift in Worker Sources */,
 				47EB1D47BB01BF24EF3E21B0 /* SessionProcess.swift in Worker Sources */,
 				8D6FFE35684C8506506A48F1 /* main.swift in Sources */,
 			);

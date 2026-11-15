@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-private func run(_ command: SessionCommand, lease: Int32, directory: Int32, machineInput: Int32?,
+private func run(_ command: SessionCommand, lease: Int32, activity: Int32?, directory: Int32, machineInput: Int32?,
                  report: FileHandle) -> SessionExit {
     guard command.executable.hasPrefix("/"), fchdir(directory) == 0 else {
         return .launchFailed(ENOENT)
@@ -21,7 +21,7 @@ private func run(_ command: SessionCommand, lease: Int32, directory: Int32, mach
         let stdin = machineInput.map { posix_spawn_file_actions_adddup2(&actions, $0, STDIN_FILENO) }
             ?? posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
         guard stdin == 0 else { return stdin }
-        for fd in [STDOUT_FILENO, STDERR_FILENO, lease] {
+        for fd in [STDOUT_FILENO, STDERR_FILENO, lease] + (activity.map { [$0] } ?? []) {
             let code = posix_spawn_file_actions_addinherit_np(&actions, fd)
             if code != 0 { return code }
         }
@@ -72,20 +72,34 @@ private func run(_ command: SessionCommand, lease: Int32, directory: Int32, mach
 }
 
 private func main() -> Int32 {
-    let args = CommandLine.arguments.dropFirst().compactMap(Int32.init)
-    guard [4, 5].contains(args.count), CommandLine.arguments.count == args.count + 1,
-          Set(args).count == args.count,
-          args.allSatisfy({ $0 > STDERR_FILENO }) else { return 64 }
+    let raw = Array(CommandLine.arguments.dropFirst())
+    let split = raw.firstIndex(of: "--activity") ?? raw.count
+    let args = raw.prefix(split).compactMap(Int32.init)
+    let extra = Array(raw.dropFirst(split))
+    let activity: (marker: String, lease: Int32, directory: Int32)?
+    if extra.isEmpty {
+        activity = nil
+    } else {
+        guard extra.count == 4, let lease = Int32(extra[2]), let directory = Int32(extra[3]) else { return 64 }
+        activity = (extra[1], lease, directory)
+    }
+    let descriptors = args + (activity.map { [$0.lease, $0.directory] } ?? [])
+    guard [4, 5].contains(args.count), split == args.count, Set(descriptors).count == descriptors.count,
+          descriptors.allSatisfy({ $0 > STDERR_FILENO }) else { return 64 }
     let lease = args[0]
     let input = FileHandle(fileDescriptor: args[1], closeOnDealloc: true)
     let report = FileHandle(fileDescriptor: args[2], closeOnDealloc: true)
     guard flock(lease, LOCK_EX | LOCK_NB) == 0,
+          activity.map({ flock($0.lease, LOCK_SH | LOCK_NB) == 0 }) ?? true,
           fcntl(report.fileDescriptor, F_SETNOSIGPIPE, 1) == 0,
           let payload = try? input.readToEnd(),
           let command = try? JSONDecoder().decode(SessionCommand.self, from: payload) else { return 65 }
     try? input.close()
-    let result = run(command, lease: lease, directory: args[3], machineInput: args.count == 5 ? args[4] : nil,
-                     report: report)
+    var result = run(command, lease: lease, activity: activity?.lease, directory: args[3],
+                     machineInput: args.count == 5 ? args[4] : nil, report: report)
+    if let activity, result != .unconfirmed, !UpdateActivityLease.finishWorker(activity.marker, in: activity.directory) {
+        result = .unconfirmed
+    }
     guard let data = try? JSONEncoder().encode(result) else { return 66 }
     // The app can be gone by the time the worker finishes draining its group.
     try? report.write(contentsOf: data)

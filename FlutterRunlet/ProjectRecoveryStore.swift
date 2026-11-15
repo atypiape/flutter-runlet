@@ -74,7 +74,9 @@ struct ProjectRecoveryStore: Sendable {
     }
 
     func lease(for project: URL) throws -> ProjectLease {
-        try ProjectLease(project: ProjectLocation.directory(project), lockDirectory: directory)
+        // Acquisition order is namespace activity, then project. The worker inherits both.
+        let activity = try UpdateActivityLease(directory: directory)
+        return try ProjectLease(project: ProjectLocation.directory(project), lockDirectory: directory, activity: activity)
     }
 
     func recordURL(for project: URL) throws -> URL {

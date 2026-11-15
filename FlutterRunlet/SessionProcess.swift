@@ -58,9 +58,10 @@ final class ProjectLease: Sendable {
     let descriptor: Int32
     let project: URL
     let identity: String
+    let activity: UpdateActivityLease?
     private let projectDescriptor: Int32
 
-    init(project: URL, lockDirectory: URL) throws {
+    init(project: URL, lockDirectory: URL, activity: UpdateActivityLease? = nil) throws {
         let root = open(project.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard root >= 0 else { throw SessionIssue(localized: "Could not open the project directory") }
         var info = stat()
@@ -84,6 +85,7 @@ final class ProjectLease: Sendable {
         }
         self.project = project
         self.identity = identity
+        self.activity = activity
         projectDescriptor = root
         descriptor = fd
         try verifyProject()
@@ -196,10 +198,18 @@ struct SessionProcessRunner: Sendable {
             }
         }
         let machineFD = machineReader.map { [$0.fileDescriptor] } ?? []
-        let inherited = [lease.descriptor, inputFD, reportFD, directoryFD] + machineFD
+        let projectFDs = [lease.descriptor, inputFD, reportFD, directoryFD] + machineFD
+        var inherited = projectFDs
+        var arguments = projectFDs.map(String.init)
+        let marker = try lease.activity?.beginWorker()
+        if let activity = lease.activity, let marker {
+            let activityFDs = [activity.descriptor, activity.directoryDescriptor]
+            inherited += activityFDs
+            arguments += ["--activity", marker] + activityFDs.map(String.init)
+        }
         let result = SessionSpawn.spawn(
             worker.path,
-            arguments: inherited.map(String.init),
+            arguments: arguments,
             environment: [:], flags: Int16(POSIX_SPAWN_CLOEXEC_DEFAULT)
         ) { actions in
             for (source, target) in [
@@ -215,6 +225,9 @@ struct SessionProcessRunner: Sendable {
                 if code != 0 { return code }
             }
             return 0
+        }
+        if case .failure = result, let activity = lease.activity, let marker {
+            _ = UpdateActivityLease.finishWorker(marker, in: activity.directoryDescriptor)
         }
         let pid = try result.get()
         try? machineReader?.close()
