@@ -26,7 +26,7 @@ I built FlutterRunlet so I could keep my existing Flutter configurations, leave 
 | **DevTools settings** | **About** |
 | [![FlutterRunlet DevTools settings with a standalone SDK and a shortened path](docs/screenshots/devtools.jpg)](docs/screenshots/devtools.jpg) | [![About FlutterRunlet with Check for Updates and four links](docs/screenshots/about.jpg)](docs/screenshots/about.jpg) |
 
-The DevTools, [full path popover](docs/screenshots/devtools-path.jpg), [General settings](docs/screenshots/settings.jpg), and About screenshots are from v0.3.0 build 223. The main window and menu bar were captured on v0.2.0 with sample data.
+The DevTools, [full path popover](docs/screenshots/devtools-path.jpg), [General settings](docs/screenshots/settings.jpg), and About screenshots show the v0.3.0 build 223 interface with sample data. The main window and menu bar were captured on v0.2.0 with sample data.
 
 ## Install
 

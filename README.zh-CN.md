@@ -26,7 +26,7 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 | **DevTools 设置** | **关于** |
 | [![FlutterRunlet DevTools 设置，显示独立 Dart SDK 和省略后的路径](docs/screenshots/zh-CN/devtools.jpg)](docs/screenshots/zh-CN/devtools.jpg) | [![关于 FlutterRunlet 窗口、检查更新和四个链接](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
 
-DevTools、[完整路径浮窗](docs/screenshots/zh-CN/devtools-path.jpg)、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截图来自 v0.3.0 build 223。主窗口和菜单栏截图拍摄于 v0.2.0，使用示例数据。
+DevTools、[完整路径浮窗](docs/screenshots/zh-CN/devtools-path.jpg)、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截图展示 v0.3.0 build 223 界面，使用示例数据。主窗口和菜单栏截图拍摄于 v0.2.0，也使用示例数据。
 
 ## 安装
 
