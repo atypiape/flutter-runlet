@@ -1,0 +1,12 @@
+---
+phase: 08-devtools-session
+plan: "01"
+requirements-completed: [DEV-01, DEV-02, DEV-03, DEV-04, VER-01]
+---
+
+# DevTools 会话与源码跳转验证
+
+- 已纳入 Inspector 源码跳转、独立 DevTools 按需启动及标签复用，并保留已脱敏的真实项目验收结论。
+- `32b8d2b` 加入三个回归场景。独立 DevTools 启动中保留最后一次页面请求，进程退出后取消旧标签查找，真实回环 WebSocket 测试覆盖订阅出错后重试和定位行列。
+- PR 评审版的隔离测试构建通过 139 项 XCTest。隔离应用标识用于避免和已安装实例触发更新门禁。既有本地候选的 Release 构建也通过。
+- [内存与进程归属](08-MEMORY.md)保留既有采样口径，记录 VS Code 进程拆分的可借鉴之处。真实项目调试流程沿用已有实机证据。

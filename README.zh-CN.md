@@ -23,10 +23,10 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 | 主窗口 | 菜单栏 |
 | :---: | :---: |
 | [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.jpg)](docs/screenshots/zh-CN/main-window.jpg) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.jpg)](docs/screenshots/zh-CN/menu-bar.jpg) |
-| **设置** | **关于** |
-| [![FlutterRunlet 通用设置](docs/screenshots/zh-CN/settings.jpg)](docs/screenshots/zh-CN/settings.jpg) | [![关于 FlutterRunlet 窗口及检查更新按钮](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
+| **DevTools 设置** | **关于** |
+| [![FlutterRunlet DevTools 设置，显示独立 Dart SDK 和省略后的路径](docs/screenshots/zh-CN/devtools.jpg)](docs/screenshots/zh-CN/devtools.jpg) | [![关于 FlutterRunlet 窗口、检查更新和四个链接](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
 
-截图来自 v0.2.0 开发构建，使用示例数据。
+DevTools、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截图展示 v0.3.0 build 223 界面，使用示例数据。主窗口和菜单栏截图拍摄于 v0.2.0，也使用示例数据。
 
 ## 安装
 
@@ -41,7 +41,15 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 3. 调试连接建立后，可以热重载、热重启，或在浏览器中打开当前会话的 DevTools 和 Inspector。主窗口可以查看、复制和清空日志。
 4. 点击「停止」，等待后置任务结束。如果环境恢复失败，打开受影响的项目，点击「重试恢复」再次执行原任务。
 
-主窗口和菜单栏控制同一个会话。调试中改选设备只影响下一次运行，当前会话仍留在原设备。界面支持简体中文和 English，并跟随系统深浅外观。
+在「设置 → DevTools → 源码编辑器」选择 VS Code（默认）、Cursor 或 Zed。在 DevTools 2.61.0 或更新版本中，选中 Widget 后点击详情面板的源码位置。SDK 自带的 DevTools 2.60.0 中，选中 Widget 时会跳到源码。编辑器按需启动，跳转范围为当前项目的 Dart 文件。
+
+在「设置 → DevTools → DevTools 来源」选择「独立 Dart SDK」并指定目录，例如自带 DevTools 2.61.0 的 Dart 3.14.0。之后可在「Dart SDK」分组点击「路径」右侧的「更换…」。地址单独显示在下一行，太长时用省略号显示。悬停可查看完整路径，也可以点击行尾的「…」，在浮窗中查看和复制路径。
+
+点击「打开 Inspector」时，FlutterRunlet 会启动独立 DevTools 并连接当前会话。项目仍使用原来的 Flutter 和 Dart。选择「Flutter 自带」可切回。
+
+同一会话再次点击「打开 Inspector」时，FlutterRunlet 会切回已打开的 Inspector 标签页。关闭标签页后，再点击会重新打开。Edge、Chrome 和 Safari 需要允许 FlutterRunlet 使用 macOS 浏览器自动化。
+
+主窗口和菜单栏控制同一个会话。调试中改选设备只影响下一次运行，当前会话仍留在原设备。界面支持简体中文和 English。「设置 → 通用 → 应用外观」默认深色，可改为浅色或跟随系统。选择立即生效并在重启后保留。
 
 FlutterRunlet 支持 **Debug** 配置。Profile、Release、后台常驻任务、复杂交互任务及部分 VS Code 扩展变量不在支持范围内。FlutterRunlet 不改写配置文件，按原配置执行前置和后置任务。可试用 [VS Code 配置示例](docs/examples/sample-flutter-app/README.md)，或查阅[配置兼容说明](docs/02-TECHNICAL.md#2-launchjson-基本契约v01)。
 

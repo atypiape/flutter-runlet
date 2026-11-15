@@ -115,6 +115,9 @@ final class SessionController {
     var showMainWindowOnLaunch: Bool {
         didSet { preferences?.set(showMainWindowOnLaunch, forKey: Self.showMainWindowKey) }
     }
+    var inspectorEditor: InspectorEditor = .vsCode {
+        didSet { preferences?.set(inspectorEditor.rawValue, forKey: Self.inspectorEditorKey) }
+    }
     var shouldPresentMainWindowOnLaunch: Bool {
         showMainWindowOnLaunch || recovery != nil || recoveryStoreIssue != nil
     }
@@ -141,7 +144,12 @@ final class SessionController {
     private(set) var deviceIssue: LocalizedStringResource?
     private(set) var vmConnected = false
     private var hasCurrentDevToolsAddress = false
-    var canOpenBrowser: Bool { canStop && vmConnected && hasCurrentDevToolsAddress }
+    var canOpenBrowser: Bool {
+        canStop && vmConnected && !executionIsUnconfirmed && (standaloneDevToolsPath != nil || hasCurrentDevToolsAddress)
+    }
+    private(set) var standaloneDevToolsPath: String?
+    private(set) var standaloneDevToolsVersion: String?
+    private(set) var standaloneDevToolsIssue: LocalizedStringResource?
     private(set) var feedback: SessionFeedback?
     private(set) var isHotOperationPending = false
     var canHotOperate: Bool {
@@ -293,6 +301,8 @@ final class SessionController {
 
     private static let rememberKey = "rememberRecentProject"
     private static let showMainWindowKey = "showMainWindowOnLaunch"
+    private static let inspectorEditorKey = "inspectorEditor"
+    private static let standaloneDevToolsKey = "standaloneDevToolsPath"
     private static let recentKey = "recentProjectPath"
     private static let recentProjectsKey = "recentProjects"
     private static let preferFVMKey = "preferProjectFVM"
@@ -313,10 +323,23 @@ final class SessionController {
     @ObservationIgnored private let verifyVM: FlutterDebugSession.Verification?
     @ObservationIgnored private let debugTiming: FlutterDebugTiming
     @ObservationIgnored private let openURL: (URL) -> Bool
+    @ObservationIgnored private let focusInspector: @MainActor (URL) async -> Bool
     @ObservationIgnored private let logBoundary = OSAllocatedUnfairLock(initialState: UInt64(0))
     @ObservationIgnored private let environment: [String: String]
     @ObservationIgnored private var active: SessionProcess?
     @ObservationIgnored private var debug: FlutterDebugSession?
+    @ObservationIgnored private var inspectorFocusTask: Task<Void, Never>?
+    @ObservationIgnored private var debugLease: ProjectLease?
+    @ObservationIgnored private var standaloneServer: StandaloneServer?
+    @ObservationIgnored private var standaloneStartupTimeout: Task<Void, Never>?
+
+    private struct StandaloneServer {
+        let id: UUID
+        let process: SessionProcess
+        let version: String
+        var address: URL?
+        var pendingPage: FlutterBrowserPage?
+    }
     @ObservationIgnored private var stopFallback: Task<Void, Never>?
     @ObservationIgnored private var vmWaitTimeout: Task<Void, Never>?
     @ObservationIgnored private var deviceMonitor: Task<Void, Never>?
@@ -352,11 +375,12 @@ final class SessionController {
         preferences: UserDefaults? = nil, toolchain: FlutterToolchain,
         verifyVM: FlutterDebugSession.Verification? = nil,
         debugTiming: FlutterDebugTiming = .continuous,
-        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }
+        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        focusInspector: @escaping @MainActor (URL) async -> Bool = { _ in false }
     ) {
         self.init(store: store, runner: runner, allowedRoot: nil, environment: environment,
                   preferences: preferences, toolchain: toolchain, verifyVM: verifyVM,
-                  debugTiming: debugTiming, openURL: openURL, debugCommand: nil)
+                  debugTiming: debugTiming, openURL: openURL, focusInspector: focusInspector, debugCommand: nil)
     }
 
     private init(
@@ -365,6 +389,7 @@ final class SessionController {
         verifyVM: FlutterDebugSession.Verification? = nil,
         debugTiming: FlutterDebugTiming = .continuous,
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        focusInspector: @escaping @MainActor (URL) async -> Bool = InspectorBrowserTabs.focus,
         debugCommand: ((PreparedLaunch) -> SessionCommand?)?, deferStartup: Bool = false
     ) {
         self.store = store
@@ -377,6 +402,7 @@ final class SessionController {
         self.verifyVM = verifyVM
         self.debugTiming = debugTiming
         self.openURL = openURL
+        self.focusInspector = focusInspector
         self.environment = environment
         self.preferences = preferences
         rememberRecentProject = true
@@ -388,6 +414,12 @@ final class SessionController {
     private func loadStartupPreferences() {
         rememberRecentProject = preferences?.object(forKey: Self.rememberKey) as? Bool ?? true
         showMainWindowOnLaunch = preferences?.object(forKey: Self.showMainWindowKey) as? Bool ?? true
+        inspectorEditor = preferences?.string(forKey: Self.inspectorEditorKey).flatMap(InspectorEditor.init(rawValue:)) ?? .vsCode
+        standaloneDevToolsPath = preferences?.string(forKey: Self.standaloneDevToolsKey)
+        if let path = standaloneDevToolsPath {
+            standaloneDevToolsVersion = StandaloneDevToolsSDK(directory: URL(fileURLWithPath: path))?.version
+            if standaloneDevToolsVersion == nil { standaloneDevToolsIssue = Self.invalidStandaloneDevTools }
+        }
         preferProjectFVM = preferences?.object(forKey: Self.preferFVMKey) as? Bool ?? true
         manualSDKPath = preferences?.string(forKey: Self.manualSDKKey)
         var recentPath = preferences?.string(forKey: Self.recentKey)
@@ -1185,6 +1217,11 @@ final class SessionController {
         }
         vmWaitTimeout?.cancel()
         deviceMonitor?.cancel()
+        inspectorFocusTask?.cancel()
+        inspectorFocusTask = nil
+        standaloneStartupTimeout?.cancel()
+        standaloneStartupTimeout = nil
+        standaloneServer?.process.stop()
         if let active, let request = debug?.stopRequest(), active.send(request) {
             stopFallback = Task { [weak active] in
                 do { try await Task.sleep(for: .seconds(2)) }
@@ -1250,14 +1287,143 @@ final class SessionController {
         didClearLogs = clearedByUser
     }
 
+    private static let invalidStandaloneDevTools: LocalizedStringResource = "Select a Dart SDK directory that includes DevTools."
+
+    func selectStandaloneDevTools(_ directory: URL?) {
+        guard canEditFlutterSDK else { return }
+        let sdk = directory.flatMap(StandaloneDevToolsSDK.init(directory:))
+        guard directory == nil || sdk != nil else {
+            standaloneDevToolsIssue = Self.invalidStandaloneDevTools
+            return
+        }
+        standaloneDevToolsPath = sdk?.directory.path
+        standaloneDevToolsVersion = sdk?.version
+        standaloneDevToolsIssue = nil
+        preferences?.set(standaloneDevToolsPath, forKey: Self.standaloneDevToolsKey)
+    }
+
     func openBrowser(_ page: FlutterBrowserPage) {
-        guard canOpenBrowser, let destination = debug?.browserDestination(page) else { return }
-        if !openURL(destination.url) {
+        guard canOpenBrowser, let debug else { return }
+        if let path = standaloneDevToolsPath {
+            openStandaloneDevTools(page, for: debug, path: path)
+        } else if let destination = debug.browserDestination(page) {
+            presentBrowser(page, destination: destination)
+        }
+    }
+
+    private func openStandaloneDevTools(_ page: FlutterBrowserPage, for debug: FlutterDebugSession, path: String) {
+        guard debug.hasActiveVMService, let lease = debugLease, let project else { return }
+        if let server = standaloneServer {
+            if let address = server.address {
+                if let destination = debug.standaloneBrowserDestination(page, server: address, version: server.version) {
+                    presentBrowser(page, destination: destination)
+                }
+            } else if standaloneStartupTimeout != nil {
+                standaloneServer?.pendingPage = page
+            }
+            return
+        }
+        guard let sdk = StandaloneDevToolsSDK(directory: URL(fileURLWithPath: path)) else {
+            standaloneDevToolsVersion = nil
+            standaloneDevToolsIssue = Self.invalidStandaloneDevTools
+            showStandaloneDevToolsFailure()
+            return
+        }
+        standaloneDevToolsVersion = sdk.version
+        standaloneDevToolsIssue = nil
+        let id = UUID()
+        let lines = SessionLineStream { [weak self, weak debug] line, isError, _ in
+            guard let self, let debug, self.debug === debug, self.standaloneServer?.id == id,
+                  self.standaloneStartupTimeout != nil, !isError,
+                  let page = self.standaloneServer?.pendingPage,
+                  let address = StandaloneDevToolsSDK.serverAddress(from: line) else { return }
+            self.standaloneStartupTimeout?.cancel()
+            self.standaloneStartupTimeout = nil
+            self.standaloneServer?.address = address
+            self.standaloneServer?.pendingPage = nil
+            if let destination = debug.standaloneBrowserDestination(page, server: address, version: sdk.version) {
+                self.presentBrowser(page, destination: destination)
+            } else {
+                self.feedback = SessionFeedback(title: "Standalone DevTools is ready",
+                                                detail: "Open Inspector or DevTools again after the debug session reconnects.")
+            }
+        }
+        let command = SessionCommand(executable: sdk.dart.path,
+                                     arguments: ["devtools", "--no-launch-browser", "--machine", "--host=127.0.0.1", "--port=0"],
+                                     directory: project.path, environment: environment)
+        do {
+            let process = try runner.start(command, lease: lease, output: { data, isError, generation in
+                lines.receive(data, isError: isError, generation: generation)
+            })
+            standaloneServer = StandaloneServer(id: id, process: process, version: sdk.version, pendingPage: page)
+            feedback = SessionFeedback(title: "Starting standalone DevTools…", detail: nil)
+            standaloneStartupTimeout = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(15)) }
+                catch { return }
+                guard let self, self.standaloneServer?.id == id else { return }
+                self.standaloneStartupTimeout = nil
+                process.stop()
+                self.showStandaloneDevToolsFailure()
+            }
+            Task { [weak self, weak debug] in
+                let result = await process.wait()
+                guard let self, let server = self.standaloneServer, server.id == id else { return }
+                let awaitingStartup = self.standaloneStartupTimeout != nil
+                self.standaloneStartupTimeout?.cancel()
+                self.standaloneStartupTimeout = nil
+                self.standaloneServer = nil
+                self.inspectorFocusTask?.cancel()
+                self.inspectorFocusTask = nil
+                debug?.openedInspector = nil
+                if result.exit == .unconfirmed {
+                    self.executionIsUnconfirmed = true
+                    self.blockedLease = lease
+                }
+                if self.canStop, debug?.hasActiveVMService == true {
+                    if awaitingStartup {
+                        self.showStandaloneDevToolsFailure()
+                    } else if server.address != nil {
+                        self.feedback = SessionFeedback(title: "Standalone DevTools stopped",
+                                                        detail: "Open Inspector or DevTools to start it again.")
+                    }
+                }
+            }
+        } catch {
+            showStandaloneDevToolsFailure()
+        }
+    }
+
+    private func showStandaloneDevToolsFailure() {
+        feedback = SessionFeedback(title: "Could not start standalone DevTools",
+                                   detail: "Check the Dart SDK in DevTools settings and try again.")
+    }
+
+    private func presentBrowser(_ page: FlutterBrowserPage, destination: (url: URL, inspectorFallback: Bool)) {
+        let canReuse = page == .inspector && !destination.inspectorFallback
+        if canReuse, let debug, debug.openedInspector == destination.url {
+            guard inspectorFocusTask == nil else { return }
+            inspectorFocusTask = Task { [weak self, weak debug, focusInspector] in
+                let reused = await focusInspector(destination.url)
+                guard let self, !Task.isCancelled else { return }
+                self.inspectorFocusTask = nil
+                guard let debug, self.debug === debug, self.canOpenBrowser,
+                      debug.openedInspector == destination.url else { return }
+                self.finishPresentingBrowser(page, destination: destination, reused: reused)
+            }
+        } else {
+            finishPresentingBrowser(page, destination: destination, reused: false)
+        }
+    }
+
+    private func finishPresentingBrowser(_ page: FlutterBrowserPage,
+                                         destination: (url: URL, inspectorFallback: Bool), reused: Bool) {
+        if !reused && !openURL(destination.url) {
             feedback = SessionFeedback(title: "Could not open \(page.title)",
                                        detail: "The system could not open this address. Check the default browser and current connection, then try again.")
         } else if destination.inspectorFallback {
             feedback = SessionFeedback(title: "Opened DevTools for the current session. Select Inspector.", detail: nil)
         } else {
+            if page == .inspector { debug?.openedInspector = destination.url }
             feedback = SessionFeedback(title: "Opened \(page.title)", detail: nil)
         }
     }
@@ -1345,6 +1511,15 @@ final class SessionController {
                     }
                 }, browserAvailabilityChanged: { [weak self] available in
                     self?.hasCurrentDevToolsAddress = available
+                }, openSource: { [weak self, project = launch.project] notification, opensOnSelection in
+                    guard let self, !self.stopRequested, self.vmConnected,
+                          let location = InspectorSourceLocation(notification: notification, project: project,
+                                                                 opensOnSelection: opensOnSelection && !(self.standaloneDevToolsVersion
+                                                                     .map(StandaloneDevToolsSDK.hasSourceLinks) ?? false)) else { return }
+                    self.inspectorEditor.open(location) { [weak self] in
+                        self?.feedback = SessionFeedback(title: "Could not open the source editor",
+                                                         detail: "Check that the editor selected in Settings is installed.")
+                    }
                 })
             }
             debug = flutter
@@ -1434,7 +1609,10 @@ final class SessionController {
             flushLogs()
             flutter?.finish()
             if flutter != nil {
+                inspectorFocusTask?.cancel()
+                inspectorFocusTask = nil
                 debug = nil
+                debugLease = nil
                 hasCurrentDevToolsAddress = false
                 debugStatusMessage = nil
                 feedback = nil
@@ -1449,6 +1627,7 @@ final class SessionController {
             }
         }
         do {
+            if flutter != nil { debugLease = lease }
             let process = try runner.start(command, lease: lease, output: { data, isError, generation in
                 lines.receive(data, isError: isError, generation: generation)
             }, outputGeneration: { [logBoundary] in
@@ -1462,11 +1641,24 @@ final class SessionController {
             active = process
             let result = await process.wait()
             active = nil
-            if result.exit == .unconfirmed {
+            var exit = result.exit
+            if let flutter {
+                flutter.finish()
+                standaloneStartupTimeout?.cancel()
+                standaloneStartupTimeout = nil
+                if let server = standaloneServer {
+                    server.process.stop()
+                    let standaloneResult = await server.process.wait()
+                    if standaloneResult.exit == .unconfirmed { exit = .unconfirmed }
+                }
+                standaloneServer = nil
+            }
+            if exit == .unconfirmed || executionIsUnconfirmed {
                 executionIsUnconfirmed = true
                 blockedLease = lease
+                return .unconfirmed
             }
-            return result.exit
+            return exit
         } catch let failure as SessionSpawn.SpawnError {
             return .launchFailed(failure.code)
         } catch {

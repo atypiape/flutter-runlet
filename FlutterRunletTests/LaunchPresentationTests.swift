@@ -16,7 +16,7 @@ final class LaunchPresentationTests: XCTestCase {
         let settings = SettingsView(session: session, selection: .constant(.general),
                                     language: AppLanguageSettings(defaults: defaults))
         let host = NSHostingView(rootView: settings)
-        XCTAssertEqual(host.fittingSize, CGSize(width: 520, height: 520))
+        XCTAssertEqual(host.fittingSize, CGSize(width: 640, height: 520))
         let launchSwitch = SettingsView.launchWindowPreference(session)
         XCTAssertTrue(launchSwitch.wrappedValue)
         launchSwitch.wrappedValue = false
@@ -35,7 +35,8 @@ final class LaunchPresentationTests: XCTestCase {
         for (destination, expected) in [
             (AboutInformation.Destination.project, "https://github.com/atypiape/flutter-runlet"),
             (.documentation, "https://github.com/atypiape/flutter-runlet/blob/main/README.md"),
-            (.license, "https://github.com/atypiape/flutter-runlet/blob/main/LICENSE")
+            (.license, "https://github.com/atypiape/flutter-runlet/blob/main/LICENSE"),
+            (.recentUpdates, "https://github.com/atypiape/flutter-runlet/releases")
         ] {
             XCTAssertEqual(destination.url.absoluteString, expected)
             XCTAssertEqual(destination.url.scheme, "https")
@@ -52,8 +53,9 @@ final class LaunchPresentationTests: XCTestCase {
             ("Inspired by Flutter GUI Runner", "灵感来自 Flutter GUI Runner"),
             ("MIT License", "MIT 许可证"),
             ("Project Home", "项目主页"),
-            ("Documentation", "使用文档"),
-            ("Project License", "项目许可证")
+            ("Doc", "使用文档"),
+            ("License", "许可证"),
+            ("Updates", "近期更新")
         ] {
             XCTAssertEqual(englishBundle.localizedString(forKey: key, value: "<missing>", table: nil), key)
             XCTAssertEqual(chineseBundle.localizedString(forKey: key, value: "<missing>", table: nil), translation)
@@ -204,6 +206,23 @@ final class LaunchPresentationTests: XCTestCase {
         XCTAssertFalse(matching.isBusy)
         XCTAssertEqual(try fixture.marker(), "prod\n")
         XCTAssertEqual(try store.read(project: fixture.project), record)
+    }
+
+    @MainActor
+    func testApplicationAppearanceAppliesImmediatelyAndPersists() throws {
+        let suite = "FlutterRunletTests.appearance.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var applied: [NSAppearance.Name?] = []
+        let appearance = AppAppearanceSettings(defaults: defaults) { applied.append($0) }
+        XCTAssertEqual(appearance.selection, .dark)
+        appearance.selection = .light
+        appearance.selection = .dark
+        XCTAssertEqual(AppAppearanceSettings(defaults: defaults) { applied.append($0) }.selection, .dark)
+        appearance.selection = .system
+        XCTAssertEqual(AppAppearanceSettings(defaults: defaults) { applied.append($0) }.selection, .system)
+        XCTAssertEqual(applied, [.darkAqua, .aqua, .darkAqua, .darkAqua, nil, nil])
+        XCTAssertEqual(defaults.string(forKey: AppAppearanceSettings.preferenceKey), "system")
     }
 
     @MainActor
@@ -359,13 +378,13 @@ final class LaunchPresentationTests: XCTestCase {
 
     @MainActor
     func testSettingsChromeRestoresHiddenLocalizedTitleWhileWindowIsNotVisible() async throws {
-        for (code, title) in [("en", "Settings"), ("zh-Hans", "设置")] {
+        for (code, title) in [("en", "General"), ("zh-Hans", "通用")] {
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: SettingsView.windowSize),
                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             defer { window.close() }
             window.contentView = NSHostingView(rootView:
-                AuxiliaryWindowLayout(title: "Settings", kind: .settings) { Color.clear }
+                AuxiliaryWindowLayout(title: SettingsView.Page.general.title, kind: .settings) { Color.clear }
                     .environment(\.locale, Locale(identifier: code))
             )
             window.contentView?.layoutSubtreeIfNeeded()
