@@ -207,6 +207,22 @@ final class LaunchPresentationTests: XCTestCase {
     }
 
     @MainActor
+    func testApplicationAppearanceAppliesImmediatelyAndPersists() throws {
+        let suite = "FlutterRunletTests.appearance.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var applied: [NSAppearance.Name?] = []
+        let appearance = AppAppearanceSettings(defaults: defaults) { applied.append($0) }
+        XCTAssertEqual(appearance.selection, .system)
+        appearance.selection = .light
+        appearance.selection = .dark
+        XCTAssertEqual(AppAppearanceSettings(defaults: defaults) { applied.append($0) }.selection, .dark)
+        appearance.selection = .system
+        XCTAssertEqual(applied, [nil, .aqua, .darkAqua, .darkAqua, nil])
+        XCTAssertEqual(defaults.string(forKey: AppAppearanceSettings.preferenceKey), "system")
+    }
+
+    @MainActor
     func testLanguageSelectionBindingUpdatesSharedRunCopyAndPersists() throws {
         let suite = "FlutterRunletTests.Language.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

@@ -1,7 +1,85 @@
 import AppKit
 import Foundation
+import Network
+import os
 import XCTest
 @testable import FlutterRunlet
+
+private struct ToolEventServer {
+    let listener: NWListener
+    let port: UInt16
+
+    static func start(file: URL) async throws -> Self {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        parameters.defaultProtocolStack.applicationProtocols.insert(NWProtocolWebSocket.Options(), at: 0)
+        let listener = try NWListener(using: parameters)
+        let queue = DispatchQueue(label: "FlutterDebugSessionTests.toolEvents")
+        let attempts = OSAllocatedUnfairLock(initialState: 0)
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: queue)
+            receive(on: connection, file: file, attempts: attempts)
+        }
+        let (states, updates) = AsyncThrowingStream<NWEndpoint.Port, Error>.makeStream()
+        listener.stateUpdateHandler = { [weak listener] state in
+            switch state {
+            case .ready:
+                if let port = listener?.port { updates.yield(port); updates.finish() }
+                else { updates.finish(throwing: URLError(.cannotConnectToHost)) }
+            case .failed(let error): updates.finish(throwing: error)
+            default: break
+            }
+        }
+        listener.start(queue: queue)
+        var iterator = states.makeAsyncIterator()
+        guard let port = try await iterator.next() else { throw URLError(.cannotConnectToHost) }
+        return Self(listener: listener, port: port.rawValue)
+    }
+
+    private static func receive(on connection: NWConnection, file: URL, attempts: OSAllocatedUnfairLock<Int>) {
+        connection.receiveMessage { data, _, _, error in
+            guard error == nil, let data,
+                  let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = request["id"] as? String else { connection.cancel(); return }
+            reply(to: request["method"] as? String, id: id, on: connection, file: file, attempts: attempts)
+            receive(on: connection, file: file, attempts: attempts)
+        }
+    }
+
+    private static func reply(to method: String?, id: String, on connection: NWConnection, file: URL,
+                              attempts: OSAllocatedUnfairLock<Int>) {
+        switch method {
+        case "getVersion":
+            send(["jsonrpc": "2.0", "id": id, "result": ["type": "Version", "major": 4, "minor": 20]], on: connection)
+        case "streamListen":
+            let first = attempts.withLock { value in
+                value += 1
+                return value == 1
+            }
+            if first {
+                send(["jsonrpc": "2.0", "id": id, "error": ["code": -32603, "message": "Temporary failure"]], on: connection)
+            } else {
+                send(["jsonrpc": "2.0", "id": id, "result": ["type": "Success"]], on: connection)
+                let event: [String: Any] = [
+                    "kind": "Extension", "extensionKind": "navigate",
+                    "extensionData": ["source": "devtools.inspector", "fileUri": file.absoluteString,
+                                      "line": 12, "column": 3]
+                ]
+                send(["jsonrpc": "2.0", "method": "streamNotify",
+                      "params": ["streamId": "ToolEvent", "event": event]], on: connection)
+            }
+        default:
+            connection.cancel()
+        }
+    }
+
+    private static func send(_ message: [String: Any], on connection: NWConnection) {
+        guard let data = try? JSONSerialization.data(withJSONObject: message) else { connection.cancel(); return }
+        let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "reply", metadata: [metadata])
+        connection.send(content: data, contentContext: context, isComplete: true, completion: .idempotent)
+    }
+}
 
 @MainActor
 final class FlutterDebugSessionTests: XCTestCase {
@@ -510,22 +588,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
         let executable = try makeFlutter(in: fixture, script: Self.machineReady + "\nIFS= read -r command")
-        let directory = fixture.base.appending(path: "DevTools SDK")
-        let manifest = directory.appending(path: "bin/resources/devtools")
-        try FileManager.default.createDirectory(at: manifest, withIntermediateDirectories: true)
-        try #"{"app_name":"devtools_app","version":"2.61.0"}"#
-            .write(to: manifest.appending(path: "version.json"), atomically: true, encoding: .utf8)
-        let dart = directory.appending(path: "bin/dart")
-        try #"""
-            #!/bin/sh
-            printf '%s\n' "$@" >> .runlet-fixture/devtools-args
-            printf '%s\n' "$$" > .runlet-fixture/devtools-pid
-            printf '%s\n' '{"event":"server.started","params":{"host":"example.test","port":9100}}'
-            while [ ! -f .runlet-fixture/devtools-ready ]; do /bin/sleep .02; done
-            printf '%s\n' '{"event":"server.started","params":{"host":"127.0.0.1","port":9123}}'
-            while :; do /bin/sleep .02; done
-            """#.write(to: dart, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dart.path)
+        let directory = try makeStandaloneDevTools(in: fixture)
 
         var opened: [URL] = []
         var focused: [URL] = []
@@ -542,6 +605,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         do {
             try await eventually { session.canOpenBrowser }
             XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("devtools-args").path))
+            session.openBrowser(.devTools)
             session.openBrowser(.inspector)
             session.openBrowser(.inspector)
             try await fixture.waitFor("devtools-pid")
@@ -575,6 +639,78 @@ final class FlutterDebugSessionTests: XCTestCase {
             await session.waitUntilIdle()
             throw error
         }
+    }
+
+    func testInspectorFocusDoesNotReopenAnExitedStandaloneServer() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let executable = try makeFlutter(in: fixture, script: Self.machineReady + "\nIFS= read -r command")
+        let directory = try makeStandaloneDevTools(in: fixture)
+        var opened: [URL] = []
+        var finishFocus: CheckedContinuation<Bool, Never>?
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = controller(fixture, store: store, executable: executable,
+                                 openURL: { opened.append($0); return true }, focusInspector: { _ in
+                                     await withCheckedContinuation { finishFocus = $0 }
+                                 }) { _ in true }
+        try fixture.select("test", in: session)
+        session.selectStandaloneDevTools(directory)
+        try await eventually { session.canRun }
+        session.run()
+        do {
+            try await eventually { session.canOpenBrowser }
+            session.openBrowser(.inspector)
+            try Data().write(to: fixture.state("devtools-ready"))
+            try await eventually { opened.count == 1 }
+            session.openBrowser(.inspector)
+            try await eventually { finishFocus != nil }
+            try Data().write(to: fixture.state("devtools-exit"))
+            try await eventually { session.feedback?.title.key == "Standalone DevTools stopped" }
+            finishFocus?.resume(returning: false)
+            finishFocus = nil
+            try FileManager.default.removeItem(at: fixture.state("devtools-exit"))
+            session.openBrowser(.inspector)
+            try await eventually { opened.count >= 2 }
+            XCTAssertEqual(opened.count, 2)
+            let arguments = try String(contentsOf: fixture.state("devtools-args"), encoding: .utf8)
+            XCTAssertEqual(arguments.split(separator: "\n").filter { $0 == "devtools" }.count, 2)
+            session.stop()
+            await session.waitUntilIdle()
+        } catch {
+            finishFocus?.resume(returning: false)
+            session.stop()
+            await session.waitUntilIdle()
+            throw error
+        }
+    }
+
+    func testInspectorSourceSubscriptionRecoversWhileVMStaysConnected() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let file = fixture.project.appending(path: "main.dart")
+        try Data().write(to: file)
+        let server = try await ToolEventServer.start(file: file)
+        defer { server.listener.cancel() }
+        var connections: [Bool] = []
+        var locations: [InspectorSourceLocation] = []
+        let debug = FlutterDebugSession(deviceID: device.id, verifyVM: nil, timing: .continuous, sdk: nil,
+                                        connectionChanged: { connections.append($0) }, browserAvailabilityChanged: { _ in },
+                                        openSource: { event, _ in
+                                            if let location = InspectorSourceLocation(notification: event, project: fixture.project,
+                                                                                      opensOnSelection: false) {
+                                                locations.append(location)
+                                            }
+                                        })
+        defer { debug.finish() }
+        debug.receive(#"[{"event":"app.start","params":{"appId":"current","deviceId":"ios-fixture","mode":"debug"}}]"#,
+                      isError: false, output: { _ in })
+        debug.receive(#"[{"event":"app.debugPort","params":{"appId":"current","wsUri":"ws://127.0.0.1:\#(server.port)/ws"}}]"#,
+                      isError: false, output: { _ in })
+        try await eventually { locations.count == 1 }
+        XCTAssertEqual(connections, [true])
+        XCTAssertEqual(locations[0].file, file.resolvingSymlinksInPath())
+        XCTAssertEqual(locations[0].line, 12)
+        XCTAssertEqual(locations[0].column, 3)
     }
 
     func testInspectorTabMatchingIgnoresBrowserOptionsButNotSessionOrPage() throws {
@@ -860,6 +996,27 @@ final class FlutterDebugSessionTests: XCTestCase {
         try ("#!/bin/sh\n" + script + "\n").write(to: executable, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
         return executable
+    }
+
+    private func makeStandaloneDevTools(in fixture: SessionFixture) throws -> URL {
+        let directory = fixture.base.appending(path: "DevTools SDK")
+        let manifest = directory.appending(path: "bin/resources/devtools")
+        try FileManager.default.createDirectory(at: manifest, withIntermediateDirectories: true)
+        try #"{"app_name":"devtools_app","version":"2.61.0"}"#
+            .write(to: manifest.appending(path: "version.json"), atomically: true, encoding: .utf8)
+        let dart = directory.appending(path: "bin/dart")
+        try #"""
+            #!/bin/sh
+            printf '%s\n' "$@" >> .runlet-fixture/devtools-args
+            printf '%s\n' "$$" > .runlet-fixture/devtools-pid
+            printf '%s\n' '{"event":"server.started","params":{"host":"example.test","port":9100}}'
+            while [ ! -f .runlet-fixture/devtools-ready ]; do /bin/sleep .02; done
+            printf '%s\n' '{"event":"server.started","params":{"host":"127.0.0.1","port":9123}}'
+            while [ ! -f .runlet-fixture/devtools-exit ]; do /bin/sleep .02; done
+            exit 19
+            """#.write(to: dart, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dart.path)
+        return directory
     }
 
     private func eventually(_ condition: () -> Bool) async throws {

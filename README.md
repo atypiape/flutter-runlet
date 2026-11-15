@@ -41,13 +41,13 @@ The deployment target is macOS 15.0. Universal builds include Apple Silicon and 
 3. Once connected, hot reload, hot restart, or open DevTools and the Inspector in your browser. The main window lets you view, copy, and clear the session log.
 4. Click **Stop** and let any post-debug task finish. If environment recovery fails, reopen the affected project and use **Retry Recovery** to run the original task again.
 
-Choose VS Code (default), Cursor, or Zed in **Settings → General → Source Editor**. In DevTools 2.61.0 and later, select a widget and click its source location in the Inspector details pane. With bundled DevTools 2.60.0, selecting the widget opens its source. FlutterRunlet launches the editor on demand for Dart files in the active project.
+Choose VS Code (default), Cursor, or Zed in **Settings → DevTools → Source Editor**. In DevTools 2.61.0 and later, select a widget and click its source location in the Inspector details pane. With bundled DevTools 2.60.0, selecting the widget opens its source. FlutterRunlet launches the editor on demand for Dart files in the active project.
 
-In **Settings → Flutter → DevTools**, you can choose a separate Dart SDK directory. Dart 3.14.0 includes DevTools 2.61.0. FlutterRunlet starts it on demand and connects the Inspector to the active session. The project continues to use its configured Flutter and Dart SDK. Select **Use Bundled** to switch back.
+In **Settings → DevTools → DevTools Source**, you can choose a separate Dart SDK directory. Dart 3.14.0 includes DevTools 2.61.0. FlutterRunlet starts it on demand and connects the Inspector to the active session. The project continues to use its configured Flutter and Dart SDK. Select **Bundled with Flutter** to switch back.
 
 Click **Open Inspector** again to return to its existing tab for the current session. After closing the tab, click again to reopen it. Edge, Chrome, and Safari require macOS browser automation permission for this feature.
 
-Both views control the same session. Changing the device while debugging sets up the next run; the current session stays on its original device. The app supports English and Simplified Chinese and follows the system's light or dark appearance.
+Both views control the same session. Changing the device while debugging sets up the next run; the current session stays on its original device. The app supports English and Simplified Chinese. In **Settings → General → App Appearance**, choose Follow System, Light, or Dark. The change applies immediately and persists across launches.
 
 FlutterRunlet supports **Debug** configurations. Profile and Release configurations, long-running background tasks, complex interactive tasks, and some VS Code extension variables are outside its scope. It leaves your configuration files alone and runs the pre-launch and post-debug tasks you configured. Try the [sample VS Code configurations](docs/examples/sample-flutter-app/README.md) or see the [compatibility details](docs/02-TECHNICAL.md#2-launchjson-基本契约v01) (Simplified Chinese).
 

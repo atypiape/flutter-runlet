@@ -9,16 +9,17 @@ struct SettingsView: View {
     @FocusState private var languageButtonFocused: Bool
     @FocusState private var sdkPickerFocus: SDKPickerTrigger?
 
-    private enum SDKPickerTrigger { case manual, path, devTools }
+    private enum SDKPickerTrigger { case manual, path, devToolsSource, devToolsPath }
 
     var session: SessionController? = nil
     enum Page: CaseIterable {
-        case general, flutter, about
+        case general, flutter, devTools, about
 
         var title: LocalizedStringResource {
             switch self {
             case .general: "General"
             case .flutter: "Flutter"
+            case .devTools: "DevTools"
             case .about: "About"
             }
         }
@@ -26,6 +27,7 @@ struct SettingsView: View {
 
     @Binding var selection: Page?
     @Bindable var language: AppLanguageSettings
+    var appearance: Binding<AppAppearance>? = nil
     var loginItem: LoginItemSettings? = nil
     var updates = UpdatePresentationSource()
     @State private var showsDoctorOutput = false
@@ -46,7 +48,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(page.title)
-                            .font(page == .flutter ? .system(size: 17, weight: .semibold)
+                            .font(page == .flutter || page == .devTools ? .system(size: 17, weight: .semibold)
                                   : RunletType.localized(locale, size: 17, medium: true))
                             .frame(height: 23)
                             .accessibilityAddTraits(.isHeader)
@@ -54,6 +56,8 @@ struct SettingsView: View {
                         case .general: generalSettings
                         case .flutter:
                             if let session, session.usesFlutterToolchain { flutterSettings(session) }
+                        case .devTools:
+                            if let session { devToolsSettings(session) }
                         case .about: settingsAbout
                         }
                     }
@@ -88,7 +92,7 @@ struct SettingsView: View {
                         navigationIcon(option)
                             .foregroundStyle(selected || prominentGear ? palette.accent : palette.secondary)
                         Text(option.title)
-                            .font(option == .flutter ? .system(size: 13, weight: selected ? .semibold : .regular)
+                            .font(option == .flutter || option == .devTools ? .system(size: 13, weight: selected ? .semibold : .regular)
                                   : RunletType.localized(locale, size: 13, medium: selected || prominentGear))
                             .foregroundStyle(selected ? palette.primary : palette.secondary)
                             .lineLimit(1)
@@ -132,6 +136,11 @@ struct SettingsView: View {
             .stroke(style: StrokeStyle(lineWidth: 1.0625, lineCap: .round, lineJoin: .round))
             .frame(width: 15, height: 15)
             .accessibilityHidden(true)
+        case .devTools:
+            Image(systemName: "hammer")
+                .font(.system(size: 13))
+                .frame(width: 15, height: 15)
+                .accessibilityHidden(true)
         case .about:
             Text(verbatim: "ⓘ").font(.system(size: 14))
                 .frame(width: 14, height: 23)
@@ -150,6 +159,20 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 45)
+            }
+            if let appearance {
+                groupTitle("Appearance")
+                settingsCard {
+                    sdkRow("App Appearance") {
+                        Picker("App Appearance", selection: appearance) {
+                            ForEach(AppAppearance.allCases, id: \.self) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                }
             }
             groupTitle("Startup & Projects")
             settingsCard {
@@ -177,20 +200,6 @@ struct SettingsView: View {
                     preferenceSwitch("Remember Last Opened Project", isOn: Binding(
                         get: { session.rememberRecentProject }, set: { session.rememberRecentProject = $0 }
                     ))
-                }
-            }
-            if let session {
-                groupTitle("Debugging")
-                settingsCard {
-                    Picker("Source Editor", selection: Bindable(session).inspectorEditor) {
-                        ForEach(InspectorEditor.allCases, id: \.self) { editor in
-                            Text(verbatim: editor.title).tag(editor)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .font(RunletType.localized(locale, size: 13))
-                    .padding(.horizontal, 12)
-                    .frame(height: 45)
                 }
             }
         }
@@ -329,46 +338,88 @@ struct SettingsView: View {
 
             groupTitle("Environment Check")
             settingsCard { environmentCheck(session) }
-
-            groupTitle("DevTools", systemFont: true)
-            settingsCard { standaloneDevToolsSettings(session) }
         }
     }
 
-    private func standaloneDevToolsSettings(_ session: SessionController) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sdkRow("DevTools Source") {
-                if let version = session.standaloneDevToolsVersion {
-                    Text(verbatim: "DevTools \(version)")
-                        .font(.system(size: 12))
-                } else if session.standaloneDevToolsPath == nil {
-                    Text("Bundled with Flutter")
-                        .font(RunletType.localized(locale, size: 12))
-                }
-                if session.standaloneDevToolsPath != nil {
-                    settingsAction("Use Bundled") { session.selectStandaloneDevTools(nil) }
-                        .disabled(!session.canEditFlutterSDK)
-                }
-                settingsAction("Select Dart SDK…") { chooseDevToolsSDK(for: session) }
-                    .focused($sdkPickerFocus, equals: .devTools)
+    private func devToolsSettings(_ session: SessionController) -> some View {
+        let path = session.standaloneDevToolsPath
+        let version = path == nil ? session.sdk?.devToolsVersion : session.standaloneDevToolsVersion
+        return VStack(alignment: .leading, spacing: 7) {
+            settingsCard {
+                sdkRow("DevTools Source") {
+                    Menu {
+                        Button {
+                            session.selectStandaloneDevTools(nil)
+                        } label: {
+                            if path == nil { Label("Bundled with Flutter", systemImage: "checkmark") }
+                            else { Text("Bundled with Flutter") }
+                        }
+                        Button {
+                            chooseDevToolsSDK(for: session, returningTo: .devToolsSource)
+                        } label: {
+                            if path != nil { Label("Standalone Dart SDK…", systemImage: "checkmark") }
+                            else { Text("Standalone Dart SDK…") }
+                        }
+                    } label: {
+                        if path == nil { Text("Bundled with Flutter") }
+                        else { Text("Standalone Dart SDK") }
+                    }
+                    .accessibilityLabel(Text("DevTools Source"))
+                    .fixedSize()
+                    .focused($sdkPickerFocus, equals: .devToolsSource)
                     .disabled(!session.canEditFlutterSDK)
+                }
+                if let version {
+                    rule
+                    sdkRow("Version") {
+                        Text(verbatim: version)
+                            .font(.system(size: 12))
+                            .foregroundStyle(palette.secondary)
+                    }
+                }
+                if let path {
+                    rule
+                    VStack(alignment: .leading, spacing: 0) {
+                        sdkRow("Dart SDK Path") {
+                            Button("Change…") { chooseDevToolsSDK(for: session, returningTo: .devToolsPath) }
+                                .controlSize(.small)
+                                .focused($sdkPickerFocus, equals: .devToolsPath)
+                                .disabled(!session.canEditFlutterSDK)
+                        }
+                        let home = NSHomeDirectory()
+                        let display = path.hasPrefix(home + "/") ? "~" + String(path.dropFirst(home.count)) : path
+                        Text(verbatim: display)
+                            .font(.system(size: 12))
+                            .foregroundStyle(palette.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(path)
+                            .accessibilityLabel(Text(verbatim: path))
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 9)
+                    }
+                }
+                if let issue = session.standaloneDevToolsIssue {
+                    Text(issue)
+                        .font(RunletType.localized(locale, size: 11))
+                        .foregroundStyle(palette.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 9)
+                }
             }
-            if let path = session.standaloneDevToolsPath {
-                Text(verbatim: path)
-                    .font(.system(size: 11))
-                    .foregroundStyle(palette.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(path)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-            }
-            if let issue = session.standaloneDevToolsIssue {
-                Text(issue)
-                    .font(RunletType.localized(locale, size: 11))
-                    .foregroundStyle(palette.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
+            groupTitle("Source Navigation")
+            settingsCard {
+                sdkRow("Source Editor") {
+                    Picker("Source Editor", selection: Bindable(session).inspectorEditor) {
+                        ForEach(InspectorEditor.allCases, id: \.self) { editor in
+                            Text(verbatim: editor.title).tag(editor)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
             }
         }
     }
@@ -612,7 +663,7 @@ struct SettingsView: View {
         sdkPickerFocus = trigger
     }
 
-    private func chooseDevToolsSDK(for session: SessionController) {
+    private func chooseDevToolsSDK(for session: SessionController, returningTo trigger: SDKPickerTrigger) {
         let panel = NSOpenPanel()
         panel.title = locale.appString("Select Dart SDK…")
         panel.message = locale.appString("Select a Dart SDK directory that includes DevTools.")
@@ -625,7 +676,7 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             session.selectStandaloneDevTools(url)
         }
-        sdkPickerFocus = .devTools
+        sdkPickerFocus = trigger
     }
 }
 

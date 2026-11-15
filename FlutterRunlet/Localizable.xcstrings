@@ -401,6 +401,38 @@
         }
       }
     },
+    "App Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Appearance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用外观"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外观"
+          }
+        }
+      }
+    },
     "Auto": {
       "localizations": {
         "en": {
@@ -481,6 +513,22 @@
         }
       }
     },
+    "Change…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更换…"
+          }
+        }
+      }
+    },
     "Check Environment": {
       "localizations": {
         "en": {
@@ -545,18 +593,18 @@
         }
       }
     },
-    "Check the Dart SDK in Flutter settings and try again.": {
+    "Check the Dart SDK in DevTools settings and try again.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check the Dart SDK in Flutter settings and try again."
+            "value": "Check the Dart SDK in DevTools settings and try again."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请检查 Flutter 设置中的独立 Dart SDK，然后重试。"
+            "value": "请在「DevTools」设置中检查 Dart SDK，然后重试。"
           }
         }
       }
@@ -1537,6 +1585,22 @@
         }
       }
     },
+    "Dark": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "深色"
+          }
+        }
+      }
+    },
     "Dart defines must use KEY=VALUE. Check toolArgs": {
       "localizations": {
         "en": {
@@ -1549,6 +1613,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dart define 必须为 KEY=VALUE，请检查 toolArgs"
+          }
+        }
+      }
+    },
+    "Dart SDK Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dart SDK Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dart SDK 路径"
           }
         }
       }
@@ -1645,22 +1725,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "调试运行适配器不可用"
-          }
-        }
-      }
-    },
-    "Debugging": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Debugging"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "调试"
           }
         }
       }
@@ -2593,6 +2657,22 @@
         }
       }
     },
+    "Light": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "浅色"
+          }
+        }
+      }
+    },
     "Open Inspector or DevTools again after the debug session reconnects.": {
       "localizations": {
         "en": {
@@ -2605,6 +2685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "调试会话重新连接后，再打开 Inspector 或 DevTools。"
+          }
+        }
+      }
+    },
+    "Open Inspector or DevTools to start it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inspector or DevTools to start it again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开 Inspector 或 DevTools 可重新启动服务。"
           }
         }
       }
@@ -2657,6 +2753,54 @@
         }
       }
     },
+    "Source Navigation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source Navigation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源码跳转"
+          }
+        }
+      }
+    },
+    "Standalone Dart SDK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone Dart SDK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 Dart SDK"
+          }
+        }
+      }
+    },
+    "Standalone Dart SDK…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone Dart SDK…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 Dart SDK…"
+          }
+        }
+      }
+    },
     "Standalone DevTools is ready": {
       "localizations": {
         "en": {
@@ -2673,6 +2817,22 @@
         }
       }
     },
+    "Standalone DevTools stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone DevTools stopped"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立 DevTools 已停止"
+          }
+        }
+      }
+    },
     "Starting standalone DevTools…": {
       "localizations": {
         "en": {
@@ -2685,22 +2845,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在启动独立 DevTools…"
-          }
-        }
-      }
-    },
-    "Use Bundled": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use Bundled"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用自带版本"
           }
         }
       }
@@ -6333,6 +6477,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "校验失败：更新包校验和不匹配。"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }

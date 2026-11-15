@@ -52,6 +52,51 @@ final class AppLanguageSettings {
     var locale: Locale { Locale(identifier: selection.resolve(preferredLanguages: preferredLanguages()).rawValue) }
 }
 
+enum AppAppearance: String, CaseIterable {
+    case system, light, dark
+
+    var label: LocalizedStringResource {
+        switch self {
+        case .system: "Follow System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var name: NSAppearance.Name? {
+        switch self {
+        case .system: nil
+        case .light: .aqua
+        case .dark: .darkAqua
+        }
+    }
+}
+
+@MainActor
+@Observable
+final class AppAppearanceSettings {
+    static let preferenceKey = "appAppearance"
+
+    private let defaults: UserDefaults
+    private let apply: (NSAppearance.Name?) -> Void
+    var selection: AppAppearance {
+        didSet {
+            defaults.set(selection.rawValue, forKey: Self.preferenceKey)
+            apply(selection.name)
+        }
+    }
+
+    init(defaults: UserDefaults = .standard, initialOverride: NSAppearance.Name? = nil,
+         apply: @escaping (NSAppearance.Name?) -> Void = { name in
+             NSApplication.shared.appearance = name.flatMap { NSAppearance(named: $0) }
+         }) {
+        self.defaults = defaults
+        self.apply = apply
+        selection = defaults.string(forKey: Self.preferenceKey).flatMap(AppAppearance.init(rawValue:)) ?? .system
+        apply(initialOverride ?? selection.name)
+    }
+}
+
 extension Locale {
     func appString(_ resource: LocalizedStringResource) -> String {
         var resource = resource
@@ -158,6 +203,7 @@ struct FlutterRunletApp: App {
     @State private var panelWindow: PanelWindowReference
     @State private var settingsPage: SettingsView.Page? = .general
     @State private var language: AppLanguageSettings
+    @State private var appearance: AppAppearanceSettings
     @State private var loginItem: LoginItemSettings
     @State private var windowKeys: WindowKeys
 
@@ -180,9 +226,9 @@ struct FlutterRunletApp: App {
         let demo = scene.map { Phase07UpdateDemo(scene: $0) }
         captureScene = scene
         updateDemo = demo
-        if let appearance = scene?.appearance { NSApplication.shared.appearance = NSAppearance(named: appearance) }
         _updates = State(initialValue: demo?.source ?? UpdatePresentationSource())
         let language = AppLanguageSettings(initialSelection: scene?.language)
+        let appearance = AppAppearanceSettings(initialOverride: scene?.appearance)
         let loginItem = scene?.state == .loginUnavailable
             ? LoginItemSettings(readStatus: { .notFound }, register: {}, unregister: {}, appServiceAvailable: false)
             : LoginItemSettings()
@@ -190,6 +236,7 @@ struct FlutterRunletApp: App {
         #else
         _updates = State(initialValue: UpdatePresentationSource())
         let language = AppLanguageSettings()
+        let appearance = AppAppearanceSettings()
         let loginItem = LoginItemSettings()
         let capturesAuxiliaryWindow = false
         #endif
@@ -199,6 +246,7 @@ struct FlutterRunletApp: App {
         presentsMainWindowOnLaunch = presentsMainWindow
         _session = State(initialValue: controller)
         _language = State(initialValue: language)
+        _appearance = State(initialValue: appearance)
         _loginItem = State(initialValue: loginItem)
         let panelWindow = PanelWindowReference()
         _panelWindow = State(initialValue: panelWindow)
@@ -299,7 +347,7 @@ struct FlutterRunletApp: App {
             // Let AppKit size the full-height content without adding another title-bar inset.
             GeometryReader { _ in
                 SettingsView(session: liveSession, selection: $settingsPage, language: language,
-                             loginItem: loginItem, updates: updates)
+                             appearance: Bindable(appearance).selection, loginItem: loginItem, updates: updates)
                     .environment(\.locale, language.locale)
             }
             .ignoresSafeArea()

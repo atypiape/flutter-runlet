@@ -451,6 +451,10 @@ final class FlutterDebugSession {
 
 @MainActor
 private final class VMServiceProbe {
+    private enum ToolEventSubscriptionError: Error {
+        case rejected
+    }
+
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 3
@@ -529,7 +533,9 @@ private final class VMServiceProbe {
                 guard case .string(let text) = try await socket.receive(),
                       let message = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { continue }
                 if message["id"] as? String == id {
-                    guard let result = message["result"] as? [String: Any], result["type"] as? String == "Success" else { return }
+                    guard let result = message["result"] as? [String: Any], result["type"] as? String == "Success" else {
+                        throw ToolEventSubscriptionError.rejected
+                    }
                     subscribed = true
                 } else if subscribed {
                     receive(message)
