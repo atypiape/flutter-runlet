@@ -5,7 +5,7 @@ import Foundation
 @MainActor
 private final class UpdateHelper {
     private enum Outcome {
-        case ready(UpdateChannel, UpdateProcessIdentity), unready(NSRunningApplication, UpdateProcessIdentity), absent, unknown
+        case ready(UpdateChannel, UpdateProcessIdentity), unready(UpdateProcessIdentity), absent, unknown
     }
 
     private let fixture = IsolatedUpdateBuild.read(helper: true)
@@ -152,15 +152,15 @@ private final class UpdateHelper {
             } catch {
                 channel.shutdown()
                 journal.deliveryFailure = journal.isTerminal ? "candidate-failed-relaunch" : "candidate-exited-before-commit"
-                await stopFailedCandidate(NSRunningApplication(processIdentifier: process.pid), process)
+                await stopFailedCandidate(process)
                 return
             }
             journal.phase = .committed
             do { try persist() } catch { preserve(); return }
             interrupt("after-commit")
             _ = await deliverStartup(channel, process: process, role: "b")
-        case .unready(let app, let process):
-            await stopFailedCandidate(app, process)
+        case .unready(let process):
+            await stopFailedCandidate(process)
         case .absent:
             journal.deliveryFailure = "candidate-absent"
             await rollback()
@@ -170,8 +170,8 @@ private final class UpdateHelper {
         }
     }
 
-    private func stopFailedCandidate(_ app: NSRunningApplication?, _ process: UpdateProcessIdentity) async {
-        guard await stopTrial(app, process, signed: journal.candidate) else { preserve(); return }
+    private func stopFailedCandidate(_ process: UpdateProcessIdentity) async {
+        guard await stopTrial(process, signed: journal.candidate) else { preserve(); return }
         journal.candidateExitConfirmed = true
         await rollback()
     }
@@ -207,8 +207,8 @@ private final class UpdateHelper {
             let opened = await launch(journal.original, role: "a", timeout: .seconds(30))
             let elapsed = start.duration(to: .now).components
             journal.originalWaitMilliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
-            if case .unready(let app, let process) = opened {
-                journal.originalExitConfirmed = await stopTrial(app, process, signed: journal.original)
+            if case .unready(let process) = opened {
+                journal.originalExitConfirmed = await stopTrial(process, signed: journal.original)
             }
             try persist()
             if case .ready(let channel, let process) = opened {
@@ -282,16 +282,14 @@ private final class UpdateHelper {
         }
         while !result.completed && ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(25)) }
         guard result.completed else { return .unknown }
-        guard let processID = result.processID else {
+        guard let processID = result.processID, processID > 0 else {
             return (try? UpdateProcessIdentity.requireNoOtherInstances(journal.product, excluding: nil)) != nil ? .absent : .unknown
         }
-        guard let application = NSRunningApplication(processIdentifier: processID) else {
+        // LaunchServices can return the PID before AppKit's running-application lookup
+        // catches up. Use the kernel identity for the handshake and wait within its deadline.
+        guard let process = await identifyTrial(processID, until: deadline) else {
             return kill(processID, 0) == -1 && errno == ESRCH ? .absent : .unknown
         }
-        guard let process = UpdateProcessIdentity(application.processIdentifier) else {
-            return application.isTerminated ? .absent : .unknown
-        }
-        guard process.executable == journal.targetExecutable else { return .unknown }
         journal.attemptedProcess = process
         journal.acknowledgedProcess = nil
         if role == "b" { journal.candidateProcess = process }
@@ -301,21 +299,21 @@ private final class UpdateHelper {
             let channel = try await listener.accept(until: deadline, peer: process)
             guard try await channel.receive(until: deadline) == UpdateMessage.ready else {
                 if role == "b" { journal.deliveryFailure = "candidate-protocol" }
-                return .unready(application, process)
+                return .unready(process)
             }
             guard process.verifies(signed, executable: journal.targetExecutable) else {
                 if role == "b" { journal.deliveryFailure = "candidate-identity" }
-                return .unready(application, process)
+                return .unready(process)
             }
             try await Task.sleep(for: .milliseconds(250))
             return process.isRunning && ContinuousClock.now < deadline
-                ? .ready(channel, process) : .unready(application, process)
+                ? .ready(channel, process) : .unready(process)
         } catch UpdateChannel.Issue.deadline {
             if role == "b" { journal.deliveryFailure = process.isRunning ? "candidate-timeout" : "candidate-early-exit" }
-            return .unready(application, process)
+            return .unready(process)
         } catch {
             if role == "b" { journal.deliveryFailure = process.isRunning ? "candidate-protocol" : "candidate-early-exit" }
-            return .unready(application, process)
+            return .unready(process)
         }
     }
 
@@ -324,10 +322,19 @@ private final class UpdateHelper {
         var completed = false
     }
 
-    private func stopTrial(_ app: NSRunningApplication?, _ process: UpdateProcessIdentity,
-                           signed: PreparedUpdate.SignedIdentity) async -> Bool {
+    private func identifyTrial(_ pid: pid_t, until deadline: ContinuousClock.Instant) async -> UpdateProcessIdentity? {
+        while ContinuousClock.now < deadline {
+            if let process = UpdateProcessIdentity(pid), process.executable == journal.targetExecutable { return process }
+            if kill(pid, 0) == -1 && errno == ESRCH { return nil }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        return nil
+    }
+
+    private func stopTrial(_ process: UpdateProcessIdentity, signed: PreparedUpdate.SignedIdentity) async -> Bool {
         // Code identity can become unreadable during exit. Only signal a verified trial.
-        if let app, process.verifies(signed, executable: journal.targetExecutable) { _ = app.terminate() }
+        if process.verifies(signed, executable: journal.targetExecutable),
+           let app = NSRunningApplication(processIdentifier: process.pid) { _ = app.terminate() }
         return await waitForExit(process, until: .now + .seconds(8))
     }
 
