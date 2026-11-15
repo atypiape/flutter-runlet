@@ -49,7 +49,7 @@ done
 | `5a7f567` | `bootstrap-safety` | 4 项通过。A 的 30 秒超时轮，助手确认试运行退出后仍保留 `restored` 待定记录，并显示独立恢复提示。 `bootstrap-safety-20261115T115109456923Z/manifest.json` |
 | `5a7f567` | 启动偏好 | 实际关闭启动主窗口开关后安装，观察 B 的 AppKit 激活策略为 `.accessory`，主窗口未打开。 `review-green-accessory-20261115T115658425887Z/accessory/evidence.json` |
 
-`5a7f567` 的事务、更新门禁和验包宿主测试共 22 项通过，见 `.private/phase-07/cr-final-5a7f567/focused.xcresult`。最终候选 `2fcb4a3` 新增助手在握手期限内等待内核进程身份可读的处理，Debug 测试目标构建通过。完整 `rollback` 与 `bootstrap-safety` 尚需在最终源码上复跑。最终版 `handoff-boundaries` 已覆盖其中相关的提交重入与旧版恢复放行。
+`5a7f567` 的事务、更新门禁和验包宿主测试共 22 项通过，见 `.private/phase-07/cr-final-5a7f567/focused.xcresult`。最终候选 `2fcb4a3` 新增助手在握手期限内等待内核进程身份可读的处理，最终源码的全量 Debug 实跑 133 项均通过，其中前序阶段的 8 个套件共 93 项通过。完整 `rollback` 的 13 项和 `bootstrap-safety` 的 4 项也已按该源码复跑，清单分别为 `rollback-20261115T120735379352Z/manifest.json` 和 `bootstrap-safety-20261115T120610968740Z/manifest.json`。用收紧后的脚本再次复核 `success`、`gate`、`rollback`、`bootstrap-safety` 和 `handoff-boundaries` 五份最终清单，全部退出 0。
 
 ```sh
 bash scripts/verify-phase-07-update.sh --scenario handoff-boundaries --workspace .private/phase-07/update
@@ -58,3 +58,5 @@ bash scripts/verify-phase-07-update.sh --scenario handoff-boundaries --workspace
 ## 需要实际复拍的范围
 
 冻结设置、关于界面及其展示词源码保持签核版本。新接线需要核对真实更新时的确认与失败反馈、新 Bundle 的三处版本，以及从主 App 移到实际独立助手后的恢复界面。独立助手使用 AppKit 原生提示，实际窗口尺寸与 07-03 的独立反馈演示有差异。需按两种语言、两种外观复拍实际恢复成功但无法打开及无法确认恢复两类状态。原有设置和关于的 512 项门槛仍通过。
+
+最终程序源码的助手另完成「已恢复但未打开」与「无法确认恢复」两种 AppKit 反馈，各在中英文及深浅外观实拍。坏包从两处显示同一摘要失败，重试产生第二次真实回环下载，原包保持。见 `recovery-appearance-2026-11-15T122229.911940_0000/appearance-manifest.json`。
