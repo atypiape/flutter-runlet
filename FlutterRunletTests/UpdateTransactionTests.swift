@@ -5,9 +5,7 @@ import XCTest
 
 final class UpdateTransactionTests: XCTestCase {
     func testAtomicExchangeAndRollbackKeepBothDirectoryIdentities() throws {
-        let path = try XCTUnwrap(realpath(FileManager.default.temporaryDirectory.path, nil))
-        defer { free(path) }
-        let directory = try UpdateDirectory(URL(filePath: String(cString: path), directoryHint: .isDirectory))
+        let directory = try temporaryUpdateDirectory()
         let parent = try directory.createPrivateDirectory(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: parent.url) }
         try parent.requireLocalAPFS()
@@ -90,8 +88,10 @@ final class UpdateTransactionTests: XCTestCase {
             XCTAssertTrue(UpdateHelperChild(pid: pid).cancel(on: channel))
             XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "closed")
             var status: Int32 = 0
-            XCTAssertEqual(waitpid(pid, &status, WNOHANG), -1)
-            XCTAssertEqual(errno, ECHILD)
+            let reaped = waitpid(pid, &status, WNOHANG)
+            let waitError = errno
+            XCTAssertEqual(reaped, -1)
+            XCTAssertEqual(waitError, ECHILD)
         }
     }
 
@@ -127,7 +127,7 @@ final class UpdateTransactionTests: XCTestCase {
     }
 
     private func withJournal(_ work: (UpdateDirectory, UpdateDirectory, UpdateJournal) throws -> Void) throws {
-        let temporary = try UpdateDirectory(FileManager.default.temporaryDirectory.resolvingSymlinksInPath())
+        let temporary = try temporaryUpdateDirectory()
         let parent = try temporary.createPrivateDirectory(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: parent.url) }
         let stage = try parent.createPrivateDirectory(".update-fixture")
@@ -145,5 +145,11 @@ final class UpdateTransactionTests: XCTestCase {
                                    oldProcess: try XCTUnwrap(UpdateProcessIdentity(getpid())), original: signed("1.0"),
                                    candidate: signed("1.1"), releaseTag: "v1.1", language: "en")
         try work(recovery, stage, record)
+    }
+
+    private func temporaryUpdateDirectory() throws -> UpdateDirectory {
+        let path = try XCTUnwrap(realpath(FileManager.default.temporaryDirectory.path, nil))
+        defer { free(path) }
+        return try UpdateDirectory(URL(filePath: String(cString: path), directoryHint: .isDirectory))
     }
 }
