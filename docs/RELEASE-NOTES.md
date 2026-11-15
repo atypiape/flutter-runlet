@@ -1,4 +1,18 @@
-# FlutterRunlet v0.1.0 本地验收候选
+# FlutterRunlet 版本说明
+
+## v0.2.0 · 本地验收完成
+
+- 主窗口和菜单栏共享项目历史、设备选择和调试状态；运行中改选设备只影响下一次运行。主窗口支持复制、清空和折叠日志。
+- 设置集中提供语言、启动偏好、Flutter SDK 来源和环境诊断。设置中的「关于」与独立「关于」窗口显示实际版本，并共享手动检查更新的结果。
+- 本地验证覆盖真实 Flutter 调试、停止后的环境恢复，以及隔离环境中的更新安装和失败回退。
+
+最低部署目标为 macOS 15.0，实机运行验证使用 Apple Silicon（macOS 26.7.1）。Intel 已核对构建架构和签名，Intel 和 macOS 15 实机运行仍待验证。公开分发与正式签名、公证继续暂缓。
+
+## v0.1.1 · 已提供下载
+
+新增双架构 DMG 打包脚本和配套 SHA-256 校验文件。打包时可指定版本号，构建号取 Git 提交数。[下载与安装](https://github.com/atypiape/flutter-runlet/releases/tag/v0.1.1)
+
+## v0.1.0 · 本地验收归档
 
 构建号 1。候选提供 macOS 原生主窗口、菜单栏和中英文设置。Flutter 调试使用现有 VS Code 配置，支持 Debug 会话的启动、停止、热重载、热重启和当前会话的浏览器 DevTools。支持按原配置运行前后置任务，发生恢复失败或异常退出时可从应用内重试原任务。
 
@@ -6,6 +20,6 @@
 
 冻结候选源码为 `36916dd`。G3 本地包使用 ad hoc 签名，签名校验及解包复验通过。该 ZIP 的 SHA-256 为 `5e4e29423b539090e8ed3867b94c0b6e50637e4f6abc8e9581928f756d262e55`。同一候选通过 30 分钟日志压力、真实项目三环境及强退恢复验收。[候选构建](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-01-SUMMARY.md) · [G3 验收记录](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
-公开发布暂缓。公开分发所需的 Developer ID 签名、公证及关于窗口链接的匿名访问复验留待发布阶段完成。[公开前检查](PUBLIC-RELEASE-AUDIT.md)
+后续已在 GitHub 提供 [v0.1.0 预发布包](https://github.com/atypiape/flutter-runlet/releases/tag/v0.1.0)。正式分发所需的 Developer ID 签名、公证及最终公开复核留待后续完成。[公开前检查](PUBLIC-RELEASE-AUDIT.md)
 
 启动、恢复操作和配置限制见使用文档。项目采用 MIT 许可证，关于窗口保留 Flutter GUI Runner 的上游归属。[使用说明](../README.md) · [项目许可证](../LICENSE)
