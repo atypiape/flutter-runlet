@@ -71,7 +71,7 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 2（依赖 07-01）**
 
-- [ ] [07-02 还原设置三页和独立关于，接入受控状态](phases/07-settings-about-updates/07-02-PLAN.md)
+- [x] [07-02 还原设置三页和独立关于，接入受控状态](phases/07-settings-about-updates/07-02-PLAN.md)（100 项测试，Release 构建通过）
 
 **Wave 3（依赖 07-02）**
 
