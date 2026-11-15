@@ -964,6 +964,7 @@ struct AuxiliaryWindowLayout<Content: View>: View {
             @objc private func restoreTitlebar() {
                 guard let window, let configuration else { return }
                 if window.title != configuration.title { window.title = configuration.title }
+                if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
                 if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
             }
 
@@ -973,7 +974,6 @@ struct AuxiliaryWindowLayout<Content: View>: View {
 
             private func configureWindow() {
                 guard let window, let configuration else { return }
-                window.titleVisibility = .hidden
                 if !window.styleMask.contains(.fullSizeContentView) {
                     window.styleMask.insert(.fullSizeContentView)
                 }
