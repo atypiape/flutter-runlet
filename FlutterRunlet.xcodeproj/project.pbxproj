@@ -45,6 +45,7 @@
 		E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07200000000000000000021 /* UpdatePresentationSource.swift */; };
 		E07400000000000000000012 /* ReleaseUpdates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000011 /* ReleaseUpdates.swift */; };
 		E07400000000000000000022 /* UpdatePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000021 /* UpdatePackage.swift */; };
+		E07400000000000000000032 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07400000000000000000031 /* UpdateCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		E07200000000000000000021 /* UpdatePresentationSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePresentationSource.swift; sourceTree = "<group>"; };
 		E07400000000000000000011 /* ReleaseUpdates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseUpdates.swift; sourceTree = "<group>"; };
 		E07400000000000000000021 /* UpdatePackage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePackage.swift; sourceTree = "<group>"; };
+		E07400000000000000000031 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -181,6 +183,7 @@
 				E07200000000000000000021 /* UpdatePresentationSource.swift */,
 				E07400000000000000000011 /* ReleaseUpdates.swift */,
 				E07400000000000000000021 /* UpdatePackage.swift */,
+				E07400000000000000000031 /* UpdateCoordinator.swift */,
 				DD75EFC5CD38415F84932ED9 /* AuxiliaryWindows.swift */,
 				E04100000000000000000002 /* Localizable.xcstrings */,
 				C468FE71AFE64B16AD2909BD /* Assets.xcassets */,
@@ -352,6 +355,7 @@
 				E07200000000000000000022 /* UpdatePresentationSource.swift in Sources */,
 				E07400000000000000000012 /* ReleaseUpdates.swift in Sources */,
 				E07400000000000000000022 /* UpdatePackage.swift in Sources */,
+				E07400000000000000000032 /* UpdateCoordinator.swift in Sources */,
 				F4B6D812ECF544979AC19660 /* AuxiliaryWindows.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -113,9 +113,20 @@ final class UpdatePresentationSource {
     enum Action { case primary, install, later, dismissRecovery, showRelease, showInFinder }
 
     private(set) var presentation: UpdatePresentation
-    @ObservationIgnored private let action: (Action) -> Void
+    @ObservationIgnored private let action: ((Action) -> Void)?
+    @ObservationIgnored private var coordinator: UpdateCoordinator?
 
-    init(presentation: UpdatePresentation = .init(), action: @escaping (Action) -> Void = { _ in }) {
+    convenience init() {
+        self.init(makeCoordinator: { UpdateCoordinator(source: $0) })
+    }
+
+    init(makeCoordinator: (UpdatePresentationSource) -> UpdateCoordinator) {
+        presentation = .init()
+        action = nil
+        coordinator = makeCoordinator(self)
+    }
+
+    init(presentation: UpdatePresentation, action: @escaping (Action) -> Void) {
         self.presentation = presentation
         self.action = action
     }
@@ -126,7 +137,8 @@ final class UpdatePresentationSource {
 
     func perform(_ action: Action) {
         guard action != .primary || presentation.canPerformPrimary else { return }
-        self.action(action)
+        if let override = self.action { override(action) }
+        else { coordinator?.perform(action) }
     }
 }
 

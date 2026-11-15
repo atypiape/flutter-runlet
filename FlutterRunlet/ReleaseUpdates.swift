@@ -121,6 +121,7 @@ struct ReleaseClient: Sendable {
 
     func check(runningVersion: String) async throws -> ReleaseCheckResult {
         guard let running = ReleaseVersion(runningVersion) else { throw Issue.invalidRunningVersion }
+        UpdateRepository.log.notice("Checking latest release")
         let (data, response) = try await read(UpdateRepository.api.appending(path: "releases/latest"))
         UpdateRepository.log.notice("Latest release HTTP \(response.statusCode, privacy: .public)")
         switch response.statusCode {
@@ -227,9 +228,14 @@ final class BoundedUpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Send
                 guard let reply = try await replies.next() else { throw Issue.response }
                 return reply
             }
-            let reply = try await completion.value
-            try Task.checkCancellation()
-            return reply
+            do {
+                let reply = try await completion.value
+                try Task.checkCancellation()
+                return reply
+            } catch {
+                try Task.checkCancellation()
+                throw error
+            }
         } onCancel: {
             task.cancel()
         }

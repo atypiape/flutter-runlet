@@ -81,6 +81,107 @@ final class ReleaseUpdatesTests: XCTestCase {
         await expectIssue(.invalidRunningVersion, replies: [], runningVersion: "unknown")
     }
 
+    @MainActor
+    func testTwoEntriesCoalesceExplicitChecksAndKeepValidatedReleasePage() async throws {
+        let reply = try JSONDecoder().decode(GitHubRelease.self, from: Data(releaseJSON(tag: "v7.0").utf8))
+        let check = HeldReleaseCheck()
+        var destinations: [URL] = []
+        let source = UpdatePresentationSource(makeCoordinator: { source in
+            UpdateCoordinator(source: source, operations: .init(
+                check: { await check.read(runningVersion: $0) },
+                availability: { _ in .failure(.mutableRelease) },
+                prepare: { _, _ in throw UpdatePackageIssue.mutableRelease }
+            ), openRelease: { destinations.append($0) })
+        })
+        let settingsAbout = source
+        let independentAbout = source
+
+        let running = try XCTUnwrap(RunningUpdateApp())
+        XCTAssertEqual(settingsAbout.presentation.status, .idle)
+        let before = await check.versions
+        XCTAssertEqual(before, [])
+        independentAbout.perform(.showRelease)
+        XCTAssertEqual(destinations, [])
+        settingsAbout.perform(.primary)
+        XCTAssertEqual(independentAbout.presentation.status, .checking)
+        independentAbout.perform(.primary)
+        try await waitUntil { await check.versions == [running.version] }
+        await check.complete(.newer(reply))
+        let unavailable = UpdatePresentation.Status.unavailable(version: "v7.0", reason: .mutableRelease, canRetry: false)
+        try await waitUntil { independentAbout.presentation.status == unavailable }
+        XCTAssertEqual(settingsAbout.presentation, independentAbout.presentation)
+        XCTAssertTrue(settingsAbout.presentation.showsReleaseAction)
+        independentAbout.perform(.showRelease)
+        XCTAssertEqual(destinations, [URL(string: project + "/releases/tag/v7.0")!])
+        let after = await check.versions
+        XCTAssertEqual(after, [running.version])
+
+        independentAbout.perform(.primary)
+        settingsAbout.perform(.primary)
+        try await waitUntil { await check.versions == [running.version, running.version] }
+        await check.complete(.current)
+        try await waitUntil { settingsAbout.presentation.status == .current }
+        XCTAssertEqual(independentAbout.presentation.status, .current)
+    }
+
+    @MainActor
+    func testPackageVerificationFailureOffersRetryAndReleaseOnSharedSource() async throws {
+        let package = releaseJSON(tag: "v7.0").replacingOccurrences(of: "\"assets\":[]", with: """
+        "assets":[{"id":123,"name":"FlutterRunlet-v7.0-macOS-universal.dmg","state":"uploaded","size":256,
+        "digest":"sha256:\(String(repeating: "a", count: 64))","url":"\(api)/releases/assets/123",
+        "browser_download_url":"\(project)/releases/download/v7.0/FlutterRunlet-v7.0-macOS-universal.dmg"}]
+        """)
+        let release = try JSONDecoder().decode(GitHubRelease.self, from: Data(package.utf8))
+        let offer = try UpdateDownload(release: release)
+        let attempts = PackageAttempts()
+        var destinations: [URL] = []
+        let settings = UpdatePresentationSource(makeCoordinator: { source in
+            UpdateCoordinator(source: source, operations: .init(
+                check: { _ in .newer(release) },
+                availability: { _ in .success(offer) },
+                prepare: { _, _ in try await attempts.rejectedPackage() }
+            ), openRelease: { destinations.append($0) })
+        })
+        let about = settings
+        settings.perform(.primary)
+        try await waitUntil { about.presentation.status == .available("v7.0") }
+        about.perform(.primary)
+        XCTAssertEqual(settings.presentation.status, .updating)
+        settings.perform(.primary)
+        let mismatch = UpdatePresentation.Status.unavailable(version: "v7.0", reason: .versionMismatch, canRetry: true)
+        try await waitUntil { settings.presentation.status == mismatch }
+        XCTAssertEqual(settings.presentation, about.presentation)
+        XCTAssertTrue(about.presentation.showsReleaseAction)
+        settings.perform(.showRelease)
+        XCTAssertEqual(destinations, [release.releasePage])
+        settings.perform(.primary)
+        try await waitUntil { about.presentation.status == .failed(.verification) }
+        let count = await attempts.count
+        XCTAssertEqual(count, 2)
+    }
+
+    @MainActor
+    func testUnavailableVersionUsesLocalizedReasonAndReusesExistingActions() {
+        let presentation = UpdatePresentation(status: .unavailable(version: "v7.0", reason: .mutableRelease, canRetry: false))
+        let english = Locale(identifier: "en")
+        let chinese = Locale(identifier: "zh-Hans")
+        XCTAssertEqual(english.appString(presentation.feedback), "New version v7.0 cannot be installed safely. The release has not been locked.")
+        XCTAssertEqual(chinese.appString(presentation.feedback), "发现新版 v7.0，暂无法安全安装。此发布尚未锁定。")
+        XCTAssertTrue(presentation.showsReleaseAction)
+        XCTAssertTrue(presentation.canPerformPrimary)
+        XCTAssertEqual(english.appString(presentation.primaryTitle), "Check for Updates")
+    }
+
+    @MainActor
+    private func waitUntil(_ predicate: () async -> Bool) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(3)
+        while !(await predicate()) {
+            guard clock.now < deadline else { throw URLError(.timedOut) }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     private func expectIssue(_ expected: ReleaseClient.Issue, replies: [ReleaseHTTPFixture.Stub],
                              runningVersion: String = "0.1") async {
         let http = ReleaseHTTPFixture(replies)
@@ -148,5 +249,29 @@ private actor ReleaseHTTPFixture {
         let response = HTTPURLResponse(url: stub.servedFrom ?? url, statusCode: stub.status,
                                        httpVersion: "HTTP/1.1", headerFields: stub.link.map { ["Link": $0] })!
         return (Data(stub.json.utf8), response)
+    }
+}
+
+private actor HeldReleaseCheck {
+    private(set) var versions: [String] = []
+    private var pending: CheckedContinuation<ReleaseCheckResult, Never>?
+
+    func read(runningVersion: String) async -> ReleaseCheckResult {
+        versions.append(runningVersion)
+        return await withCheckedContinuation { pending = $0 }
+    }
+
+    func complete(_ result: ReleaseCheckResult) {
+        pending?.resume(returning: result)
+        pending = nil
+    }
+}
+
+private actor PackageAttempts {
+    private(set) var count = 0
+
+    func rejectedPackage() throws -> PreparedUpdate {
+        count += 1
+        throw count == 1 ? UpdatePackageIssue.versionMismatch : UpdatePackageIssue.digestMismatch
     }
 }

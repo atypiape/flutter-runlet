@@ -321,9 +321,9 @@ final class LaunchPresentationTests: XCTestCase {
     }
 
     @MainActor
-    func testOrdinaryUpdatePresentationStaysIdleAfterClicks() {
+    func testOrdinaryUpdatePresentationStaysIdleUntilExplicitCheck() {
         let source = UpdatePresentationSource()
-        source.perform(.primary)
+        XCTAssertEqual(source.presentation, UpdatePresentation())
         source.perform(.install)
         XCTAssertEqual(source.presentation, UpdatePresentation())
     }
