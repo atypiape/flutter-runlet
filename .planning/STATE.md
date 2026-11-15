@@ -5,17 +5,17 @@ milestone_name: 界面与调试体验
 current_phase: 07
 current_phase_name: 设置、关于与更新
 status: executing
-stopped_at: 07-04 正式版本查询和下载预检通过，正在执行 07-05
-last_updated: "2026-11-15T09:38:18Z"
+stopped_at: 07-05 隔离安装、活动门禁及回退通过，正在执行 07-06
+last_updated: "2026-11-15T10:36:31Z"
 last_activity: 2026-11-15
-last_activity_desc: 完成 07-04 正式 Release 查询、下载预检和原生复拍
-state_head: 517bbf571f4179354769d3c46ff0cb9f87c73a6d
+last_activity_desc: 完成 07-05 隔离安装重启、跨实例门禁与回退实测
+state_head: 5da4fd43d346b9d8689a6b02002b36ca579a65e0
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -23,15 +23,15 @@ progress:
 ## Current Position
 
 Phase: 07 设置、关于与更新
-Plan: 正在执行 07-05，已完成 4 / 6
+Plan: 正在执行 07-06，已完成 5 / 6
 Status: 执行中
-Last activity: 2026-11-15 — 完成 07-04 正式 Release 查询、下载预检和原生复拍
+Last activity: 2026-11-15 — 完成 07-05 隔离安装重启、跨实例门禁与回退实测
 
 ## Session
 
-**Last session:** 2026-11-15T09:38:18Z
-**Stopped at:** 07-04 正式版本查询和下载预检通过，正在执行 07-05
-**Resume file:** .planning/phases/07-settings-about-updates/07-05-PLAN.md
+**Last session:** 2026-11-15T10:36:31Z
+**Stopped at:** 07-05 隔离安装、活动门禁及回退通过，正在执行 07-06
+**Resume file:** .planning/phases/07-settings-about-updates/07-06-PLAN.md
 
 ## Performance Metrics
 
@@ -60,4 +60,4 @@ Last activity: 2026-11-15 — 完成 07-04 正式 Release 查询、下载预检�
 
 ## Operator Next Steps
 
-- 使用同一视觉签核和 07-04 验包结果，实测隔离版本的事务交接、重启、回退和跨实例活动门禁。
+- 固定同一最终普通 Release 进行四处界面、真实 Flutter 和更新联验，再核对六项阶段需求。

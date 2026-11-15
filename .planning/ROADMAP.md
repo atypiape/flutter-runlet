@@ -83,7 +83,7 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 5（依赖 07-04 及 07-03 的有效视觉签核）**
 
-- [ ] [07-05 安装重启、安全等待及回退](phases/07-settings-about-updates/07-05-PLAN.md)
+- [x] [07-05 安装重启、安全等待及回退](phases/07-settings-about-updates/07-05-PLAN.md)
 
 **Wave 6（依赖 07-05）**
 
