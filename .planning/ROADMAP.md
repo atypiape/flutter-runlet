@@ -75,7 +75,7 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 3（依赖 07-02）**
 
-- [ ] [07-03 同候选逐状态截图对照和视觉门槛](phases/07-settings-about-updates/07-03-PLAN.md)
+- [x] [07-03 同候选逐状态截图对照和视觉门槛](phases/07-settings-about-updates/07-03-PLAN.md)（512 项适用用例通过）
 
 **Wave 4（须有 07-03 的有效视觉签核）**
 
