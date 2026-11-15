@@ -114,7 +114,8 @@ final class AppTermination: NSObject, NSApplicationDelegate {
     func installMainWindowHandler(presentOnLaunch: Bool, open: @escaping () -> Void) {
         let firstAppearance = reopenMainWindow == nil
         reopenMainWindow = open
-        guard firstAppearance, presentOnLaunch, session?.updateTrial == nil,
+        guard firstAppearance, presentOnLaunch, session?.shouldPresentMainWindowOnLaunch != false,
+              session?.updateTrial == nil,
               session?.updateStartupBlocked != true else { return }
         // The menu bar scene can appear at login even when SwiftUI skips its default window.
         Task { @MainActor in
