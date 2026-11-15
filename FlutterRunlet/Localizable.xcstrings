@@ -1825,6 +1825,22 @@
         }
       }
     },
+    "Doc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doc"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用文档"
+          }
+        }
+      }
+    },
     "Documentation": {
       "localizations": {
         "en": {
@@ -2669,6 +2685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "JSONC 语法错误"
+          }
+        }
+      }
+    },
+    "License": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "许可证"
           }
         }
       }
@@ -6509,6 +6541,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "更新到 %@"
+          }
+        }
+      }
+    },
+    "Updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近期更新"
           }
         }
       }

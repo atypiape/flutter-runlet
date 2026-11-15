@@ -53,9 +53,9 @@ final class LaunchPresentationTests: XCTestCase {
             ("Inspired by Flutter GUI Runner", "灵感来自 Flutter GUI Runner"),
             ("MIT License", "MIT 许可证"),
             ("Project Home", "项目主页"),
-            ("Documentation", "使用文档"),
-            ("Project License", "项目许可证"),
-            ("Recent Updates", "近期更新")
+            ("Doc", "使用文档"),
+            ("License", "许可证"),
+            ("Updates", "近期更新")
         ] {
             XCTAssertEqual(englishBundle.localizedString(forKey: key, value: "<missing>", table: nil), key)
             XCTAssertEqual(chineseBundle.localizedString(forKey: key, value: "<missing>", table: nil), translation)

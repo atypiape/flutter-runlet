@@ -679,9 +679,9 @@ struct AboutInformation {
         var title: LocalizedStringResource {
             switch self {
             case .project: "Github"
-            case .documentation: "Documentation"
-            case .license: "Project License"
-            case .recentUpdates: "Recent Updates"
+            case .documentation: "Doc"
+            case .license: "License"
+            case .recentUpdates: "Updates"
             }
         }
 
@@ -697,7 +697,7 @@ struct AboutInformation {
 }
 
 struct AboutView: View {
-    static let windowSize = CGSize(width: 520, height: 412)
+    static let windowSize = CGSize(width: 400, height: 412)
 
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
