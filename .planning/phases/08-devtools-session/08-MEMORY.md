@@ -2,7 +2,7 @@
 
 ## VS Code 的做法
 
-VS Code 把 Electron 主进程、工作台渲染进程、扩展宿主和共享任务分开。Process Explorer 和 `code --status` 可识别进程角色。Dart Code 可按设置在 VS Code 内嵌或外部浏览器显示 DevTools，也支持与 Flutter 共用 DevTools 服务。内嵌时页面相关内存仍计入对应的 VS Code 进程。[VS Code 进程架构](https://code.visualstudio.com/blogs/2022/11/28/vscode-sandbox) · [Process Explorer](https://github.com/microsoft/vscode/wiki/Performance-Issues#visual-studio-code-is-consuming-a-lot-of-cpu) · [Dart Code DevTools 设置](https://dartcode.org/docs/settings/#dartdevtoolslocation)
+VS Code 把 Electron 主进程、工作台渲染进程、扩展宿主和共享任务分开。Process Explorer 和 `code --status` 可识别进程角色。本机 `code --status` 也列出了工作台、扩展宿主、共享任务、GPU 和网络服务。Dart Code 可按设置在 VS Code 内嵌或外部浏览器显示 DevTools，也支持与 Flutter 共用 DevTools 服务。内嵌时页面相关内存仍计入对应的 VS Code 进程。[VS Code 进程架构](https://code.visualstudio.com/blogs/2022/11/28/vscode-sandbox) · [Process Explorer](https://github.com/microsoft/vscode/wiki/Performance-Issues#visual-studio-code-is-consuming-a-lot-of-cpu) · [Dart Code DevTools 设置](https://dartcode.org/docs/settings/#dartdevtoolslocation)
 
 FlutterRunlet 已有分工。主进程管理 SwiftUI、会话状态、界面日志和 VM Service 连接。会话 worker 管理子进程和清理。项目编译、热重载所用的 `frontend_server` 由 Flutter SDK 启动，独立 DevTools 服务由所选 Dart SDK 启动，页面由浏览器渲染。[进程启动](../../../FlutterRunlet/SessionProcess.swift) · [独立服务](../../../FlutterRunlet/SessionController.swift)
 
