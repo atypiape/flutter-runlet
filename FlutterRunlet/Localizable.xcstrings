@@ -241,6 +241,22 @@
         }
       }
     },
+    "A universal macOS package is missing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A universal macOS package is missing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少 macOS 通用安装包。"
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "en": {
@@ -2609,6 +2625,22 @@
         }
       }
     },
+    "macOS did not approve the package for distribution.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS did not approve the package for distribution."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装包未通过 macOS 分发检查。"
+          }
+        }
+      }
+    },
     "Main Window": {
       "localizations": {
         "en": {
@@ -2701,6 +2733,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "原配置名称重名，请在 launch.json 中改名"
+          }
+        }
+      }
+    },
+    "New version %@ cannot be installed safely. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New version %@ cannot be installed safely. %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现新版 %1$@，暂无法安全安装。%2$@"
           }
         }
       }
@@ -4593,6 +4641,22 @@
         }
       }
     },
+    "The app’s identity or signature could not be verified.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app’s identity or signature could not be verified."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证应用身份或签名。"
+          }
+        }
+      }
+    },
     "The Dart define name is invalid. Check toolArgs": {
       "localizations": {
         "en": {
@@ -4637,6 +4701,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dart 入口或工作目录超出验收项目"
+          }
+        }
+      }
+    },
+    "The disk image could not be safely inspected.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The disk image could not be safely inspected."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法安全检查磁盘映像。"
           }
         }
       }
@@ -4737,6 +4817,102 @@
         }
       }
     },
+    "The package could not be stored.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package could not be stored."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法暂存安装包。"
+          }
+        }
+      }
+    },
+    "The package could not be verified.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package could not be verified."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证安装包。"
+          }
+        }
+      }
+    },
+    "The package does not support both Mac architectures.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package does not support both Mac architectures."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装包未同时支持 Apple 芯片和 Intel。"
+          }
+        }
+      }
+    },
+    "The package exceeds the size limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package exceeds the size limit."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装包超过大小上限。"
+          }
+        }
+      }
+    },
+    "The package has no valid SHA-256 checksum.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package has no valid SHA-256 checksum."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装包缺少有效的 SHA-256 校验值。"
+          }
+        }
+      }
+    },
+    "The package size does not match the release.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package size does not match the release."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装包大小与发布记录不符。"
+          }
+        }
+      }
+    },
     "The previous version was restored but could not open automatically.": {
       "localizations": {
         "en": {
@@ -4753,6 +4929,70 @@
         }
       }
     },
+    "The publisher’s signing identity is not configured.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The publisher’s signing identity is not configured."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未配置发行签名。"
+          }
+        }
+      }
+    },
+    "The release has conflicting macOS packages.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The release has conflicting macOS packages."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发布中存在冲突的 macOS 安装包。"
+          }
+        }
+      }
+    },
+    "The release has not been locked.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The release has not been locked."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此发布尚未锁定。"
+          }
+        }
+      }
+    },
+    "The release or its package changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The release or its package changed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发布或安装包已更改。"
+          }
+        }
+      }
+    },
     "The selected device is used for the next run.": {
       "localizations": {
         "en": {
@@ -4765,6 +5005,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "所选设备用于下一次运行。"
+          }
+        }
+      }
+    },
+    "The signed version does not match the release tag.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The signed version does not match the release tag."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "签名版本与发布标签不符。"
+          }
+        }
+      }
+    },
+    "The signed version is not newer than this app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The signed version is not newer than this app."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "签名版本未高于当前版本。"
           }
         }
       }

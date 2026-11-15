@@ -49,6 +49,7 @@ struct UpdatePresentation: Equatable {
     enum Status: Equatable {
         case idle, checking, current, noRelease
         case available(String), updating
+        case unavailable(version: String, reason: UpdatePackageIssue, canRetry: Bool)
         case waiting(Blocker), ready
         case failed(Failure)
     }
@@ -68,6 +69,7 @@ struct UpdatePresentation: Equatable {
         case .idle, .current, .noRelease: "Check for Updates"
         case .checking: "Checking…"
         case .available(let version): "Update to \(version)"
+        case .unavailable(_, _, let canRetry): canRetry ? "Retry" : "Check for Updates"
         case .updating: "Updating…"
         case .waiting, .ready: "Continue Installation"
         case .failed: "Retry"
@@ -81,6 +83,8 @@ struct UpdatePresentation: Equatable {
         case .current: "You’re up to date"
         case .noRelease: "No stable release is available"
         case .available(let version): "New version available: \(version)"
+        case .unavailable(let version, let reason, _):
+            "New version \(version) cannot be installed safely. \(reason.installExplanation)"
         case .updating: "Updating…"
         case .waiting(let blocker): "Update downloaded. \(blocker.explanation)"
         case .ready: "Update downloaded. You can continue installation."
@@ -97,6 +101,7 @@ struct UpdatePresentation: Equatable {
     }
 
     var showsReleaseAction: Bool {
+        if case .unavailable = status { return true }
         if case .failed(let failure) = status { return failure != .check }
         return false
     }
@@ -122,5 +127,29 @@ final class UpdatePresentationSource {
     func perform(_ action: Action) {
         guard action != .primary || presentation.canPerformPrimary else { return }
         self.action(action)
+    }
+}
+
+private extension UpdatePackageIssue {
+    var installExplanation: LocalizedStringResource {
+        switch self {
+        case .mutableRelease: "The release has not been locked."
+        case .publisherNotConfigured: "The publisher’s signing identity is not configured."
+        case .missingAsset: "A universal macOS package is missing."
+        case .ambiguousAsset: "The release has conflicting macOS packages."
+        case .assetTooLarge: "The package exceeds the size limit."
+        case .missingDigest: "The package has no valid SHA-256 checksum."
+        case .sizeMismatch: "The package size does not match the release."
+        case .releaseChanged: "The release or its package changed."
+        case .invalidImage, .detachFailed: "The disk image could not be safely inspected."
+        case .invalidBundle, .invalidSignature: "The app’s identity or signature could not be verified."
+        case .unsupportedArchitecture: "The package does not support both Mac architectures."
+        case .versionMismatch: "The signed version does not match the release tag."
+        case .notNewer: "The signed version is not newer than this app."
+        case .systemAssessment: "macOS did not approve the package for distribution."
+        case .staging: "The package could not be stored."
+        case .invalidRelease, .invalidAsset, .download, .digestMismatch, .invalidSidecar:
+            "The package could not be verified."
+        }
     }
 }
