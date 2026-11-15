@@ -87,7 +87,7 @@ struct UpdateDownload: Equatable, Sendable {
     }
 }
 
-struct RunningUpdateApp: Equatable, Sendable {
+struct RunningUpdateApp: Codable, Equatable, Sendable {
     let productID: String
     let version: String
     let build: String
@@ -108,10 +108,11 @@ struct RunningUpdateApp: Equatable, Sendable {
 }
 
 struct PreparedUpdate: Sendable {
-    struct SignedIdentity: Equatable, Sendable {
+    struct SignedIdentity: Codable, Equatable, Sendable {
         let app: RunningUpdateApp
         let appCodeHashes: [String: String]
         let workerCodeHashes: [String: String]
+        let helperCodeHashes: [String: String]
     }
 
     let download: UpdateDownload
@@ -125,13 +126,120 @@ struct PreparedUpdate: Sendable {
     }
 }
 
+struct IsolatedUpdateBuild: Sendable {
+    static let productID = "com.atypiape.FlutterRunlet.Phase07Update"
+    let root: URL
+    let origin: URL
+    let imageSHA256: String
+    let version: String
+    let build: String
+
+    static func read(_ bundle: Bundle = .main, helper: Bool = false) -> Self? {
+        #if PHASE07_UPDATE
+        guard bundle.bundleIdentifier == (helper ? UpdatePackageService.helperIdentifier : productID),
+              let config = bundle.object(forInfoDictionaryKey: "RunletIsolatedUpdate") as? [String: String],
+              let path = config["root"], path.hasPrefix("/"), path.hasSuffix("/.private/phase-07/update"),
+              let port = config["port"].flatMap(UInt16.init), port > 1024,
+              let origin = URL(string: "http://127.0.0.1:\(port)"),
+              let digest = config["sha256"], let version = config["version"], let build = config["build"] else {
+            return nil
+        }
+        let root = URL(filePath: path, directoryHint: .isDirectory)
+        var status = stat()
+        guard root.resolvingSymlinksInPath().path == path, lstat(path, &status) == 0,
+              status.st_mode & S_IFMT == S_IFDIR, status.st_mode & 0o077 == 0, status.st_uid == geteuid() else {
+            return nil
+        }
+        return Self(root: root, origin: origin, imageSHA256: digest, version: version, build: build)
+        #else
+        return nil
+        #endif
+    }
+
+    var target: URL { root.appending(path: "target/FlutterRunlet.app", directoryHint: .isDirectory) }
+    var recovery: URL { root.appending(path: "state", directoryHint: .isDirectory) }
+
+    func trusts(_ download: UpdateDownload) -> Bool {
+        imageSHA256 == download.image.digest && ReleaseVersion(version) == download.version && ReleaseVersion(build) != nil
+    }
+
+    func request(_ remote: URL) -> (URL, URLRequest) {
+        let local = origin.appending(path: String(remote.path.dropFirst()))
+        return (local, UpdateRepository.request(local))
+    }
+}
+
 struct UpdatePackageService: Sendable {
     // The public publisher can be enabled only by a reviewed build after the release freeze.
     private static let publicTeamID: String? = nil
     private static let publicProductID = "com.atypiape.FlutterRunlet"
+    static let helperIdentifier = "com.atypiape.FlutterRunlet.UpdateHelper"
+    static let helperPath = "Contents/Helpers/FlutterRunletUpdateHelper.app"
+    static let helperExecutable = "Contents/MacOS/FlutterRunletUpdateHelper"
+
+    static var installsEnabled: Bool { publicTeamID != nil || IsolatedUpdateBuild.read() != nil }
+
+    static func installationIdentity(at app: URL, productID: String,
+                                     fixture: IsolatedUpdateBuild? = nil) throws -> PreparedUpdate.SignedIdentity {
+        let trust = try installationTrust(productID: productID, fixture: fixture)
+        return try signedIdentity(at: app, productID: productID, trust: trust)
+    }
+
+    private static func installationTrust(productID: String, fixture: IsolatedUpdateBuild?) throws -> Trust {
+        #if PHASE07_UPDATE
+        if let fixture, productID == IsolatedUpdateBuild.productID {
+            return .isolated(fixture)
+        }
+        #endif
+        guard let publicTeamID, productID == publicProductID else { throw UpdatePackageIssue.publisherNotConfigured }
+        return .developerID(publicTeamID)
+    }
+
+    static func stage(_ update: PreparedUpdate, replacing installed: URL, in directory: URL)
+        throws -> PreparedUpdate.SignedIdentity {
+        let fixture = IsolatedUpdateBuild.read()
+        let trust = try installationTrust(productID: update.runningApp.productID, fixture: fixture)
+        let old = try signedIdentity(at: installed, productID: update.runningApp.productID, trust: trust)
+        guard old.app == update.runningApp else { throw UpdatePackageIssue.invalidBundle }
+        let staged = directory.appending(path: "FlutterRunlet.app", directoryHint: .isDirectory)
+        try verifyFile(update.imageURL, asset: update.download.image)
+        let signed = try inspect(image: update.imageURL, directory: update.directory, running: old.app,
+                                 download: update.download, trust: trust, copyingTo: staged)
+        try verifyFile(update.imageURL, asset: update.download.image)
+        guard update.signed == signed,
+              try signedIdentity(at: staged, productID: old.app.productID, trust: trust) == signed else {
+            throw UpdatePackageIssue.invalidSignature
+        }
+        return old
+    }
+
+    func check(runningVersion: String) async throws -> ReleaseCheckResult {
+        #if PHASE07_UPDATE
+        if let fixture = IsolatedUpdateBuild.read() {
+            return try await ReleaseClient { remote in
+                let (local, request) = fixture.request(remote)
+                let (bytes, response) = try await BoundedUpdateHTTP.get(request, limit: 8 * 1024 * 1024, timeout: 15)
+                guard response.url == local,
+                      let canonical = HTTPURLResponse(url: remote, statusCode: response.statusCode,
+                                                      httpVersion: nil, headerFields: nil) else {
+                    throw ReleaseClient.Issue.invalidResponse
+                }
+                return (bytes, canonical)
+            }.check(runningVersion: runningVersion)
+        }
+        #endif
+        return try await ReleaseClient().check(runningVersion: runningVersion)
+    }
 
     func availability(for release: GitHubRelease) -> Result<UpdateDownload, UpdatePackageIssue> {
         guard release.immutable == true else { return .failure(.mutableRelease) }
+        #if PHASE07_UPDATE
+        if let fixture = IsolatedUpdateBuild.read() {
+            return Result { try UpdateDownload(release: release) }
+                .mapError { $0 as? UpdatePackageIssue ?? .invalidAsset }
+                .flatMap { fixture.trusts($0) ? .success($0) : .failure(.digestMismatch) }
+        }
+        #endif
         guard Self.publicTeamID != nil else { return .failure(.publisherNotConfigured) }
         do {
             return .success(try UpdateDownload(release: release))
@@ -142,6 +250,25 @@ struct UpdatePackageService: Sendable {
 
     func prepare(_ download: UpdateDownload, running: RunningUpdateApp) async throws -> PreparedUpdate {
         guard download.immutable else { throw UpdatePackageIssue.mutableRelease }
+        #if PHASE07_UPDATE
+        if let fixture = IsolatedUpdateBuild.read() {
+            guard running.productID == IsolatedUpdateBuild.productID, fixture.trusts(download) else {
+                throw UpdatePackageIssue.digestMismatch
+            }
+            return try await Self.prepare(download, running: running, trust: .isolated(fixture),
+                                          stagingRoot: fixture.root, fetch: { asset, output in
+                let (local, request) = fixture.request(asset.apiURL)
+                let (_, response) = try await BoundedUpdateHTTP.get(request, limit: asset.size, timeout: 60, output: output)
+                guard response.statusCode == 200, response.url == local else { throw UpdatePackageIssue.download }
+            }) {
+                let remote = UpdateRepository.api.appending(path: "releases/\(download.releaseID)")
+                let (local, request) = fixture.request(remote)
+                let (data, response) = try await BoundedUpdateHTTP.get(request, limit: 8 * 1024 * 1024, timeout: 15)
+                guard response.statusCode == 200, response.url == local else { throw UpdatePackageIssue.releaseChanged }
+                return try JSONDecoder().decode(GitHubRelease.self, from: data)
+            }
+        }
+        #endif
         guard let team = Self.publicTeamID else { throw UpdatePackageIssue.publisherNotConfigured }
         guard running.productID == Self.publicProductID else { throw UpdatePackageIssue.invalidBundle }
 
@@ -158,6 +285,9 @@ struct UpdatePackageService: Sendable {
 
     private enum Trust: Sendable {
         case developerID(String)
+        #if PHASE07_UPDATE
+        case isolated(IsolatedUpdateBuild)
+        #endif
         #if DEBUG
         case fixture(FixtureTrust)
         #endif
@@ -177,7 +307,7 @@ struct UpdatePackageService: Sendable {
     }
     #endif
 
-    private static func prepare(_ download: UpdateDownload, running: RunningUpdateApp, trust: Trust,
+    private static func prepare(_ download: UpdateDownload, running: RunningUpdateApp, trust: Trust, stagingRoot: URL? = nil,
                                 fetch: FetchAsset,
                                 refresh: @Sendable () async throws -> GitHubRelease) async throws -> PreparedUpdate {
         try Task.checkCancellation()
@@ -196,7 +326,7 @@ struct UpdatePackageService: Sendable {
         }
         #endif
 
-        guard let resolvedTemp = realpath(FileManager.default.temporaryDirectory.path, nil) else {
+        guard let resolvedTemp = realpath((stagingRoot ?? FileManager.default.temporaryDirectory).path, nil) else {
             throw UpdatePackageIssue.staging
         }
         defer { free(resolvedTemp) }
@@ -288,7 +418,8 @@ struct UpdatePackageService: Sendable {
     }
 
     private static func inspect(image: URL, directory: URL, running: RunningUpdateApp,
-                                download: UpdateDownload, trust: Trust) throws -> PreparedUpdate.SignedIdentity {
+                                download: UpdateDownload, trust: Trust, copyingTo destination: URL? = nil)
+        throws -> PreparedUpdate.SignedIdentity {
         let mount = directory.appending(path: "Volume", directoryHint: .isDirectory)
         guard mkdir(mount.path, 0o700) == 0 else { throw UpdatePackageIssue.staging }
 
@@ -309,19 +440,28 @@ struct UpdatePackageService: Sendable {
                 throw UpdatePackageIssue.invalidImage
             }
             try Task.checkCancellation()
-            return try inspectApp(at: mount, running: running, download: download, trust: trust)
+            let identity = try inspectApp(at: mount, running: running, download: download, trust: trust)
+            if let destination {
+                let source = mount.appending(path: "FlutterRunlet.app", directoryHint: .isDirectory)
+                try copyBundle(from: source, to: destination)
+            }
+            return identity
         }
         try detachImage(at: image)
         guard !isMountPoint(mount), rmdir(mount.path) == 0 else { throw UpdatePackageIssue.detachFailed }
         return try result.get()
     }
 
+    static func copyBundle(from source: URL, to destination: URL) throws {
+        let flags = COPYFILE_ALL | COPYFILE_RECURSIVE | COPYFILE_EXCL | COPYFILE_NOFOLLOW_SRC | COPYFILE_NOFOLLOW_DST
+        guard copyfile(source.path, destination.path, nil, copyfile_flags_t(flags)) == 0 else {
+            throw UpdatePackageIssue.staging
+        }
+    }
+
     private static func inspectApp(at mount: URL, running: RunningUpdateApp,
                                    download: UpdateDownload, trust: Trust) throws -> PreparedUpdate.SignedIdentity {
         let app = mount.appending(path: "FlutterRunlet.app", directoryHint: .isDirectory)
-        let worker = app.appending(path: "Contents/Helpers/FlutterRunletSessionWorker")
-        let executable = app.appending(path: "Contents/MacOS/FlutterRunlet")
-        let info = app.appending(path: "Contents/Info.plist")
         let entries = try FileManager.default.contentsOfDirectory(atPath: mount.path)
         guard entries.contains("FlutterRunlet.app"), entries.allSatisfy({ ["FlutterRunlet.app", "Applications"].contains($0) }) else {
             throw UpdatePackageIssue.invalidBundle
@@ -332,10 +472,40 @@ struct UpdatePackageService: Sendable {
                 throw UpdatePackageIssue.invalidBundle
             }
         }
+        let signed = try signedIdentity(at: app, productID: running.productID, trust: trust)
+        switch trust {
+        case .developerID:
+            _ = try NativeUpdateTool.run("/usr/bin/syspolicy_check", ["distribution", app.path], failure: .systemAssessment)
+        #if PHASE07_UPDATE
+        case .isolated(let fixture):
+            guard fixture.trusts(download), signed.app.version == fixture.version, signed.app.build == fixture.build else {
+                throw UpdatePackageIssue.invalidSignature
+            }
+        #endif
+        #if DEBUG
+        case .fixture(let expected):
+            guard signed == expected.signed else { throw UpdatePackageIssue.invalidSignature }
+        #endif
+        }
+        guard let numericVersion = ReleaseVersion(signed.app.version), numericVersion == download.version else {
+            throw UpdatePackageIssue.versionMismatch
+        }
+        guard let current = ReleaseVersion(running.version), numericVersion > current else { throw UpdatePackageIssue.notNewer }
+        return signed
+    }
+
+    private static func signedIdentity(at app: URL, productID: String,
+                                       trust: Trust) throws -> PreparedUpdate.SignedIdentity {
+        let worker = app.appending(path: "Contents/Helpers/FlutterRunletSessionWorker")
+        let executable = app.appending(path: "Contents/MacOS/FlutterRunlet")
+        let helper = app.appending(path: helperPath, directoryHint: .isDirectory)
+        let helperBinary = helper.appending(path: helperExecutable)
         try validateBundleTree(app)
         try requireFile(executable)
         try requireFile(worker)
-        try requireFile(info)
+        try requireFile(app.appending(path: "Contents/Info.plist"))
+        try requireFile(helperBinary)
+        try requireFile(helper.appending(path: "Contents/Info.plist"))
 
         let appSigner: String?
         let workerSigner: String?
@@ -349,6 +519,11 @@ struct UpdatePackageService: Sendable {
             and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "\(team)"
             """
             appSigner = workerSigner.map { $0 + " and identifier \"\(publicProductID)\"" }
+        #if PHASE07_UPDATE
+        case .isolated:
+            appSigner = nil
+            workerSigner = nil
+        #endif
         #if DEBUG
         case .fixture:
             appSigner = nil
@@ -358,26 +533,20 @@ struct UpdatePackageService: Sendable {
 
         let (appHashes, signedInfo) = try verifyCode(app, executable: executable, requirement: appSigner, nested: true)
         let (workerHashes, _) = try verifyCode(worker, executable: worker, requirement: workerSigner, nested: false)
-        guard let signedInfo, let product = signedInfo["CFBundleIdentifier"] as? String, product == running.productID,
+        let helperSigner = workerSigner.map { $0 + " and identifier \"\(helperIdentifier)\"" }
+        let (helperHashes, helperInfo) = try verifyCode(helper, executable: helperBinary, requirement: helperSigner, nested: true)
+        guard helperInfo?["CFBundleIdentifier"] as? String == helperIdentifier,
+              helperInfo?["CFBundleExecutable"] as? String == "FlutterRunletUpdateHelper",
+              helperInfo?["CFBundlePackageType"] as? String == "APPL",
+              let signedInfo, let product = signedInfo["CFBundleIdentifier"] as? String, product == productID,
               signedInfo["CFBundleExecutable"] as? String == "FlutterRunlet",
               signedInfo["CFBundlePackageType"] as? String == "APPL",
-              let version = signedInfo["CFBundleShortVersionString"] as? String, let numericVersion = ReleaseVersion(version),
+              let version = signedInfo["CFBundleShortVersionString"] as? String, ReleaseVersion(version) != nil,
               let build = signedInfo["CFBundleVersion"] as? String, ReleaseVersion(build) != nil else {
             throw UpdatePackageIssue.invalidBundle
         }
-        let signed = PreparedUpdate.SignedIdentity(app: .init(productID: product, version: version, build: build),
-                                                   appCodeHashes: appHashes, workerCodeHashes: workerHashes)
-        switch trust {
-        case .developerID:
-            _ = try NativeUpdateTool.run("/usr/bin/syspolicy_check", ["distribution", app.path], failure: .systemAssessment)
-        #if DEBUG
-        case .fixture(let expected):
-            guard signed == expected.signed else { throw UpdatePackageIssue.invalidSignature }
-        #endif
-        }
-        guard numericVersion == download.version else { throw UpdatePackageIssue.versionMismatch }
-        guard let current = ReleaseVersion(running.version), numericVersion > current else { throw UpdatePackageIssue.notNewer }
-        return signed
+        return .init(app: .init(productID: product, version: version, build: build),
+                     appCodeHashes: appHashes, workerCodeHashes: workerHashes, helperCodeHashes: helperHashes)
     }
 
     private static func verifyCode(_ url: URL, executable: URL, requirement: String?,

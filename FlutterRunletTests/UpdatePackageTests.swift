@@ -66,7 +66,7 @@ final class UpdatePackageTests: XCTestCase {
     func testSignedDMGWithoutUpdateHelperIsRejected() async throws {
         let fixture = try PackageFixture()
         defer { fixture.cleanUp() }
-        let app = try fixture.makeApp(folder: "without-helper", version: "7.3.0", build: "73")
+        let app = try fixture.makeApp(folder: "without-helper", version: "7.3.0", build: "73", hasHelper: false)
         let artifact = try fixture.makeArtifact(app: app)
         let server = try await AssetHTTPServer.start(replies: ["/asset": .ok(artifact.bytes)])
         defer { server.stop() }
@@ -109,6 +109,7 @@ final class UpdatePackageTests: XCTestCase {
         A code hashes \(original)
         B signed app \(prepared.signed.app) code hashes \(prepared.signed.appCodeHashes)
         B signed worker code hashes \(prepared.signed.workerCodeHashes)
+        B signed update helper code hashes \(prepared.signed.helperCodeHashes)
         """)
         receipt.name = "Isolated A and pinned DMG B"
         receipt.lifetime = .keepAlways
@@ -323,7 +324,7 @@ private struct PackageFixture {
 
     func cleanUp() { try? FileManager.default.removeItem(at: root) }
 
-    func makeApp(folder: String, version: String, build: String) throws -> URL {
+    func makeApp(folder: String, version: String, build: String, hasHelper: Bool = true) throws -> URL {
         let app = root.appending(path: "\(folder)/FlutterRunlet.app", directoryHint: .isDirectory)
         let contents = app.appending(path: "Contents", directoryHint: .isDirectory)
         let macOS = contents.appending(path: "MacOS", directoryHint: .isDirectory)
@@ -341,6 +342,20 @@ private struct PackageFixture {
         let worker = helpers.appending(path: "FlutterRunletSessionWorker")
         try FileManager.default.copyItem(at: tool, to: worker)
         _ = try run("/usr/bin/codesign", ["--force", "--sign", "-", "--identifier", "FlutterRunletSessionWorker", worker.path])
+        if hasHelper {
+            let helper = helpers.appending(path: "FlutterRunletUpdateHelper.app")
+            let helperExecutable = helper.appending(path: "Contents/MacOS/FlutterRunletUpdateHelper")
+            try FileManager.default.createDirectory(at: helperExecutable.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            let info: [String: Any] = [
+                "CFBundleIdentifier": "com.atypiape.FlutterRunlet.UpdateHelper", "CFBundlePackageType": "APPL",
+                "CFBundleExecutable": "FlutterRunletUpdateHelper"
+            ]
+            try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+                .write(to: helper.appending(path: "Contents/Info.plist"))
+            try FileManager.default.copyItem(at: tool, to: helperExecutable)
+            _ = try run("/usr/bin/codesign", ["--force", "--sign", "-", helper.path])
+        }
         _ = try run("/usr/bin/codesign", ["--force", "--sign", "-", app.path])
         try verify(app)
         return app
@@ -373,8 +388,10 @@ private struct PackageFixture {
 
     func signedIdentity(of app: URL) throws -> PreparedUpdate.SignedIdentity {
         let bundle = try XCTUnwrap(Bundle(url: app))
+        let helper = app.appending(path: "Contents/Helpers/FlutterRunletUpdateHelper.app")
         return .init(app: try XCTUnwrap(RunningUpdateApp(bundle: bundle)), appCodeHashes: try hashes(of: app),
-                     workerCodeHashes: try hashes(of: app.appending(path: "Contents/Helpers/FlutterRunletSessionWorker")))
+                     workerCodeHashes: try hashes(of: app.appending(path: "Contents/Helpers/FlutterRunletSessionWorker")),
+                     helperCodeHashes: FileManager.default.fileExists(atPath: helper.path) ? try hashes(of: helper) : [:])
     }
 
     func hashes(of path: URL) throws -> [String: String] {
