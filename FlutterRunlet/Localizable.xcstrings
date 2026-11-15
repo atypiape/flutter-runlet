@@ -2753,6 +2753,22 @@
         }
       }
     },
+    "Recent Updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近期更新"
+          }
+        }
+      }
+    },
     "Select Dart SDK…": {
       "localizations": {
         "en": {

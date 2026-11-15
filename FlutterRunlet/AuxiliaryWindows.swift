@@ -674,13 +674,14 @@ struct AboutInformation {
     }
 
     enum Destination: CaseIterable {
-        case project, documentation, license
+        case project, documentation, license, recentUpdates
 
         var title: LocalizedStringResource {
             switch self {
             case .project: "Github"
             case .documentation: "Documentation"
             case .license: "Project License"
+            case .recentUpdates: "Recent Updates"
             }
         }
 
@@ -689,6 +690,7 @@ struct AboutInformation {
             case .project: URL(string: "https://github.com/atypiape/flutter-runlet")!
             case .documentation: URL(string: "https://github.com/atypiape/flutter-runlet/blob/main/README.md")!
             case .license: URL(string: "https://github.com/atypiape/flutter-runlet/blob/main/LICENSE")!
+            case .recentUpdates: UpdateRepository.releases
             }
         }
     }
@@ -790,11 +792,23 @@ private struct AboutLinks: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        let destinations = AboutInformation.Destination.allCases
+        ViewThatFits(in: .horizontal) {
+            linkRow(destinations[...])
+            VStack(spacing: 8) {
+                linkRow(destinations.prefix(2))
+                linkRow(destinations.dropFirst(2))
+            }
+        }
+    }
+
+    private func linkRow(_ destinations: ArraySlice<AboutInformation.Destination>) -> some View {
         HStack(spacing: 8) {
-            ForEach(AboutInformation.Destination.allCases, id: \.self) { destination in
+            ForEach(destinations, id: \.self) { destination in
                 link(destination)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder
@@ -802,7 +816,7 @@ private struct AboutLinks: View {
         let details = AboutInformation.licenseDetails(locale: locale)
         let control = Link(destination: destination.url) {
             HStack(spacing: 6) {
-                RunletIcon(destination.icon, size: 13)
+                destination.icon
                     .foregroundStyle(RunletAppearance(scheme).secondary)
                 Text(destination.title)
                     .font(destination == .project ? .system(size: 11) : RunletType.localized(locale, size: 11))
@@ -821,11 +835,17 @@ private struct AboutLinks: View {
 }
 
 private extension AboutInformation.Destination {
-    var icon: String {
+    @ViewBuilder
+    var icon: some View {
         switch self {
-        case .project: "AboutGitHub"
-        case .documentation: "AboutDocumentation"
-        case .license: "AboutLicense"
+        case .project: RunletIcon("AboutGitHub", size: 15)
+        case .documentation: RunletIcon("AboutDocumentation", size: 15)
+        case .license: RunletIcon("AboutLicense", size: 15)
+        case .recentUpdates:
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 15, height: 15)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -842,9 +862,9 @@ private struct UpdateButton: View {
                               action: { updates.perform(.primary) }) {
             HStack(spacing: 5) {
                 switch presentation.status {
-                case .available, .ready, .waiting: RunletIcon("UpdateDownload", size: 14)
+                case .available, .ready, .waiting: RunletIcon("UpdateDownload", size: 15)
                 case .checking, .updating: spinner(presentation.rotation)
-                default: RunletIcon("UpdateCheck", size: 14)
+                default: RunletIcon("UpdateCheck", size: 15)
                 }
                 Text(presentation.primaryTitle)
                     .lineLimit(1)
@@ -861,11 +881,11 @@ private struct UpdateButton: View {
     private func spinner(_ rotation: UpdatePresentation.Rotation) -> some View {
         if case .animated = rotation, !reduceMotion {
             TimelineView(.animation) { context in
-                RunletIcon("UpdateSpinner", size: 14)
+                RunletIcon("UpdateSpinner", size: 15)
                     .rotationEffect(.degrees(rotation.degrees(at: context.date)))
             }
         } else {
-            RunletIcon("UpdateSpinner", size: 14)
+            RunletIcon("UpdateSpinner", size: 15)
                 .rotationEffect(.degrees(reduceMotion && rotation.isAnimated ? 0 : rotation.degrees(at: .now)))
         }
     }

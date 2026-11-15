@@ -35,7 +35,8 @@ final class LaunchPresentationTests: XCTestCase {
         for (destination, expected) in [
             (AboutInformation.Destination.project, "https://github.com/atypiape/flutter-runlet"),
             (.documentation, "https://github.com/atypiape/flutter-runlet/blob/main/README.md"),
-            (.license, "https://github.com/atypiape/flutter-runlet/blob/main/LICENSE")
+            (.license, "https://github.com/atypiape/flutter-runlet/blob/main/LICENSE"),
+            (.recentUpdates, "https://github.com/atypiape/flutter-runlet/releases")
         ] {
             XCTAssertEqual(destination.url.absoluteString, expected)
             XCTAssertEqual(destination.url.scheme, "https")
@@ -53,7 +54,8 @@ final class LaunchPresentationTests: XCTestCase {
             ("MIT License", "MIT 许可证"),
             ("Project Home", "项目主页"),
             ("Documentation", "使用文档"),
-            ("Project License", "项目许可证")
+            ("Project License", "项目许可证"),
+            ("Recent Updates", "近期更新")
         ] {
             XCTAssertEqual(englishBundle.localizedString(forKey: key, value: "<missing>", table: nil), key)
             XCTAssertEqual(chineseBundle.localizedString(forKey: key, value: "<missing>", table: nil), translation)
