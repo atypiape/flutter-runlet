@@ -22,4 +22,4 @@
 
 后续已在 GitHub 提供 [v0.1.0 预发布包](https://github.com/atypiape/flutter-runlet/releases/tag/v0.1.0)。正式分发所需的 Developer ID 签名、公证及最终公开复核留待后续完成。[公开前检查](PUBLIC-RELEASE-AUDIT.md)
 
-启动、恢复操作和配置限制见使用文档。项目采用 MIT 许可证，关于窗口保留 Flutter GUI Runner 的上游归属。[使用说明](../README.md) · [项目许可证](../LICENSE)
+启动、恢复操作和配置限制见使用文档。项目采用 MIT 许可证，关于窗口保留 Flutter GUI Runner 的上游归属。[使用说明](../README.zh-CN.md) · [项目许可证](../LICENSE)

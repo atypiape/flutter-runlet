@@ -20,6 +20,8 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 把可重建的编译缓存和试打包产物放在 `.build/`，把原始验收截图、日志、测试结果包和与签核摘要绑定的候选留在 `.private/`，只提交脱敏结论。清理时保留签核引用的原始证据及候选；重新构建的二进制不能替代锁定摘要的原件。
 
+更新用户文档时，同步维护[英文首页](../README.md)和[简体中文说明](../README.zh-CN.md)。两版共用 [README 截图](screenshots/)。用隔离示例取图，检查画面和图像元数据后再提交。
+
 ## 打包本地候选
 
 ```sh
