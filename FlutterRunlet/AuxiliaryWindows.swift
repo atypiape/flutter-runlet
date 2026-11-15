@@ -697,6 +697,8 @@ struct AboutInformation {
 }
 
 struct AboutView: View {
+    static let windowSize = CGSize(width: 520, height: 412)
+
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
     let updates: UpdatePresentationSource
@@ -1007,7 +1009,7 @@ struct AuxiliaryWindowLayout<Content: View>: View {
     var body: some View {
         let palette = RunletAppearance(scheme)
         let settings = kind == .settings
-        let size = settings ? SettingsView.windowSize : CGSize(width: 400, height: 412)
+        let size = settings ? SettingsView.windowSize : AboutView.windowSize
         VStack(spacing: 0) {
             if !settings {
                 Text(title)
@@ -1095,7 +1097,7 @@ struct AuxiliaryWindowLayout<Content: View>: View {
                 }
                 restoreTitlebar()
                 window.titlebarSeparatorStyle = .none
-                let size = configuration.kind == .settings ? SettingsView.windowSize : CGSize(width: 400, height: 412)
+                let size = configuration.kind == .settings ? SettingsView.windowSize : AboutView.windowSize
                 if window.frame.size != size {
                     window.setFrame(NSRect(x: window.frame.minX, y: window.frame.maxY - size.height,
                                            width: size.width, height: size.height), display: true)

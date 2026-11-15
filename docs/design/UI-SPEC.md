@@ -71,7 +71,7 @@ SDK 的解析/失败规则以 [技术设计](../02-TECHNICAL.md#5-flutter-sdk--f
 
 ## 5. 关于 FlutterRunlet
 
-采用约 **440 × 480 pt** 的独立窗口，沿用已确认的品牌标志。显示应用名、描述、实际版本与构建号、上游归属及版权。项目主页、README、项目许可证和近期更新由默认浏览器打开。「近期更新」指向 GitHub Releases。在窄窗口中，入口可分两行显示。[G3 验收记录](../../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
+采用**520 × 412 pt** 的独立窗口，沿用已确认的品牌标志。显示应用名、描述、实际版本与构建号、上游归属及版权。项目主页、README、项目许可证和近期更新由默认浏览器打开。「近期更新」指向 GitHub Releases。在窄窗口中，入口可分两行显示。[G3 验收记录](../../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
 ## 6. 语言与视觉校验
 

@@ -373,7 +373,7 @@ struct FlutterRunletApp: App {
             .ignoresSafeArea()
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 400, height: 412)
+        .defaultSize(width: AboutView.windowSize.width, height: AboutView.windowSize.height)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
         .commandsRemoved()
