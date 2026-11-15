@@ -50,11 +50,43 @@
 
 **Depends on**: Phase 06
 
-**需求** UI-13、UI-14、UI-15、UPD-01、UPD-02
+**Requirements**: UI-07, UI-13, UI-14, UI-15, UPD-01, UPD-02
+
+UI-07 在本阶段完成四处界面的最终联验。
 
 1. 从主窗口和菜单栏打开同一套设置，核对分类、开关、版本显示和 Flutter 环境检测。
 2. 对照原型验收独立关于窗口及设置关于页的共享组件、署名和三个链接。
-3. 用可控发布数据覆盖有新版、已是最新、读取失败及更新中反馈。按实现计划验证更新完成后刷新实际版本。
+3. 用可控数据逐状态完成截图对照，通过后才接入真实 Release 查询、下载、校验、安装和回退。用两份隔离候选验证重启后刷新实际版本。
 4. 对同一候选完成四处界面、运行恢复和已有设置行为的本地回归。
 
 公开发布继续暂缓。签名证书、公证、匿名访问及分享范围复核按原发布交接接续。
+
+**Plans**: 6 份，按依赖顺序执行。
+
+阶段 07 从包含本地 Figma 交接的同一工作区顺序执行，`workflow.use_worktrees=false`。所有波次复用 `.private/phase-07/`；缺少原始取证或候选证据时停止，私有目录不进入 Git。
+
+**Wave 1**
+
+- [ ] [07-01 补齐 Figma 图层和逐状态取证基线](phases/07-settings-about-updates/07-01-PLAN.md)
+
+**Wave 2（依赖 07-01）**
+
+- [ ] [07-02 还原设置三页和独立关于，接入受控状态](phases/07-settings-about-updates/07-02-PLAN.md)
+
+**Wave 3（依赖 07-02）**
+
+- [ ] [07-03 同候选逐状态截图对照和视觉门槛](phases/07-settings-about-updates/07-03-PLAN.md)
+
+**Wave 4（须有 07-03 的有效视觉签核）**
+
+- [ ] [07-04 真实 Release 检查与下载校验](phases/07-settings-about-updates/07-04-PLAN.md)
+
+**Wave 5（依赖 07-04 及 07-03 的有效视觉签核）**
+
+- [ ] [07-05 安装重启、安全等待及回退](phases/07-settings-about-updates/07-05-PLAN.md)
+
+**Wave 6（依赖 07-05）**
+
+- [ ] [07-06 同一最终候选四处界面及真实 Flutter 联验](phases/07-settings-about-updates/07-06-PLAN.md)
+
+[Figma 取证](phases/07-settings-about-updates/07-FIGMA-EVIDENCE.md) · [实施调研](phases/07-settings-about-updates/07-RESEARCH.md) · [验证方案](phases/07-settings-about-updates/07-VALIDATION.md)

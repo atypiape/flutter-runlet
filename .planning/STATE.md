@@ -2,36 +2,36 @@
 gsd_state_version: "1.0"
 milestone: v0.2
 milestone_name: 界面与调试体验
-current_phase: 06
-status: phase_complete
-stopped_at: 阶段 07 界面规格已按 Figma 实测复核，待规划
-last_updated: "2026-11-14T18:37:25.641Z"
+current_phase: 07
+current_phase_name: 设置、关于与更新
+status: ready_to_execute
+stopped_at: 阶段 07 实施规划复核通过，待执行 07-01
+last_updated: "2026-11-15T05:55:52Z"
 last_activity: 2026-11-15
-last_activity_desc: 阶段 06 本地验收签核
-state_head: 30c085488c6b8b919cae60b4dab3ad84281cc260
+last_activity_desc: 阶段 07 实施规划复核通过
+state_head: 05c5f9db46831341e054f331399863d22692b700
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 4
+  total_plans: 10
   completed_plans: 4
   percent: 50
-current_phase_name: 主窗口与菜单栏
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 06 主窗口与菜单栏
-Plan: 4 份，全部完成本地验收
-Status: 本地联验已签核
-Last activity: 2026-11-15 — 阶段 06 签核
+Phase: 07 设置、关于与更新
+Plan: 6 份，待执行 07-01
+Status: Ready to execute — 实施规划复核通过
+Last activity: 2026-11-15 — 阶段 07 实施规划复核通过
 
 ## Session
 
-**Last session:** 2026-11-14T18:37:25.625Z
-**Stopped at:** 阶段 07 界面规格已按 Figma 实测复核，待规划
-**Resume file:** .planning/phases/07-settings-about-updates/07-UI-SPEC.md
+**Last session:** 2026-11-15T05:55:52Z
+**Stopped at:** 阶段 07 实施规划复核通过，待执行 07-01
+**Resume file:** .planning/phases/07-settings-about-updates/07-01-PLAN.md
 
 ## Performance Metrics
 
@@ -58,4 +58,4 @@ Last activity: 2026-11-15 — 阶段 06 签核
 
 ## Operator Next Steps
 
-- 主窗口和菜单栏的 Tab 焦点移除已完成实机复验。阶段 07 待规划。
+- 从 07-01 开始，在同一工作区补齐 Figma 原始取证。07-03 的逐状态视觉门槛通过后，才执行真实更新计划。
