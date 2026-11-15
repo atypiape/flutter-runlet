@@ -9,7 +9,7 @@
 确认的四个界面原型作为实现与验收基线。[需求与阶段追踪](REQUIREMENTS.md) · [Figma 交接说明](../docs/design/FIGMA-HANDOFF.md#v02-界面原型)
 
 - [x] **Phase 06: 主窗口与菜单栏** - 交付共用调试控件、项目与设备选择、会话状态和日志体验。
-- [ ] **Phase 07: 设置、关于与更新** - 交付设置和关于窗口、共享版本与更新状态，并完成四处界面联验。
+- [x] **Phase 07: 设置、关于与更新** - 交付设置和关于窗口、共享版本与更新状态，并完成四处界面联验。（2026-11-15 本地验收通过）
 
 ### Phase 06: 主窗口与菜单栏
 
@@ -87,6 +87,6 @@ UI-07 在本阶段完成四处界面的最终联验。
 
 **Wave 6（依赖 07-05）**
 
-- [ ] [07-06 同一最终候选四处界面及真实 Flutter 联验](phases/07-settings-about-updates/07-06-PLAN.md)
+- [x] [07-06 同一最终候选四处界面及真实 Flutter 联验](phases/07-settings-about-updates/07-06-PLAN.md)（六项需求全部通过）
 
-[Figma 取证](phases/07-settings-about-updates/07-FIGMA-EVIDENCE.md) · [实施调研](phases/07-settings-about-updates/07-RESEARCH.md) · [验证方案](phases/07-settings-about-updates/07-VALIDATION.md)
+[Figma 取证](phases/07-settings-about-updates/07-FIGMA-EVIDENCE.md) · [实施调研](phases/07-settings-about-updates/07-RESEARCH.md) · [验证方案](phases/07-settings-about-updates/07-VALIDATION.md) · [最终验收](phases/07-settings-about-updates/07-ACCEPTANCE.md) · [独立签核](phases/07-settings-about-updates/07-VERIFICATION.md)
