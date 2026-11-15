@@ -18,32 +18,29 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 - Phase 3 已在真实 iOS 和 Android 模拟器验证 SDK、设备、热操作、共享会话、默认浏览器 Inspector、实时日志和 prod 恢复，通过 G2。[验收记录](milestones/v0.1-phases/03-flutter/03-G2-ACCEPTANCE.md) · [阶段验证](milestones/v0.1-phases/03-flutter/03-VERIFICATION.md)
 - Phase 4 已验收双语、系统深浅外观、通用与 Flutter 设置、独立关于窗口及图标。系统登录项已实测启动、主窗偏好和撤销。[阶段验证](milestones/v0.1-phases/04-macos/04-VERIFICATION.md)
 - Phase 5 已完成异常恢复、30 分钟日志压力、授权工程三环境与 VS Code 对照、最低部署目标核对和同一候选签名交付，通过 G3。[最终验收](milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
+- v0.2 交付共用调试控件、项目与设备选择、原位恢复和日志、设置与关于，以及正式版查询和隔离安装回退。14 项需求全部通过本地验收。[需求档案](milestones/v0.2-REQUIREMENTS.md)
 
 ### Active
 
-v0.2 的 14 项需求与验收条件见[需求](REQUIREMENTS.md)。
+下一里程碑的目标和需求待确认。
 
 ### Out of Scope
 
 - IDE 的源码编辑、导航和 DAP 调试界面超出轻量调试工具范围。
 - 构建签名发布管理、包管理、Git、复杂脚本和 SDK 安装升级由现有工具处理。
 - 独立全功能 Doctor、内嵌 DevTools 和自建 Inspector 超出调试入口范围。
-- Windows/Linux、远程调试、云账号、自动更新、遥测和多设备并行运行超出 v0.1 范围。
+- Windows/Linux、远程调试、云账号、遥测和多设备并行运行超出当前范围。
 - 自定义环境变量编辑器会引入第二套配置来源，继续以用户项目配置为准。
 
 ## Current State
 
-- v0.1 已完成本地交付和 G1–G3 验收。最终候选为 0.1.0（1），源码 `36916dd`，已复核签名 App、ZIP、校验值和解包后的调试恢复。[发布说明](../docs/RELEASE-NOTES.md)
-- 最低部署目标为 macOS 15.0，实测宿主为 macOS 26.7.1。按 2026-11-14 用户确认，macOS 15 运行兼容性未验证。公证、公开分发及关于链接的匿名访问留给[公开发布检查](../docs/PUBLIC-RELEASE-AUDIT.md)。
-- v0.1 归档不创建发布标签，不推送。[里程碑记录](MILESTONES.md)
+- v0.2 已完成本地验收并归档。两阶段、10 份计划和 14 项需求全部通过。新 DMG 为 v0.2.0（构建 201），已验证双架构签名、解包启动及三处版本显示。[里程碑审计](milestones/v0.2-MILESTONE-AUDIT.md)
+- 最低部署目标为 macOS 15.0，实测宿主为 Apple Silicon macOS 26.7.1。Intel 实机、最低系统实机与 VoiceOver 实际朗读仍待覆盖。[验收边界](milestones/v0.2-MILESTONE-AUDIT.md#nyquist-与验收边界)
+- 公开发布、Developer ID 签名、公证和公开可用性复核继续暂缓。[公开发布检查](../docs/PUBLIC-RELEASE-AUDIT.md)
 
-## Current Milestone: v0.2 界面与调试体验
+## Next Milestone Goals
 
-**目标** 按已确认原型改善日常 Flutter 调试和项目切换体验。
-
-- 重做主窗口与菜单栏，复用项目、设备、调试和会话状态控件。
-- 按原型更新设置与关于窗口，统一版本、更新状态和项目链接。
-- 在本地验收新版界面与恢复流程。公开发布继续暂缓。
+下一里程碑尚待规划。历次交付及验收条件见[里程碑记录](MILESTONES.md)。
 
 ## Context
 
@@ -75,6 +72,9 @@ v0.2 的 14 项需求与验收条件见[需求](REQUIREMENTS.md)。
 | 沿用 P1–P5 及 G1–G3 门槛 | 按交接顺序交付骨架、调试闭环及本地验收 | 5 个阶段全部验收 |
 | 恢复完成后解除风险 | 等待整个受管进程组退出，原后置任务成功后清除持久标记 | G3 复验正常、失败与强退恢复 |
 | 按同一冻结候选验收 | 将原生、模拟器、真实工程、日志负载、签名和解包证据关联到构建 | G3 本地验收通过 |
+| 分开当前调试设备与下次启动选择 | 热操作和浏览器继续使用发起会话时的设备快照 | v0.2 双设备及恢复联验通过 |
+| 主窗与菜单栏停用 Tab 焦点，辅助窗口保留原生键盘行为 | 两类窗口按已获批准的交互规则复验 | v0.2 AX 和原生键盘检查通过 |
+| 先冻结视觉证据，再接通正式版查询及隔离安装 | 在同一状态验收基础上核对真实数据、安装门禁与失败回退 | v0.2 视觉和隔离 A/B 验收通过 |
 
 ## Evolution
 
@@ -82,4 +82,4 @@ v0.2 的 14 项需求与验收条件见[需求](REQUIREMENTS.md)。
 2. 每次里程碑结束后复核产品定义、核心价值、范围和当前上下文。
 
 ---
-*最后更新于 2026-11-14，v0.2 原型范围与路线图已记录。*
+*最后更新于 2026-11-15，v0.2 已完成本地归档。*

@@ -28,7 +28,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 | RUN-08、RUN-09 原位反馈、重试、恢复后启动 | `ProjectRecoveryTests`、`ProjectConcurrencyTests`、`SessionLifecycleTests` | 用隔离样例制造后置任务退出 1。主窗核对任务、退出码、提示，菜单栏核对失败状态及快捷重试。验证重复失败保留风险、两处单点重试、主窗选择 dev 后先恢复再启动、菜单栏运行键及 F5 在失败态均禁用。使用样例暂停标记验证在途重入、切换与确认退出阻断后续启动，详细步骤见 06-04-03。 |
 | UI-12 日志 | `SessionLogTests` | 复制，清空，折叠及展开，新输出追加，清空和折叠后恢复详情仍可看。 |
 
-通过普通候选运行真实 Flutter。先按 [样例说明](../../../docs/examples/sample-flutter-app/README.md) 建立脱离业务项目的样例和恢复存储，确认有效 SDK、模拟器及第二个设备。记录候选及证据，按 [验收矩阵](../../../docs/04-ACCEPTANCE.md) 标记通过、失败或阻塞。缺少实际设备或会话证据的场景保留对应阻塞项。调试替身只用于故障验证。截图、私有路径和服务令牌保留在本地。详细操作和命令子集参见 [调研](06-RESEARCH.md#validation-architecture)。
+通过普通候选运行真实 Flutter。先按 [样例说明](../../../../docs/examples/sample-flutter-app/README.md) 建立脱离业务项目的样例和恢复存储，确认有效 SDK、模拟器及第二个设备。记录候选及证据，按 [验收矩阵](../../../../docs/04-ACCEPTANCE.md) 标记通过、失败或阻塞。缺少实际设备或会话证据的场景保留对应阻塞项。调试替身只用于故障验证。截图、私有路径和服务令牌保留在本地。详细操作和命令子集参见 [调研](06-RESEARCH.md#validation-architecture)。
 
 ## 签核
 

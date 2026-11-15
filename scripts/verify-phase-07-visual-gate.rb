@@ -41,6 +41,7 @@ module Phase07VisualGate
   # Exact presentation inputs reviewed on native screenshots in 07-04-VISUAL-RECHECK.md.
   REVIEWED_UPDATE_PRESENTATION_SHA256 = '49142d04498e4a0e0601fd216cb1209ffac1f5f74cf75992b0b20284853fb9ed'
   PLANNING = '.planning/phases/07-settings-about-updates'
+  ARCHIVED_PLANNING = '.planning/milestones/v0.2-phases/07-settings-about-updates'
   VISUAL = '.private/phase-07/visual'
   MINIMUM_PATHS = %w[
     FlutterRunlet/FlutterRunletApp.swift
@@ -599,8 +600,10 @@ module Phase07VisualGate
   def verify(root, gate: nil, baseline: nil, manifest: nil, expected_counts: EXPECTED_COUNTS)
     root = Pathname.new(root).realpath
     visual = child(root, VISUAL, directory: true)
-    gate ||= root.join(PLANNING, '07-VISUAL-GATE.md')
-    baseline ||= root.join(PLANNING, '07-VISUAL-BASELINE.md')
+    planning = root.join(PLANNING)
+    planning = root.join(ARCHIVED_PLANNING) unless planning.directory?
+    gate ||= planning.join('07-VISUAL-GATE.md')
+    baseline ||= planning.join('07-VISUAL-BASELINE.md')
     manifest ||= visual.join('manifest.json')
     assert(manifest.expand_path.to_s.start_with?(visual.to_s + '/'), 'manifest not in private visual directory')
     manifest = child(visual, manifest.expand_path.relative_path_from(visual).to_s)

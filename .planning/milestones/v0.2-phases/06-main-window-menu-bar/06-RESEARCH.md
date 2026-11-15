@@ -48,7 +48,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet -configuration
 | RUN-08、RUN-09 | 复用 `ProjectRecoveryTests.testFailedPostRestartAndExplicitRetryUseOriginalLabelAndDefinition` 与风险清除故障用例。补一次点击只跑旧任务、连续恢复失败、新配置启动严格晚于旧任务和风险持久完成、重复输入和终止均不会续启动、清除失败或配置变化阻断。 | 先用独立样例初始化 `test`。用 `fail-before-test` 在 prod 停止后制造退出码 1。分别验证失败时双处反馈、保留故障时阻断并保留风险、清除故障后菜单栏/主窗单点重试只恢复，再另起一轮失败后从主窗选不同配置、点运行并记录恢复 / 新前置 / Flutter 顺序。 |
 | UI-12 | `SessionLogTests.testLiveTaskAndDebugLogsClearAndCopyWithoutChangingProdRecovery` 等现有边界、过滤和阅读位置测试。 | 查看复制及清空同色、方向和键盘可用，清空后折叠并再次展开无旧日志，新输出可继续进入。折叠和清空后仍可独立查看恢复详情。 |
 
-真实 Flutter 验收使用 [`docs/examples/sample-flutter-app/README.md`](../../../docs/examples/sample-flutter-app/README.md) 的隔离项目副本。在该副本内放置原样例 `launch.jsonc`、`tasks.jsonc` 和脚本，运行 `/bin/sh scripts/simulate-firebase-switch.sh test --quiet` 初始化环境。实际设备用普通本地构建打开该样例，使用测试账号或独立应用数据隔离恢复库。Debug `--phase-02-fixture` 使用 shell 调试替身，可复现恢复和暂停，但不能作为 Flutter 设备、VM Service 或真实 DevTools 的通过证据。正式运行验证记录候选、操作、状态、顺序和脱敏证据索引，采用[验收矩阵](../../../docs/04-ACCEPTANCE.md)的结果口径。v0.1 的布局尺寸与本阶段不同，沿用对应功能步骤和证据方法。
+真实 Flutter 验收使用 [`docs/examples/sample-flutter-app/README.md`](../../../../docs/examples/sample-flutter-app/README.md) 的隔离项目副本。在该副本内放置原样例 `launch.jsonc`、`tasks.jsonc` 和脚本，运行 `/bin/sh scripts/simulate-firebase-switch.sh test --quiet` 初始化环境。实际设备用普通本地构建打开该样例，使用测试账号或独立应用数据隔离恢复库。Debug `--phase-02-fixture` 使用 shell 调试替身，可复现恢复和暂停，但不能作为 Flutter 设备、VM Service 或真实 DevTools 的通过证据。正式运行验证记录候选、操作、状态、顺序和脱敏证据索引，采用[验收矩阵](../../../../docs/04-ACCEPTANCE.md)的结果口径。v0.1 的布局尺寸与本阶段不同，沿用对应功能步骤和证据方法。
 
 ## 安全与并发边界
 

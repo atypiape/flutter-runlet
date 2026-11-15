@@ -60,7 +60,7 @@ date: 2026-11-15
 | 原后置暂停与退出 | `pause-after-test` 让原后置在写入 `test` 后继续在途。菜单栏和主窗显示恢复中，风险 1、Flutter 已退出。F5、运行与项目入口受限。Command-Q 后确认停止并退出，原任务释放前 App 仍在，释放后风险归零并退出 | `flutter-pause-device-verified/actions.json` |
 | 重开后识别风险 | 实拍流程一轮中断后，同一候选在相同隔离恢复根重开，看到了持久风险。从重试执行原恢复任务，回到 `test`、风险 0 | `flutter-normal-retake/recovery-after-trial.json` |
 
-样例使用仓库给出的 `test`、`prod` 环境标记脚本和故障契约，Flutter 使用真实 SDK、实际应用构建及设备。故障只施加于独立样例。[样例配置及复现说明](../../../docs/examples/sample-flutter-app/README.md)
+样例使用仓库给出的 `test`、`prod` 环境标记脚本和故障契约，Flutter 使用真实 SDK、实际应用构建及设备。故障只施加于独立样例。[样例配置及复现说明](../../../../docs/examples/sample-flutter-app/README.md)
 
 设置页选择无效目录时说明原因并保留原设置，再通过原生目录选择实际 Flutter 3.47.4。原生目录动作实测 Escape 退出回焦和 Return 确认前往目录。Doctor 使用实际 SDK 生成摘要和标准输出／错误输出，500 × 360 的完整输出面板经 Escape 返回设置。切换手动 SDK 到 Auto 清除旧结果，再执行一次 Doctor，切换到 FVM 样例时再次清除。缺少 FVM 缓存链接的独立样例显示原因并禁用运行，恢复有效样例可重新识别固定 SDK。失败轮运行同一 Doctor 后由外部夹具返回 42，取消轮由外部夹具延迟 Doctor 以稳定实测取消动作。两者使用普通 Release 的正常 SDK 探测和环境检测入口。私有证据 `settings-doctor-auto-replay/`、`settings-doctor-failure-replay/`、`settings-doctor-cancel/`。
 

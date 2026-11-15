@@ -68,6 +68,6 @@ GSD 初始化输入、建议 Phase 和当时的验收门槛见 [v0.1 历史路�
 
 ## v0.2 界面原型
 
-2026-11-14 确认了菜单栏、主窗口、设置和独立关于窗口的 v0.2 原型。四处采用同一 Figma 文件，复用运行与配置、项目入口、设备、状态、设置及关于组件。私有编辑与播放入口登记在本地 `.private/FIGMA-HANDOFF.md`。[v0.2 需求](../../.planning/REQUIREMENTS.md) · [v0.2 路线图](../../.planning/ROADMAP.md#v02-界面与调试体验)
+2026-11-14 确认了菜单栏、主窗口、设置和独立关于窗口的 v0.2 原型。四处采用同一 Figma 文件，复用运行与配置、项目入口、设备、状态、设置及关于组件。私有编辑与播放入口登记在本地 `.private/FIGMA-HANDOFF.md`。[v0.2 需求](../../.planning/milestones/v0.2-REQUIREMENTS.md) · [v0.2 路线图](../../.planning/milestones/v0.2-ROADMAP.md#v02-界面与调试体验)
 
 原型的 Flutter 项目、设备、日志、版本及更新结果用于演示。实现按 v0.2 需求验收。恢复安全继续遵循技术契约，公开发布暂缓。

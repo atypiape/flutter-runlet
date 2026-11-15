@@ -30,7 +30,7 @@ date: 2026-11-14
 | 可执行文件 SHA-256 | 应用 `4c6ca831e81a3eeeb658e6c13196a420615c11f7d82c9908bdf1465e44bf4ebf`；会话 worker `80ac225bd23f49712e880d02f150615da91d2fd58c2cab8c8f57a2628642a337` |
 | 构建与运行工具 | macOS 26.7.1；Xcode 27.1（27A9275）；Flutter 3.47.4、Dart 3.13.3、DevTools 2.60.0 |
 | 隔离 | 使用独立的 bundle identifier 保持偏好与日常应用分离，同时通过独立的应用数据根目录存放恢复库。单独指定数据根目录不足以隔离偏好，已在开始前确认。 |
-| 真实项目及设备 | 按[样例说明](../../../docs/examples/sample-flutter-app/README.md)复制启动配置、任务及故障脚本，独立运行计数 Flutter 应用与第二个历史样例；A、B 是不同的本机 iOS 模拟器。只对隔离样例施加故障。 |
+| 真实项目及设备 | 按[样例说明](../../../../docs/examples/sample-flutter-app/README.md)复制启动配置、任务及故障脚本，独立运行计数 Flutter 应用与第二个历史样例；A、B 是不同的本机 iOS 模拟器。只对隔离样例施加故障。 |
 
 ## 自动化
 

@@ -25,15 +25,15 @@ status: passed
 
 ## 非阻塞发现
 
-1. 英文浅色 Flutter 页及手动 SDK 的 Doctor 摘要实拍都可见版本行中间省略。英文浅色 AX 保留 `Flutter 3.47.4 · Dart 3.13.3`，运行仍使用同一实际 SDK。路径行也会缩略，已有全路径帮助和 AX 标签。版本行源码使用单行中间省略，未提供同样的帮助入口，因此目视核对具体版本比核对路径更难。[SDK 行](../../../FlutterRunlet/AuxiliaryWindows.swift#L346) · [最终验收](07-ACCEPTANCE.md)
-2. Doctor 操作记录中，点击 `View Full Output` 后，面板的 `Dismiss` 获焦，Escape 成功关闭，返回 AX 焦点为 `General`，仍停留在 Flutter 页。本次记录只覆盖鼠标打开后用键盘关闭。语言弹层和原生目录选择器的 Escape 回焦另有成功证据。[Doctor 面板](../../../FlutterRunlet/AuxiliaryWindows.swift#L505) · [最终验收](07-ACCEPTANCE.md) · [视觉签核](07-VISUAL-GATE.md)
-3. 中文深浅和英文深色的菜单栏实拍均可见 FVM 错误末尾缩略，用户需要打开 Flutter 设置读到完整诊断与修正说明。实拍保留「打开 Flutter 设置」，英文深色 AX 含完整原因，主窗口及 Flutter 设置也显示详情。这是阶段 07 联验发现的菜单栏表现，保留阶段 06 已验收的焦点行为。[菜单栏反馈](../../../FlutterRunlet/MenuBarPanelView.swift#L39) · [阶段 06 审查](../06-main-window-menu-bar/06-UI-REVIEW.md) · [最终验收](07-ACCEPTANCE.md)
+1. 英文浅色 Flutter 页及手动 SDK 的 Doctor 摘要实拍都可见版本行中间省略。英文浅色 AX 保留 `Flutter 3.47.4 · Dart 3.13.3`，运行仍使用同一实际 SDK。路径行也会缩略，已有全路径帮助和 AX 标签。版本行源码使用单行中间省略，未提供同样的帮助入口，因此目视核对具体版本比核对路径更难。[SDK 行](../../../../FlutterRunlet/AuxiliaryWindows.swift#L346) · [最终验收](07-ACCEPTANCE.md)
+2. Doctor 操作记录中，点击 `View Full Output` 后，面板的 `Dismiss` 获焦，Escape 成功关闭，返回 AX 焦点为 `General`，仍停留在 Flutter 页。本次记录只覆盖鼠标打开后用键盘关闭。语言弹层和原生目录选择器的 Escape 回焦另有成功证据。[Doctor 面板](../../../../FlutterRunlet/AuxiliaryWindows.swift#L505) · [最终验收](07-ACCEPTANCE.md) · [视觉签核](07-VISUAL-GATE.md)
+3. 中文深浅和英文深色的菜单栏实拍均可见 FVM 错误末尾缩略，用户需要打开 Flutter 设置读到完整诊断与修正说明。实拍保留「打开 Flutter 设置」，英文深色 AX 含完整原因，主窗口及 Flutter 设置也显示详情。这是阶段 07 联验发现的菜单栏表现，保留阶段 06 已验收的焦点行为。[菜单栏反馈](../../../../FlutterRunlet/MenuBarPanelView.swift#L39) · [阶段 06 审查](../06-main-window-menu-bar/06-UI-REVIEW.md) · [最终验收](07-ACCEPTANCE.md)
 
 ## 设计与原生差异
 
-- **Figma 来源**　P07-F01～F07 与 P07-U01～U11 对应中文深色批准原图，11 个更新变体的原图边界为按钮。英文依据现有本地化及相同组件的排版角色。浅色依据批准稿配色变量及原生实拍。批准范围内没有独立英文或浅色画板。应用排版沿用中文 Noto Sans SC、拉丁角色的系统 SF Pro 及原始 Doctor 等宽字。最终设置关于截图归一至 sRGB 后，深色窗口、标题栏、强调蓝分别为 `#171E28`、`#1D2632`、`#55CFFF`。浅色强调蓝实拍 `#226D98` 对应批准值 `#006D98` 经显示 ICC 裁剪。[Figma 取证](07-FIGMA-EVIDENCE.md) · [视觉基线](07-VISUAL-BASELINE.md) · [语义色实现](../../../FlutterRunlet/RunletAppearance.swift#L10)
+- **Figma 来源**　P07-F01～F07 与 P07-U01～U11 对应中文深色批准原图，11 个更新变体的原图边界为按钮。英文依据现有本地化及相同组件的排版角色。浅色依据批准稿配色变量及原生实拍。批准范围内没有独立英文或浅色画板。应用排版沿用中文 Noto Sans SC、拉丁角色的系统 SF Pro 及原始 Doctor 等宽字。最终设置关于截图归一至 sRGB 后，深色窗口、标题栏、强调蓝分别为 `#171E28`、`#1D2632`、`#55CFFF`。浅色强调蓝实拍 `#226D98` 对应批准值 `#006D98` 经显示 ICC 裁剪。[Figma 取证](07-FIGMA-EVIDENCE.md) · [视觉基线](07-VISUAL-BASELINE.md) · [语义色实现](../../../../FlutterRunlet/RunletAppearance.swift#L10)
 - **macOS 文字与控件**　标题栏交通灯、焦点环、语言弹层系统外壳和锚点按原生证据核对，语言弹层只对照 310 × 148 pt 内容。目录选择器保留系统浏览、搜索和按钮，实际中文系统为「取消」「打开」，英文样本为 `Cancel`、`Open`。实际 Doctor 输出面板为 500 × 360 pt，可横纵滚动及选中，原始输出保留工具文字。设置的许可证链接含原生帮助与 AX Help，独立关于显示 MIT 与 Svame 署名。两处链接共六次实际打开对应目标。[视觉签核](07-VISUAL-GATE.md) · [最终验收](07-ACCEPTANCE.md)
-- **原生恢复提示**　同源码隔离助手区分「旧版本已恢复，但无法自动打开」和「无法确认自动更新恢复」。实际提示为 AppKit 警告，八种实拍的外框随系统外观与内容变化。应用文案及按钮随所选语言，英文浅色样本的系统 AX 角色说明仍读作「警告」。两种恢复提示均保留位置正文以及访达和发布页动作。最终验收记录了旧版恢复后的实际访达定位和浏览器落地。[助手提示](../../../FlutterRunletUpdateHelper/main.swift#L324) · [更新实测](07-UPDATE-EVIDENCE.md) · [最终验收](07-ACCEPTANCE.md)
+- **原生恢复提示**　同源码隔离助手区分「旧版本已恢复，但无法自动打开」和「无法确认自动更新恢复」。实际提示为 AppKit 警告，八种实拍的外框随系统外观与内容变化。应用文案及按钮随所选语言，英文浅色样本的系统 AX 角色说明仍读作「警告」。两种恢复提示均保留位置正文以及访达和发布页动作。最终验收记录了旧版恢复后的实际访达定位和浏览器落地。[助手提示](../../../../FlutterRunletUpdateHelper/main.swift#L324) · [更新实测](07-UPDATE-EVIDENCE.md) · [最终验收](07-ACCEPTANCE.md)
 
 ## 交互证据与范围
 

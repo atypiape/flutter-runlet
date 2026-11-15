@@ -27,7 +27,7 @@ created: "2026-11-15"
 | T-07-03 | Tampering | 演示和隔离安装入口 | high | mitigate | 普通 Release 去掉 DEBUG 视觉入口和 PHASE07_UPDATE 配置，普通两入口实际拒绝测试参数并保留真实来源 | closed |
 | T-07-04 | Tampering | 设置与生产行为 | medium | mitigate | 原生同窗、实际语言与登录偏好、SDK 和恢复由宿主测试与同候选实测覆盖 | closed |
 | T-07-05 | Spoofing | 冒用视觉签核 | high | mitigate | 视觉验收核查唯一判定、提交祖先、产物、索引和工作区、受保护源码精确摘要及 512 条实物。自测包含提交、产物和签核篡改 | closed |
-| T-07-06 | Tampering | 修图、串用和错误派生 | high | mitigate | [验证器](../../../scripts/verify-phase-07-visual-gate.rb)核对原生元数据、不同采集事件、参考类型和原图摘要。接线后的 88 对有单独复核 | closed |
+| T-07-06 | Tampering | 修图、串用和错误派生 | high | mitigate | [验证器](../../../../scripts/verify-phase-07-visual-gate.rb)核对原生元数据、不同采集事件、参考类型和原图摘要。接线后的 88 对有单独复核 | closed |
 | T-07-07 | Spoofing | Release、资产、跳转与 404 辨认 | high | mitigate | 固定匿名来源，数字版本、正式状态与 404 交叉验证；受控 HTTP 拒绝错误 host、ID 和矛盾结果 | closed |
 | T-07-08 | Tampering | DMG、摘要、发行身份 | critical | mitigate | 发布不可变、固定签名要求、双架构及嵌套助手验证。拒绝换包换摘要、wrong signer、缺助手和版本不符。正式 Team ID 未配置时安全拒绝安装 | closed |
 | T-07-09 | Denial of Service | 网络、限量与挂载 | high | mitigate | 有界 HTTPS 下载、限量和跳转策略。当前用户私有目录，只读挂载、实际挂载归属核对、取消和清理负例 | closed |

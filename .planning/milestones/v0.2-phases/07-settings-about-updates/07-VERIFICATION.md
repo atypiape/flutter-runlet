@@ -29,9 +29,9 @@ decision_coverage:
 
 | 检查 | 结果与证据 |
 | --- | --- |
-| README、许可与配套文档 | 55 处本地引用及技术锚点有效。9 张 JPEG 在 HEAD 和工作树均完整解码，尺寸一致。中英文安装说明与本地验收范围相符，原许可与上游归属仍可追溯。增量代码审阅未发现阻塞项或警告。 [英文 README](../../../README.md) · [简体中文说明](../../../README.zh-CN.md) · [开发指南](../../../docs/DEVELOPMENT.md) · [版本说明](../../../docs/RELEASE-NOTES.md) · [许可](../../../LICENSE) |
+| README、许可与配套文档 | 55 处本地引用及技术锚点有效。9 张 JPEG 在 HEAD 和工作树均完整解码，尺寸一致。中英文安装说明与本地验收范围相符，原许可与上游归属仍可追溯。增量代码审阅未发现阻塞项或警告。 [英文 README](../../../../README.md) · [简体中文说明](../../../../README.zh-CN.md) · [开发指南](../../../../docs/DEVELOPMENT.md) · [版本说明](../../../../docs/RELEASE-NOTES.md) · [许可](../../../../LICENSE) |
 | 宿主回归 | `debug-recheck.xcresult` 退出 0，133 通过、0 失败、0 跳过。阶段 06 的八套件合计 93 项，本轮逐套从 `debug-tests.json` 复算。 |
-| 打包、验包与签名 | `bash -n` 通过，无效版本与额外参数分别退出 2。`scripts/package-release.sh v0.2.0` 退出 0，输出构建 201，等于取证提交的 Git 提交数。DMG 的 SHA-256 为 `821eceb809b63117d5e4657539f62b6da221725e72c2591684013a63026d4f7f`，摘要及镜像完整性通过。只读挂载校验覆盖 App、会话 worker、更新助手的双架构、严格 ad hoc 签名及构建机路径。解包后复查双架构签名、最低部署目标 15.0，以及普通 Bundle 无隔离更新配置。 [打包脚本](../../../scripts/package-release.sh) |
+| 打包、验包与签名 | `bash -n` 通过，无效版本与额外参数分别退出 2。`scripts/package-release.sh v0.2.0` 退出 0，输出构建 201，等于取证提交的 Git 提交数。DMG 的 SHA-256 为 `821eceb809b63117d5e4657539f62b6da221725e72c2591684013a63026d4f7f`，摘要及镜像完整性通过。只读挂载校验覆盖 App、会话 worker、更新助手的双架构、严格 ad hoc 签名及构建机路径。解包后复查双架构签名、最低部署目标 15.0，以及普通 Bundle 无隔离更新配置。 [打包脚本](../../../../scripts/package-release.sh) |
 | 新包原生启动 | 从 DMG 复制到隔离目录，在 arm64 macOS 26.7.1 启动。设置 520 × 520、独立关于 400 × 412，AX 在设置侧栏、设置「关于」和独立「关于」均读到 `v0.2.0 (build 201)`。AppKit 请求正常退出，退出码 0。可执行 SHA-256 `5812a95c466f5d0c46e92e5001bb17c1d5097fb81fe3085ee8a64d6281df9fe5` 与实拍及 `runtime-smoke.json` 一致。 |
 | 原签证据复核 | 视觉门槛实际校验 512 个适用用例，通过。五份已有 `success`、`gate`、`rollback`、`bootstrap-safety`、`handoff-boundaries` 实测清单重新校验，退出 0。本轮复核原始证据与产物身份，隔离事务、完整窗口矩阵和真实 Flutter 场景的运行证据来自原签批次。 [视觉签核](07-VISUAL-GATE.md) · [更新实测](07-UPDATE-EVIDENCE.md) |
 
@@ -64,7 +64,7 @@ decision_coverage:
 
 ### 可观察结果
 
-前四项逐项采用 [ROADMAP Phase 07](../../ROADMAP.md#phase-07-设置关于与更新) 的编号验收，其余合并六份计划中的补充条件。
+前四项逐项采用 [ROADMAP Phase 07](../../v0.2-ROADMAP.md#phase-07-设置关于与更新) 的编号验收，其余合并六份计划中的补充条件。
 
 | # | 可观察结果 | 判定 | 源码与行为证据 |
 | --- | --- | --- | --- |
@@ -102,11 +102,11 @@ decision_coverage:
 
 | 产物 | 判定 | 实际职责 |
 | --- | --- | --- |
-| [视觉基线](07-VISUAL-BASELINE.md)、[视觉门槛](07-VISUAL-GATE.md)、[视觉验证器](../../../scripts/verify-phase-07-visual-gate.rb) | VERIFIED | 固定参考来源、候选与原始证据，按用例、候选、源码及真实像素校验。 |
-| [主 App](../../../FlutterRunlet/FlutterRunletApp.swift)、[设置及关于](../../../FlutterRunlet/AuxiliaryWindows.swift)、[启动演示](../../../FlutterRunlet/LaunchPresentation.swift) | VERIFIED | 两处设置入口、设置三页及关于场景；受控演示与真正运行数据经共用展示源接入。 |
-| [Release 客户端](../../../FlutterRunlet/ReleaseUpdates.swift)、[更新协调器](../../../FlutterRunlet/UpdateCoordinator.swift)、[更新包](../../../FlutterRunlet/UpdatePackage.swift) | VERIFIED | 匿名发行版读取、共享检查状态、严格准备候选和安装预约。 |
-| [更新事务](../../../FlutterRunlet/UpdateTransaction.swift)、[活动租约](../../../FlutterRunlet/UpdateActivityLease.swift)、[原生助手](../../../FlutterRunletUpdateHelper/main.swift) | VERIFIED | 退出确认、同卷身份核对、健康握手、持久提交及回退，跨实例互斥。 |
-| [更新校验入口](../../../scripts/verify-phase-07-update.sh)、[更新实测](07-UPDATE-EVIDENCE.md)、[最终验收](07-ACCEPTANCE.md) | VERIFIED | 可信场景表与实物绑定，普通、隔离和历史候选可从记录复查。 |
+| [视觉基线](07-VISUAL-BASELINE.md)、[视觉门槛](07-VISUAL-GATE.md)、[视觉验证器](../../../../scripts/verify-phase-07-visual-gate.rb) | VERIFIED | 固定参考来源、候选与原始证据，按用例、候选、源码及真实像素校验。 |
+| [主 App](../../../../FlutterRunlet/FlutterRunletApp.swift)、[设置及关于](../../../../FlutterRunlet/AuxiliaryWindows.swift)、[启动演示](../../../../FlutterRunlet/LaunchPresentation.swift) | VERIFIED | 两处设置入口、设置三页及关于场景；受控演示与真正运行数据经共用展示源接入。 |
+| [Release 客户端](../../../../FlutterRunlet/ReleaseUpdates.swift)、[更新协调器](../../../../FlutterRunlet/UpdateCoordinator.swift)、[更新包](../../../../FlutterRunlet/UpdatePackage.swift) | VERIFIED | 匿名发行版读取、共享检查状态、严格准备候选和安装预约。 |
+| [更新事务](../../../../FlutterRunlet/UpdateTransaction.swift)、[活动租约](../../../../FlutterRunlet/UpdateActivityLease.swift)、[原生助手](../../../../FlutterRunletUpdateHelper/main.swift) | VERIFIED | 退出确认、同卷身份核对、健康握手、持久提交及回退，跨实例互斥。 |
+| [更新校验入口](../../../../scripts/verify-phase-07-update.sh)、[更新实测](07-UPDATE-EVIDENCE.md)、[最终验收](07-ACCEPTANCE.md) | VERIFIED | 可信场景表与实物绑定，普通、隔离和历史候选可从记录复查。 |
 
 ### 关键连接
 
