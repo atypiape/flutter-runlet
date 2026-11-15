@@ -117,7 +117,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 14)
-        .frame(width: 116)
+        .frame(width: 128)
         .frame(maxHeight: .infinity)
         .background(palette.toolbar)
     }
@@ -365,6 +365,7 @@ struct SettingsView: View {
                         else { Text("Standalone Dart SDK") }
                     }
                     .accessibilityLabel(Text("DevTools Source"))
+                    .accessibilityValue(path == nil ? Text("Bundled with Flutter") : Text("Standalone Dart SDK"))
                     .fixedSize()
                     .focused($sdkPickerFocus, equals: .devToolsSource)
                     .disabled(!session.canEditFlutterSDK)
