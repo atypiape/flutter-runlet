@@ -208,6 +208,7 @@ final class Phase07UpdateDemo {
                 if blocker == nil { showConfirmation() }
                 else { makeReady() }
             case .checking, .updating, .waiting: break
+            case .unavailable: break
             }
         case .install:
             guard case .confirm = source.presentation.prompt else { return }
