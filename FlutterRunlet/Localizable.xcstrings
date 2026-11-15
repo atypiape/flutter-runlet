@@ -913,6 +913,22 @@
         }
       }
     },
+    "Copy Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制路径"
+          }
+        }
+      }
+    },
     "Could not check for updates. Release information was unavailable.": {
       "localizations": {
         "en": {
@@ -4669,6 +4685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看设备全名"
+          }
+        }
+      }
+    },
+    "Show Full Path": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Full Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看完整路径"
           }
         }
       }

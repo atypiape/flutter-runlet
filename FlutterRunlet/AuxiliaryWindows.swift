@@ -363,10 +363,13 @@ struct SettingsView: View {
                                 .disabled(!session.canEditFlutterSDK)
                         }
                         rule
-                        sdkPathValue(path)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
+                        HStack(spacing: 8) {
+                            sdkPathValue(path)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                            DartSDKPathDetailsButton(path: path)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                     }
                     if let issue = session.standaloneDevToolsIssue {
                         Text(issue)
@@ -475,7 +478,7 @@ struct SettingsView: View {
     private func sdkPath(_ title: LocalizedStringResource, path: String, enabled: Bool = true,
                          change: (() -> Void)? = nil) -> some View {
         settingsRow(title) {
-            sdkPathValue(path)
+            sdkPathValue(path).textSelection(.enabled)
             if let change {
                 settingsAction("Change…", emphasized: true, action: change)
                     .disabled(!enabled)
@@ -493,7 +496,6 @@ struct SettingsView: View {
             .truncationMode(.middle)
             .help(path)
             .accessibilityLabel(Text(verbatim: path))
-            .textSelection(.enabled)
     }
 
     private func settingsRow<Trailing: View>(_ title: LocalizedStringResource,
@@ -649,6 +651,51 @@ struct SettingsView: View {
         }
         if panel.runModal() == .OK, let url = panel.url {
             session.selectStandaloneDevTools(url)
+        }
+    }
+}
+
+private struct DartSDKPathDetailsButton: View {
+    @Environment(\.locale) private var locale
+    @State private var isShowing = false
+
+    let path: String
+
+    var body: some View {
+        Button("Show Full Path", systemImage: "ellipsis.circle") {
+            isShowing.toggle()
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .help("Show Full Path")
+        .popover(isPresented: $isShowing, arrowEdge: .leading) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Dart SDK Path")
+                    .font(RunletType.localized(locale, size: 13, medium: true))
+                    .accessibilityAddTraits(.isHeader)
+
+                let pathText = Text(verbatim: path)
+                    .font(.system(size: 12, design: .monospaced))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ViewThatFits(in: .vertical) {
+                    pathText
+                    ScrollView { pathText }
+                }
+                .frame(maxHeight: 160)
+
+                Button("Copy Path", systemImage: "doc.on.doc") {
+                    let clipboard = NSPasteboard.general
+                    clipboard.clearContents()
+                    clipboard.setString(path, forType: .string)
+                }
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(12)
+            .frame(width: 340)
+            .environment(\.locale, locale)
         }
     }
 }
