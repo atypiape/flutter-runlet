@@ -5,11 +5,11 @@ milestone_name: 界面与调试体验
 current_phase: 07
 current_phase_name: 设置、关于与更新
 status: completed
-stopped_at: 阶段 07 通过独立签核，v0.2 实施全部完成
-last_updated: "2026-11-15T12:41:55Z"
+stopped_at: 阶段 07 完成 README 与本机打包变更复核，v0.2 两阶段签核通过
+last_updated: "2026-11-15T15:10:20.204Z"
 last_activity: 2026-11-15
-last_activity_desc: 阶段 07 六项需求通过独立签核
-state_head: 6486f0ffa4f83c33b5424e6c1022037c3613e6e1
+last_activity_desc: 阶段 07 签核刷新，本机 DMG 和回归通过
+state_head: 15a50a7dbb14b5f9c4af365104383b02ec4bc20b
 progress:
   total_phases: 2
   completed_phases: 2
@@ -24,13 +24,13 @@ progress:
 
 Phase: 07 设置、关于与更新
 Plan: 6 / 6 全部完成
-Status: 阶段执行完成
-Last activity: 2026-11-15 — 阶段 07 六项需求通过独立签核
+Status: 两阶段签核通过
+Last activity: 2026-11-15 — 阶段 07 签核刷新，本机 DMG 和回归通过
 
 ## Session
 
-**Last session:** 2026-11-15T12:41:55Z
-**Stopped at:** 阶段 07 通过独立签核，v0.2 实施全部完成
+**Last session:** 2026-11-15T15:10:20.204Z
+**Stopped at:** 阶段 07 完成 README 与本机打包变更复核，v0.2 两阶段签核通过
 **Resume file:** .planning/phases/07-settings-about-updates/07-VERIFICATION.md
 
 ## Performance Metrics

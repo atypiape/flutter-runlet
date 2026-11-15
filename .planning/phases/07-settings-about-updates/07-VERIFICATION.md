@@ -1,12 +1,18 @@
 ---
 phase: 07-settings-about-updates
-verified: 2026-11-15T12:33:14Z
+verified: 2026-11-15T15:08:43Z
 status: passed
 score: 16/16 must-haves verified
-covered_files: [".planning/REQUIREMENTS.md",".planning/ROADMAP.md",".planning/phases/07-settings-about-updates/07-01-PLAN.md",".planning/phases/07-settings-about-updates/07-01-SUMMARY.md",".planning/phases/07-settings-about-updates/07-02-PLAN.md",".planning/phases/07-settings-about-updates/07-02-SUMMARY.md",".planning/phases/07-settings-about-updates/07-03-PLAN.md",".planning/phases/07-settings-about-updates/07-03-SUMMARY.md",".planning/phases/07-settings-about-updates/07-04-PLAN.md",".planning/phases/07-settings-about-updates/07-04-SUMMARY.md",".planning/phases/07-settings-about-updates/07-04-VISUAL-RECHECK.md",".planning/phases/07-settings-about-updates/07-05-PLAN.md",".planning/phases/07-settings-about-updates/07-05-SUMMARY.md",".planning/phases/07-settings-about-updates/07-06-PLAN.md",".planning/phases/07-settings-about-updates/07-06-SUMMARY.md",".planning/phases/07-settings-about-updates/07-ACCEPTANCE.md",".planning/phases/07-settings-about-updates/07-CONTEXT.md",".planning/phases/07-settings-about-updates/07-FIGMA-EVIDENCE.md",".planning/phases/07-settings-about-updates/07-REVIEW-DISPOSITION.md",".planning/phases/07-settings-about-updates/07-REVIEW.md",".planning/phases/07-settings-about-updates/07-SECURITY.md",".planning/phases/07-settings-about-updates/07-UI-REVIEW.md",".planning/phases/07-settings-about-updates/07-UI-SPEC.md",".planning/phases/07-settings-about-updates/07-UPDATE-EVIDENCE.md",".planning/phases/07-settings-about-updates/07-VALIDATION.md",".planning/phases/07-settings-about-updates/07-VISUAL-BASELINE.md",".planning/phases/07-settings-about-updates/07-VISUAL-GATE.md","FlutterRunlet.xcodeproj/project.pbxproj","FlutterRunlet/AppTermination.swift","FlutterRunlet/Assets.xcassets/RunletAboutDocumentation.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutDocumentation.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletAboutGitHub.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutGitHub.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletAboutLicense.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutLicense.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateCheck.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateCheck.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateDownload.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateDownload.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateSpinner.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateSpinner.imageset/image.svg","FlutterRunlet/AuxiliaryWindows.swift","FlutterRunlet/FlutterRunletApp.swift","FlutterRunlet/FlutterToolchain.swift","FlutterRunlet/Fonts/NotoSansSC-Medium.ttf","FlutterRunlet/Fonts/NotoSansSC-Regular.ttf","FlutterRunlet/LaunchPresentation.swift","FlutterRunlet/Localizable.xcstrings","FlutterRunlet/MainWindowView.swift","FlutterRunlet/MenuBarPanelView.swift","FlutterRunlet/ProjectRecoveryStore.swift","FlutterRunlet/ReleaseUpdates.swift","FlutterRunlet/RunletAppearance.swift","FlutterRunlet/SessionController.swift","FlutterRunlet/SessionProcess.swift","FlutterRunlet/UpdateActivityLease.swift","FlutterRunlet/UpdateCoordinator.swift","FlutterRunlet/UpdatePackage.swift","FlutterRunlet/UpdatePresentationSource.swift","FlutterRunlet/UpdateTransaction.swift","FlutterRunletSessionWorker/main.swift","FlutterRunletTests/FlutterToolchainTests.swift","FlutterRunletTests/LaunchPresentationTests.swift","FlutterRunletTests/ReleaseUpdatesTests.swift","FlutterRunletTests/UpdateInstallGateTests.swift","FlutterRunletTests/UpdatePackageTests.swift","FlutterRunletTests/UpdateTransactionTests.swift","FlutterRunletUpdateHelper/Localizable.xcstrings","FlutterRunletUpdateHelper/main.swift","LICENSE","README.md","docs/02-TECHNICAL.md","docs/04-ACCEPTANCE.md","docs/design/DESIGN-SYSTEM.md","docs/design/UI-SPEC.md","scripts/package-release.sh","scripts/phase-07-update-origin.py","scripts/verify-phase-07-update.py","scripts/verify-phase-07-update.sh","scripts/verify-phase-07-visual-gate.rb"]
-covered_digest: "v3:sha256:73e6b95bc251df5b675a0a153ed03e234420147dfb23a2fffe19a19d0ae7ea6d"
+covered_files: [".planning/REQUIREMENTS.md",".planning/ROADMAP.md",".planning/phases/07-settings-about-updates/07-01-PLAN.md",".planning/phases/07-settings-about-updates/07-01-SUMMARY.md",".planning/phases/07-settings-about-updates/07-02-PLAN.md",".planning/phases/07-settings-about-updates/07-02-SUMMARY.md",".planning/phases/07-settings-about-updates/07-03-PLAN.md",".planning/phases/07-settings-about-updates/07-03-SUMMARY.md",".planning/phases/07-settings-about-updates/07-04-PLAN.md",".planning/phases/07-settings-about-updates/07-04-SUMMARY.md",".planning/phases/07-settings-about-updates/07-04-VISUAL-RECHECK.md",".planning/phases/07-settings-about-updates/07-05-PLAN.md",".planning/phases/07-settings-about-updates/07-05-SUMMARY.md",".planning/phases/07-settings-about-updates/07-06-PLAN.md",".planning/phases/07-settings-about-updates/07-06-SUMMARY.md",".planning/phases/07-settings-about-updates/07-ACCEPTANCE.md",".planning/phases/07-settings-about-updates/07-CONTEXT.md",".planning/phases/07-settings-about-updates/07-FIGMA-EVIDENCE.md",".planning/phases/07-settings-about-updates/07-REVIEW-DISPOSITION.md",".planning/phases/07-settings-about-updates/07-REVIEW.md",".planning/phases/07-settings-about-updates/07-SECURITY.md",".planning/phases/07-settings-about-updates/07-UI-REVIEW.md",".planning/phases/07-settings-about-updates/07-UI-SPEC.md",".planning/phases/07-settings-about-updates/07-UPDATE-EVIDENCE.md",".planning/phases/07-settings-about-updates/07-VALIDATION.md",".planning/phases/07-settings-about-updates/07-VISUAL-BASELINE.md",".planning/phases/07-settings-about-updates/07-VISUAL-GATE.md","FlutterRunlet.xcodeproj/project.pbxproj","FlutterRunlet/AppTermination.swift","FlutterRunlet/Assets.xcassets/RunletAboutDocumentation.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutDocumentation.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletAboutGitHub.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutGitHub.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletAboutLicense.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletAboutLicense.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateCheck.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateCheck.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateDownload.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateDownload.imageset/image.svg","FlutterRunlet/Assets.xcassets/RunletUpdateSpinner.imageset/Contents.json","FlutterRunlet/Assets.xcassets/RunletUpdateSpinner.imageset/image.svg","FlutterRunlet/AuxiliaryWindows.swift","FlutterRunlet/FlutterRunletApp.swift","FlutterRunlet/FlutterToolchain.swift","FlutterRunlet/Fonts/NotoSansSC-Medium.ttf","FlutterRunlet/Fonts/NotoSansSC-Regular.ttf","FlutterRunlet/LaunchPresentation.swift","FlutterRunlet/Localizable.xcstrings","FlutterRunlet/MainWindowView.swift","FlutterRunlet/MenuBarPanelView.swift","FlutterRunlet/ProjectRecoveryStore.swift","FlutterRunlet/ReleaseUpdates.swift","FlutterRunlet/RunletAppearance.swift","FlutterRunlet/SessionController.swift","FlutterRunlet/SessionProcess.swift","FlutterRunlet/UpdateActivityLease.swift","FlutterRunlet/UpdateCoordinator.swift","FlutterRunlet/UpdatePackage.swift","FlutterRunlet/UpdatePresentationSource.swift","FlutterRunlet/UpdateTransaction.swift","FlutterRunletSessionWorker/main.swift","FlutterRunletTests/FlutterToolchainTests.swift","FlutterRunletTests/LaunchPresentationTests.swift","FlutterRunletTests/ReleaseUpdatesTests.swift","FlutterRunletTests/UpdateInstallGateTests.swift","FlutterRunletTests/UpdatePackageTests.swift","FlutterRunletTests/UpdateTransactionTests.swift","FlutterRunletUpdateHelper/Localizable.xcstrings","FlutterRunletUpdateHelper/main.swift","LICENSE","README.md","README.zh-CN.md","docs/02-TECHNICAL.md","docs/04-ACCEPTANCE.md","docs/DEVELOPMENT.md","docs/RELEASE-NOTES.md","docs/design/DESIGN-SYSTEM.md","docs/design/UI-SPEC.md","scripts/package-release.sh","scripts/phase-07-update-origin.py","scripts/verify-phase-07-update.py","scripts/verify-phase-07-update.sh","scripts/verify-phase-07-visual-gate.rb"]
+covered_digest: "v3:sha256:3cf0abfc16d30f7fc5371c8cbc917ea9abf5daa6aa0254aa69ef04714aed5cda"
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: passed
+  previous_score: 16/16
+  gaps_closed: []
+  gaps_remaining: []
+  regressions: []
 decision_coverage:
   honored: 12
   total: 12
@@ -16,6 +22,35 @@ decision_coverage:
 # Phase 07 · 设置、关于与更新 · 独立签核
 
 **阶段目标**　交付设置、关于与更新体验，并完成四处界面的本地联验。
+
+## README 与本机打包变更复核
+
+**结论**　通过（`passed`）。16 项可观察结果、12 项决定和 6 项本地验收均有证据。本轮复核提交 `15a50a7dbb14b5f9c4af365104383b02ec4bc20b` 的 README、配套文档和打包脚本。GSD 此前仅将 `README.md` 和 `scripts/package-release.sh` 标为指纹变更。经 Git 比对，主 App、会话 worker、更新助手、Xcode 工程及测试与已签候选 `2fcb4a3` 一致。四处原生界面的完整矩阵及真实 Flutter 会话沿用原签核。本轮新增实测覆盖当前 DMG 的构建、解包启动和三处实际版本显示。
+
+| 检查 | 结果与证据 |
+| --- | --- |
+| README、许可与配套文档 | 55 处本地引用及技术锚点有效。9 张 JPEG 在 HEAD 和工作树均完整解码，尺寸一致。中英文安装说明与本地验收范围相符，原许可与上游归属仍可追溯。增量代码审阅未发现阻塞项或警告。 [英文 README](../../../README.md) · [简体中文说明](../../../README.zh-CN.md) · [开发指南](../../../docs/DEVELOPMENT.md) · [版本说明](../../../docs/RELEASE-NOTES.md) · [许可](../../../LICENSE) |
+| 宿主回归 | `debug-recheck.xcresult` 退出 0，133 通过、0 失败、0 跳过。阶段 06 的八套件合计 93 项，本轮逐套从 `debug-tests.json` 复算。 |
+| 打包、验包与签名 | `bash -n` 通过，无效版本与额外参数分别退出 2。`scripts/package-release.sh v0.2.0` 退出 0，输出构建 201，等于取证提交的 Git 提交数。DMG 的 SHA-256 为 `821eceb809b63117d5e4657539f62b6da221725e72c2591684013a63026d4f7f`，摘要及镜像完整性通过。只读挂载校验覆盖 App、会话 worker、更新助手的双架构、严格 ad hoc 签名及构建机路径。解包后复查双架构签名、最低部署目标 15.0，以及普通 Bundle 无隔离更新配置。 [打包脚本](../../../scripts/package-release.sh) |
+| 新包原生启动 | 从 DMG 复制到隔离目录，在 arm64 macOS 26.7.1 启动。设置 520 × 520、独立关于 400 × 412，AX 在设置侧栏、设置「关于」和独立「关于」均读到 `v0.2.0 (build 201)`。AppKit 请求正常退出，退出码 0。可执行 SHA-256 `5812a95c466f5d0c46e92e5001bb17c1d5097fb81fe3085ee8a64d6281df9fe5` 与实拍及 `runtime-smoke.json` 一致。 |
+| 原签证据复核 | 视觉门槛实际校验 512 个适用用例，通过。五份已有 `success`、`gate`、`rollback`、`bootstrap-safety`、`handoff-boundaries` 实测清单重新校验，退出 0。本轮复核原始证据与产物身份，隔离事务、完整窗口矩阵和真实 Flutter 场景的运行证据来自原签批次。 [视觉签核](07-VISUAL-GATE.md) · [更新实测](07-UPDATE-EVIDENCE.md) |
+
+本机复核原件在 `.private/phase-07/recheck-20261115T150132Z.bfva5oFd/`。两个早期探针结果保留。首轮在窗口就绪前请求激活，第二轮在独立关于置前时未匹配退出菜单标签。等待窗口后按 PID 与可执行路径定位 AppKit 退出请求，最终通过。
+
+### 六项需求增量核对
+
+| 需求 | 当前结论与证据 |
+| --- | --- |
+| UI-07 | 通过。四处界面的语言、深浅、可读控件和键盘行为由原候选原生证据覆盖。程序目录一致，512 项冻结证据复核通过，新包确认设置与独立关于可达。 |
+| UI-13 | 通过。`SettingsView` 和两处齿轮到同一设置场景的接线与原候选一致，三页及开关由原验收覆盖。新包实测设置窗口和实际版本。 |
+| UI-14 | 通过。偏好、SDK、FVM 与 Doctor 沿用原候选原生验收；当前 `FlutterToolchainTests` 17 项和 `LaunchPresentationTests` 25 项通过。 |
+| UI-15 | 通过。共用关于组件读取 Bundle，原有 MIT、Svame 和上游归属，及两处共六次浏览器导航有已签证据。当前 README 链接检查与新包两处「关于」的版本显示均通过。 |
+| UPD-01 | 通过。两处共用更新状态源，显式操作取实际运行版本，真实正式 Release 查询沿用原签录证，当前 `ReleaseUpdatesTests` 10 项通过。 |
+| UPD-02 | 通过。22 项更新包、门禁及事务回归通过，五份隔离安装、恢复和重启证据重新校验通过。新包三处读出实际构建 201。 |
+
+六份计划的 16 条必需产物声明均通过，原关键接线持续有效。GSD 决定覆盖为 12/12。阶段安全记录的开放项为 0，原代码审阅发现均有已关闭处置。本轮无新增验收缺口。Intel 与最低 macOS 15 实机运行、VoiceOver 实际朗读仍沿用原记录的覆盖边界。公开分发、Developer ID、公证、远端可用性和分享范围复核按发布决定暂缓。 [安全复核](07-SECURITY.md) · [审阅处置](07-REVIEW-DISPOSITION.md)
+
+## 原始签核
 
 **结论**　通过（`passed`）。16 项可观察结果、12 条决定和 6 项本地验收均通过。首次独立阶段签核。
 
