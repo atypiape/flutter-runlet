@@ -115,6 +115,9 @@ final class SessionController {
     var showMainWindowOnLaunch: Bool {
         didSet { preferences?.set(showMainWindowOnLaunch, forKey: Self.showMainWindowKey) }
     }
+    var inspectorEditor: InspectorEditor = .vsCode {
+        didSet { preferences?.set(inspectorEditor.rawValue, forKey: Self.inspectorEditorKey) }
+    }
     var shouldPresentMainWindowOnLaunch: Bool {
         showMainWindowOnLaunch || recovery != nil || recoveryStoreIssue != nil
     }
@@ -293,6 +296,7 @@ final class SessionController {
 
     private static let rememberKey = "rememberRecentProject"
     private static let showMainWindowKey = "showMainWindowOnLaunch"
+    private static let inspectorEditorKey = "inspectorEditor"
     private static let recentKey = "recentProjectPath"
     private static let recentProjectsKey = "recentProjects"
     private static let preferFVMKey = "preferProjectFVM"
@@ -388,6 +392,7 @@ final class SessionController {
     private func loadStartupPreferences() {
         rememberRecentProject = preferences?.object(forKey: Self.rememberKey) as? Bool ?? true
         showMainWindowOnLaunch = preferences?.object(forKey: Self.showMainWindowKey) as? Bool ?? true
+        inspectorEditor = preferences?.string(forKey: Self.inspectorEditorKey).flatMap(InspectorEditor.init(rawValue:)) ?? .vsCode
         preferProjectFVM = preferences?.object(forKey: Self.preferFVMKey) as? Bool ?? true
         manualSDKPath = preferences?.string(forKey: Self.manualSDKKey)
         var recentPath = preferences?.string(forKey: Self.recentKey)
@@ -1345,6 +1350,14 @@ final class SessionController {
                     }
                 }, browserAvailabilityChanged: { [weak self] available in
                     self?.hasCurrentDevToolsAddress = available
+                }, openSource: { [weak self, project = launch.project] notification, opensOnSelection in
+                    guard let self, !self.stopRequested, self.vmConnected,
+                          let location = InspectorSourceLocation(notification: notification, project: project,
+                                                                 opensOnSelection: opensOnSelection) else { return }
+                    self.inspectorEditor.open(location) { [weak self] in
+                        self?.feedback = SessionFeedback(title: "Could not open the source editor",
+                                                         detail: "Check that the editor selected in Settings is installed.")
+                    }
                 })
             }
             debug = flutter

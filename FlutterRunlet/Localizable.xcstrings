@@ -513,6 +513,22 @@
         }
       }
     },
+    "Check that the editor selected in Settings is installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check that the editor selected in Settings is installed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请确认已安装在设置中选择的编辑器。"
+          }
+        }
+      }
+    },
     "Checking": {
       "localizations": {
         "en": {
@@ -1153,6 +1169,22 @@
         }
       }
     },
+    "Could not open the source editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the source editor"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开源码编辑器"
+          }
+        }
+      }
+    },
     "Could not persist the recovery file to disk": {
       "localizations": {
         "en": {
@@ -1565,6 +1597,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "调试运行适配器不可用"
+          }
+        }
+      }
+    },
+    "Debugging": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debugging"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调试"
           }
         }
       }
@@ -2477,6 +2525,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "JSONC 语法错误"
+          }
+        }
+      }
+    },
+    "Source Editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source Editor"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源码编辑器"
           }
         }
       }

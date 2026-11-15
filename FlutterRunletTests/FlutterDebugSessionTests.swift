@@ -10,6 +10,48 @@ final class FlutterDebugSessionTests: XCTestCase {
     private let device = FlutterDevice(id: "ios-fixture", name: "iPhone 测试模拟器",
                                        platform: "ios", isSimulator: true)
 
+    func testInspectorNavigationTargetsAnExistingDartFileInTheActiveProject() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let file = fixture.project.appending(path: "页面 #1.dart").resolvingSymlinksInPath()
+        try Data().write(to: file)
+        try FileManager.default.createDirectory(at: fixture.storage, withIntermediateDirectories: true)
+        let outside = fixture.storage.appending(path: "outside.dart")
+        try Data().write(to: outside)
+        let link = fixture.project.appending(path: "linked.dart")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+
+        func event(_ uri: String, source: String = "devtools.inspector", line: Any = 12) -> [String: Any] {
+            [
+                "jsonrpc": "2.0", "method": "streamNotify",
+                "params": [
+                    "streamId": "ToolEvent",
+                    "event": [
+                        "kind": "Extension", "extensionKind": "navigate",
+                        "extensionData": ["source": source, "fileUri": uri, "line": line, "column": 3]
+                    ]
+                ]
+            ]
+        }
+
+        let location = try XCTUnwrap(InspectorSourceLocation(notification: event(file.absoluteString),
+                                                             project: fixture.project, opensOnSelection: false))
+        let filePosition = file.path + ":12:3"
+        XCTAssertEqual(InspectorEditor.vsCode.arguments(for: location), ["--goto", filePosition])
+        XCTAssertEqual(InspectorEditor.cursor.arguments(for: location), ["--goto", filePosition])
+        XCTAssertEqual(InspectorEditor.zed.arguments(for: location), [filePosition])
+        let selection = event(file.absoluteString, source: "flutter.inspector")
+        XCTAssertNotNil(InspectorSourceLocation(notification: selection, project: fixture.project, opensOnSelection: true))
+        XCTAssertNil(InspectorSourceLocation(notification: selection, project: fixture.project, opensOnSelection: false))
+        for invalid in [
+            event(outside.absoluteString), event(link.absoluteString), event("https://localhost/main.dart"),
+            event(file.absoluteString, line: true), event(file.absoluteString, line: 0),
+            event(file.absoluteString, source: "devtools.rebuildStats")
+        ] {
+            XCTAssertNil(InspectorSourceLocation(notification: invalid, project: fixture.project, opensOnSelection: true))
+        }
+    }
+
     func testF5ShortcutsHaveExactModifiersAndIgnoreRepeats() {
         let expected: [(NSEvent.ModifierFlags, DebugAction?)] = [
             ([], .run), ([.shift], .stop), ([.option], .reload), ([.shift, .command], .restart),

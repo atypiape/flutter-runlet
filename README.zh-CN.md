@@ -41,6 +41,8 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 3. 调试连接建立后，可以热重载、热重启，或在浏览器中打开当前会话的 DevTools 和 Inspector。主窗口可以查看、复制和清空日志。
 4. 点击「停止」，等待后置任务结束。如果环境恢复失败，打开受影响的项目，点击「重试恢复」再次执行原任务。
 
+在「设置 → 通用 → 源码编辑器」选择 VS Code（默认）、Cursor 或 Zed。在 DevTools 2.61.0 或更新版本中，选中 Widget 后点击详情面板的源码位置。SDK 自带的 DevTools 2.60.0 中，选中 Widget 时会跳到源码。编辑器按需启动，跳转范围为当前项目的 Dart 文件。
+
 主窗口和菜单栏控制同一个会话。调试中改选设备只影响下一次运行，当前会话仍留在原设备。界面支持简体中文和 English，并跟随系统深浅外观。
 
 FlutterRunlet 支持 **Debug** 配置。Profile、Release、后台常驻任务、复杂交互任务及部分 VS Code 扩展变量不在支持范围内。FlutterRunlet 不改写配置文件，按原配置执行前置和后置任务。可试用 [VS Code 配置示例](docs/examples/sample-flutter-app/README.md)，或查阅[配置兼容说明](docs/02-TECHNICAL.md#2-launchjson-基本契约v01)。

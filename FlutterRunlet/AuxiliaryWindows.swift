@@ -179,6 +179,20 @@ struct SettingsView: View {
                     ))
                 }
             }
+            if let session {
+                groupTitle("Debugging")
+                settingsCard {
+                    Picker("Source Editor", selection: Bindable(session).inspectorEditor) {
+                        ForEach(InspectorEditor.allCases, id: \.self) { editor in
+                            Text(verbatim: editor.title).tag(editor)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .font(RunletType.localized(locale, size: 13))
+                    .padding(.horizontal, 12)
+                    .frame(height: 45)
+                }
+            }
         }
     }
 

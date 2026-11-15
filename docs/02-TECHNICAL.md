@@ -137,6 +137,7 @@ SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FV
 - Run/Stop/Reload/Restart 的启用条件与同一会话状态一致，重复点击不得产生两个运行进程。
 - 从已启动实例的输出中提取 VM Service / DevTools URL，浏览器打开的 URL 连接**当前会话**；新会话必须重新绑定。
 - Inspector 直达链接需要在目标 Flutter/DevTools 版本实测；若不可靠，打开已连接的 DevTools 并提示用户进入 Inspector，不能伪造一个固定路由。
+- 源码跳转监听当前已验证会话的 `ToolEvent`。仅处理 Inspector 的导航事件，并把目标限制为当前项目内的普通 Dart 文件。断开会话时取消监听。
 - 无 VM Service 时禁用调试页快捷入口或给出原因；不能打开一个看似成功但未连接的空白 DevTools 并报告成功。
 
 ## 7. 设置、语言和图标
