@@ -59,7 +59,8 @@ struct UpdateDownload: Equatable, Sendable {
         tag = release.tag
         immutable = release.immutable == true
         releasePage = release.releasePage
-        let name = "FlutterRunlet-\(tag)-macOS-universal.dmg"
+        let packageTag = tag.hasPrefix("v") ? tag : "v" + tag
+        let name = "FlutterRunlet-\(packageTag)-macOS-universal.dmg"
         let images = release.assets.filter { $0.name == name }
         guard let asset = images.first else { throw UpdatePackageIssue.missingAsset }
         guard images.count == 1, release.assets.filter({ $0.id == asset.id }).count == 1 else {
@@ -183,9 +184,8 @@ struct UpdatePackageService: Sendable {
         let fresh: UpdateDownload
         do {
             fresh = try await UpdateDownload(release: refresh())
-        } catch is CancellationError {
-            throw CancellationError()
         } catch {
+            try Task.checkCancellation()
             throw UpdatePackageIssue.releaseChanged
         }
         guard fresh == download else { throw UpdatePackageIssue.releaseChanged }
@@ -292,17 +292,17 @@ struct UpdatePackageService: Sendable {
         let mount = directory.appending(path: "Volume", directoryHint: .isDirectory)
         guard mkdir(mount.path, 0o700) == 0 else { throw UpdatePackageIssue.staging }
 
-        var disk: String?
         let result = Result<PreparedUpdate.SignedIdentity, Error> {
+            try Task.checkCancellation()
+            // Let attach finish within its deadline so cancellation cannot race a new mount.
             let info = try NativeUpdateTool.run("/usr/bin/hdiutil", [
                 "attach", "-readonly", "-nobrowse", "-noautoopen", "-noautofsck",
                 "-verify", "-plist", "-mountpoint", mount.path, image.path
-            ], failure: .invalidImage)
+            ], failure: .invalidImage, cancellable: false)
             let entities = try plist(info)["system-entities"] as? [[String: Any]] ?? []
             let disks = wholeDisks(in: entities)
-            if disks.count == 1 { disk = disks.first }
             let mounted = entities.filter { $0["mount-point"] != nil }
-            guard let disk, mounted.count == 1, let entry = mounted.first,
+            guard disks.count == 1, let disk = disks.first, mounted.count == 1, let entry = mounted.first,
                   entry["mount-point"] as? String == mount.path,
                   let device = entry["dev-entry"] as? String,
                   device.hasPrefix(disk + "s"), isReadOnlyMount(mount, device: device) else {
@@ -311,8 +311,8 @@ struct UpdatePackageService: Sendable {
             try Task.checkCancellation()
             return try inspectApp(at: mount, running: running, download: download, trust: trust)
         }
-        if let disk { try detach(disk) }
-        else { try detachImage(at: image) }
+        try detachImage(at: image)
+        guard !isMountPoint(mount), rmdir(mount.path) == 0 else { throw UpdatePackageIssue.detachFailed }
         return try result.get()
     }
 
@@ -470,6 +470,11 @@ struct UpdatePackageService: Sendable {
         return mountField(info.f_mntonname) == mount.path && mountField(info.f_mntfromname) == device
     }
 
+    private static func isMountPoint(_ mount: URL) -> Bool {
+        var info = statfs()
+        return statfs(mount.path, &info) == 0 && mountField(info.f_mntonname) == mount.path
+    }
+
     private static func mountField<Value>(_ field: Value) -> String {
         withUnsafeBytes(of: field) { String(decoding: $0.prefix(while: { $0 != 0 }), as: UTF8.self) }
     }
@@ -507,8 +512,10 @@ struct UpdatePackageService: Sendable {
     }
 
     fileprivate static func removeStage(_ directory: URL, image: URL) throws {
-        if FileManager.default.fileExists(atPath: directory.appending(path: "Volume").path) {
+        let mount = directory.appending(path: "Volume")
+        if FileManager.default.fileExists(atPath: mount.path) {
             try detachImage(at: image)
+            guard !isMountPoint(mount) else { throw UpdatePackageIssue.detachFailed }
         }
         do { try FileManager.default.removeItem(at: directory) }
         catch let error as CocoaError where error.code == .fileNoSuchFile { }
@@ -537,7 +544,10 @@ private enum NativeUpdateTool {
         do { try process.run() }
         catch { throw failure }
         defer {
-            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+            }
             try? input.close()
         }
         var data = Data()

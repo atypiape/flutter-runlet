@@ -70,10 +70,11 @@ final class UpdatePackageTests: XCTestCase {
         let original = try fixture.hashes(of: appA)
         let appB = try fixture.makeApp(folder: "B", version: "7.3.0", build: "73")
         let artifact = try fixture.makeArtifact(app: appB)
-        let server = try await AssetHTTPServer.start(replies: ["/asset": .ok(artifact.bytes)])
+        let sidecar = Data("\(artifact.trust.imageSHA256)  FlutterRunlet-v7.3.0-macOS-universal.dmg\n".utf8)
+        let server = try await AssetHTTPServer.start(replies: ["/asset": .ok(artifact.bytes), "/sidecar": .ok(sidecar)])
         defer { server.stop() }
         let running = RunningUpdateApp(productID: PackageFixture.productID, version: "7.2.0", build: "902")
-        let release = try packageRelease(digest: artifact.trust.imageSHA256, size: Int64(artifact.bytes.count))
+        let release = try packageRelease(digest: artifact.trust.imageSHA256, size: Int64(artifact.bytes.count), sidecar: sidecar)
         let prepared = try await prepare(release, running: running, trust: artifact.trust, server: server)
         defer { try? prepared.discard() }
 
@@ -86,6 +87,18 @@ final class UpdatePackageTests: XCTestCase {
         XCTAssertEqual(modes[.posixPermissions] as? Int, 0o700)
         XCTAssertFalse(try fixture.isMounted(prepared.imageURL))
         XCTAssertEqual(try fixture.hashes(of: appA), original)
+        try fixture.verify(appA)
+        let receipt = XCTAttachment(string: """
+        Release \(prepared.download.tag), asset \(prepared.download.image.id), bytes \(artifact.bytes.count)
+        DMG SHA-256 \(artifact.trust.imageSHA256)
+        A on disk \(try XCTUnwrap(Bundle(url: appA)).bundleIdentifier ?? "") \(running.version) build \(running.build)
+        A code hashes \(original)
+        B signed app \(prepared.signed.app) code hashes \(prepared.signed.appCodeHashes)
+        B signed worker code hashes \(prepared.signed.workerCodeHashes)
+        """)
+        receipt.name = "Isolated A and pinned DMG B"
+        receipt.lifetime = .keepAlways
+        add(receipt)
         try prepared.discard()
         try prepared.discard()
         XCTAssertFalse(FileManager.default.fileExists(atPath: prepared.imageURL.path))
@@ -169,7 +182,8 @@ final class UpdatePackageTests: XCTestCase {
         let download = try UpdateDownload(release: release)
         return try await UpdatePackageService.prepareFixture(download, running: running, trust: trust, refresh: { refresh ?? release }) {
             asset, file in
-            let request = URLRequest(url: server.url.appending(path: "asset"))
+            let path = asset.name.hasSuffix(".sha256") ? "sidecar" : "asset"
+            let request = URLRequest(url: server.url.appending(path: path))
             _ = try await BoundedUpdateHTTP.get(request, limit: asset.size, timeout: 5, output: file)
         }
     }
@@ -204,24 +218,64 @@ final class UpdatePackageTests: XCTestCase {
             }
         }
     }
+
+    func testRealHTTPStopsAtRedirectLimitAndWhenCancelled() async throws {
+        let server = try await AssetHTTPServer.start(replies: [
+            "/one": .redirect("/two"), "/two": .redirect("/three"),
+            "/three": .redirect("/four"), "/four": .redirect("/five"),
+            "/five": .ok(Data("results".utf8)), "/slow": .ok(Data("slow".utf8), delay: 1)
+        ])
+        defer { server.stop() }
+        let followsOnlyLoopback: @Sendable (URL, URL) -> Bool = { $0.host == $1.host && $0.port == $1.port }
+        do {
+            _ = try await BoundedUpdateHTTP.get(URLRequest(url: server.url.appending(path: "one")), limit: 128, timeout: 3,
+                                                allowedRedirect: followsOnlyLoopback)
+            XCTFail("Expected the fourth redirect to be rejected")
+        } catch {
+            XCTAssertEqual(error as? BoundedUpdateHTTP.Issue, .redirect)
+        }
+
+        let request = URLRequest(url: server.url.appending(path: "slow"))
+        let pending = Task { try await BoundedUpdateHTTP.get(request, limit: 128, timeout: 3) }
+        try await Task.sleep(for: .milliseconds(100))
+        pending.cancel()
+        do {
+            _ = try await pending.value
+            XCTFail("Expected in-flight HTTP cancellation")
+        } catch {
+            XCTAssertTrue(error is CancellationError, String(describing: error))
+        }
+    }
+
 }
 
 private func packageRelease(tag: String = "v7.3.0", digest: String? = nil, size: Int64 = 256,
                             assetID: Int64 = 123, copies: Int = 1, state: String = "uploaded",
-                            immutable: Bool = true, foreignAsset: Bool = false) throws -> GitHubRelease {
+                            immutable: Bool = true, foreignAsset: Bool = false, sidecar: Data? = nil) throws -> GitHubRelease {
     let api = UpdateRepository.api.absoluteString
     let site = UpdateRepository.releases.absoluteString
-    let assetName = "FlutterRunlet-\(tag)-macOS-universal.dmg"
+    let packageTag = tag.hasPrefix("v") ? tag : "v" + tag
+    let assetName = "FlutterRunlet-\(packageTag)-macOS-universal.dmg"
     let asset: [String: Any] = [
         "id": assetID, "name": assetName, "state": state, "size": size,
         "digest": (digest.map { "sha256:\($0)" } as Any?) ?? NSNull(),
         "url": "\(foreignAsset ? "https://example.invalid" : api)/releases/assets/\(assetID)",
         "browser_download_url": "\(site)/download/\(tag)/\(assetName)"
     ]
+    var assets = Array(repeating: asset, count: copies)
+    if let sidecar {
+        let name = assetName + ".sha256"
+        let id = assetID + 1
+        assets.append([
+            "id": id, "name": name, "state": "uploaded", "size": sidecar.count,
+            "digest": "sha256:\(hex(SHA256.hash(data: sidecar)))", "url": "\(api)/releases/assets/\(id)",
+            "browser_download_url": "\(site)/download/\(tag)/\(name)"
+        ])
+    }
     let json: [String: Any] = [
         "id": 42, "tag_name": tag, "immutable": immutable, "draft": false, "prerelease": false,
         "url": "\(api)/releases/42", "assets_url": "\(api)/releases/42/assets",
-        "html_url": "\(site)/tag/\(tag)", "assets": Array(repeating: asset, count: copies)
+        "html_url": "\(site)/tag/\(tag)", "assets": assets
     ]
     return try JSONDecoder().decode(GitHubRelease.self, from: JSONSerialization.data(withJSONObject: json))
 }
@@ -274,8 +328,12 @@ private struct PackageFixture {
         try FileManager.default.copyItem(at: tool, to: worker)
         _ = try run("/usr/bin/codesign", ["--force", "--sign", "-", "--identifier", "FlutterRunletSessionWorker", worker.path])
         _ = try run("/usr/bin/codesign", ["--force", "--sign", "-", app.path])
-        _ = try run("/usr/bin/codesign", ["--verify", "--strict", "--deep", "--all-architectures", app.path])
+        try verify(app)
         return app
+    }
+
+    func verify(_ app: URL) throws {
+        _ = try run("/usr/bin/codesign", ["--verify", "--strict", "--deep", "--all-architectures", app.path])
     }
 
     struct Artifact {
@@ -344,10 +402,11 @@ private struct PackageFixture {
 private final class AssetHTTPServer: Sendable {
     struct Reply: Sendable {
         let bytes: Data
+        var delay: TimeInterval = 0
 
-        static func ok(_ body: Data, includeLength: Bool = true) -> Self {
+        static func ok(_ body: Data, includeLength: Bool = true, delay: TimeInterval = 0) -> Self {
             let length = includeLength ? "Content-Length: \(body.count)\r\n" : ""
-            return Self(bytes: Data("HTTP/1.1 200 OK\r\n\(length)Connection: close\r\n\r\n".utf8) + body)
+            return Self(bytes: Data("HTTP/1.1 200 OK\r\n\(length)Connection: close\r\n\r\n".utf8) + body, delay: delay)
         }
 
         static func redirect(_ location: String) -> Self {
@@ -398,8 +457,10 @@ private final class AssetHTTPServer: Sendable {
                 let line = String(decoding: data, as: UTF8.self).split(separator: "\r\n", maxSplits: 1).first
                 if let path = line?.split(separator: " ").dropFirst().first,
                    let reply = replies[String(path)] {
-                    connection.send(content: reply.bytes, contentContext: .finalMessage, isComplete: true,
-                                    completion: .contentProcessed { _ in connection.cancel() })
+                    DispatchQueue.global().asyncAfter(deadline: .now() + reply.delay) {
+                        connection.send(content: reply.bytes, contentContext: .finalMessage, isComplete: true,
+                                        completion: .contentProcessed { _ in connection.cancel() })
+                    }
                 } else {
                     connection.cancel()
                 }
