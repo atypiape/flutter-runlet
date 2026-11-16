@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -51,6 +52,7 @@ class PlanPrereleaseTests(unittest.TestCase):
             "merged_at": "2026-11-16",
             "merge_commit_sha": commit,
             "number": number,
+            "title": "Fix device selection",
             "base": {"ref": "dev", "repo": {"full_name": "owner/project"}},
             "body": f"## Release type\n{kind}\n## 简体中文\n改善设备选择。\n## English\n{english}",
         }]
@@ -92,10 +94,36 @@ class PlanPrereleaseTests(unittest.TestCase):
         self.app_pr(19, "none", "")
         self.assertEqual(self.plan(), (None, "v0.3.0"))
 
-    def test_missing_translation_blocks_candidate(self):
+    def test_missing_translation_uses_copilot_after_authorization(self):
         self.app_pr(20, "patch", "")
-        with self.assertRaisesRegex(ValueError, "PR #20"):
-            self.plan()
+        checks = []
+        with patch.object(planner, "fill_notes", side_effect=lambda pr, zh, en: (
+            checks.append("notes") or zh, "Fix device selection"
+        )):
+            result = planner.plan("owner/project", self.git("rev-parse", "HEAD"), self.notes,
+                                  authorize=lambda: checks.append("authorized"))
+        self.assertEqual(result, ("v0.3.1", "v0.3.0"))
+        self.assertEqual(checks, ["authorized", "notes"])
+        self.assertIn("改善设备选择", self.notes.read_text())
+        self.assertIn("Fix device selection", self.notes.read_text())
+
+    def test_copilot_only_fills_missing_language(self):
+        pr = {"number": 20, "title": "Device fix", "body": "Fixed it. <!-- hidden -->"}
+        response = subprocess.CompletedProcess([], 0, '{"en":"Fix device selection."}', "")
+        with patch.object(planner.subprocess, "run", return_value=response) as copilot:
+            self.assertEqual(planner.fill_notes(pr, "修复设备选择。", ""),
+                             ("修复设备选择。", "Fix device selection."))
+            self.assertNotIn("hidden", copilot.call_args.args[0][-1])
+        with patch.object(planner.subprocess, "run") as copilot:
+            self.assertEqual(planner.fill_notes(pr, "原文", "Original"), ("原文", "Original"))
+            copilot.assert_not_called()
+
+    def test_invalid_copilot_response_blocks_candidate(self):
+        pr = {"number": 20, "title": "Device fix", "body": None}
+        response = subprocess.CompletedProcess([], 0, '{"en":""}', "")
+        with patch.object(planner.subprocess, "run", return_value=response):
+            with self.assertRaisesRegex(ValueError, "PR #20"):
+                planner.fill_notes(pr, "原文", "")
 
     def test_manual_version_blocks_automatic_candidate(self):
         self.app_pr(21, "manual")

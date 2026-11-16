@@ -10,8 +10,9 @@ fail() {
 [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]] ||
   fail 'Publication requires a new run on main.'
 case "$GITHUB_EVENT_NAME" in
-  workflow_dispatch) ;;
+  workflow_dispatch) approval_mode="$VERSION" ;;
   workflow_run)
+    approval_mode=auto
     jq -e --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '.workflow_run |
       .name == "CI" and .event == "push" and .conclusion == "success" and .head_branch == "main"
       and .head_sha == $sha and .head_repository.full_name == $repo' "$GITHUB_EVENT_PATH" >/dev/null ||
@@ -28,13 +29,6 @@ repo="repos/$GITHUB_REPOSITORY"
 notes="${2:?Missing reviewed release notes}"
 dmg="FlutterRunlet-$VERSION-macOS-universal.dmg"
 
-# An unprotected or auto-created environment cannot supply this decision.
-approval="audit-approved $VERSION $DMG_SHA256"
-gh api "$repo/actions/runs/$GITHUB_RUN_ID/approvals" |
-  jq -e --arg approval "$approval" 'any(.[]; .state == "approved" and .comment == $approval and
-    any(.environments[]; .name == "release"))' >/dev/null ||
-  fail 'The release environment must approve this version and DMG digest after audit.'
-
 gh api --method GET "$repo/actions/workflows/ci.yml/runs" \
   -f branch=main -f event=push -f head_sha="$GITHUB_SHA" -F per_page=1 |
   jq -e --arg sha "$GITHUB_SHA" '.workflow_runs[0] |
@@ -42,7 +36,7 @@ gh api --method GET "$repo/actions/workflows/ci.yml/runs" \
   fail 'The exact main commit must pass the push CI workflow.'
 
 if ! [[ -s "$notes" ]] || ! grep -qxF '## 简体中文' "$notes" || ! grep -qxF '## English' "$notes"; then
-  fail 'The reviewed bilingual notes are missing or malformed.'
+  fail 'The bilingual release notes are missing or malformed.'
 fi
 notes_file="$(mktemp)"
 trap 'rm -f -- "$notes_file"' EXIT
@@ -56,6 +50,7 @@ cat >> "$notes_file" <<'NOTES'
 The Universal DMG includes Apple Silicon and Intel slices and targets macOS 15.0 or later. Verify the download with the accompanying SHA-256 file. This prerelease is ad hoc signed, is not Apple notarized, and requires manual installation.
 NOTES
 
+bash scripts/verify-release-authorization.sh "$approval_mode"
 cd "$1"
 [[ "$(sha256sum "$dmg")" == "$DMG_SHA256  $dmg" ]] || fail 'The downloaded DMG differs from the reviewed candidate.'
 printf '%s  %s\n' "$DMG_SHA256" "$dmg" | cmp - "$dmg.sha256" ||
@@ -67,7 +62,7 @@ gh api --paginate --slurp "$repo/releases?per_page=100" |
   jq -e --arg version "$VERSION" 'all(.[][]; .tag_name != $version)' >/dev/null ||
   fail 'This version already has a Release, or Release state could not be verified.'
 [[ "$(gh api "$repo/git/ref/heads/main" --jq '.object.sha')" == "$GITHUB_SHA" ]] ||
-  fail 'main moved after dispatch. Build and review a new candidate.'
+  fail 'main has advanced. Prepare a new candidate.'
 
 # Create the ref atomically; GitHub rejects an existing tag, even at the same commit.
 gh api --method POST "$repo/git/refs" -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" --silent

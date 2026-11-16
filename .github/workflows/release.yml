@@ -13,7 +13,7 @@ on:
         type: string
         required: true
       publish:
-        description: "Request publication after reviewing this run's DMG and SHA-256"
+        description: "Publish a release authorized on the PR before it merged"
         type: boolean
         default: false
 
@@ -39,6 +39,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      copilot-requests: write
     outputs:
       version: ${{ steps.plan.outputs.version }}
       sha: ${{ github.sha }}
@@ -52,6 +53,7 @@ jobs:
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
           PUBLISH_REQUESTED: ${{ inputs.publish }}
         run: |
@@ -69,6 +71,7 @@ jobs:
               exit 1
             fi
             if [[ "$PUBLISH_REQUESTED" == true ]]; then
+              bash scripts/verify-release-authorization.sh "$REQUESTED_VERSION"
               cp "docs/releases/$REQUESTED_VERSION.md" "$RUNNER_TEMP/release-notes.md"
             fi
             printf 'version=%s\n' "$REQUESTED_VERSION" >> "$GITHUB_OUTPUT"
@@ -126,10 +129,10 @@ jobs:
     needs: [plan, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment: release
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -143,7 +146,7 @@ jobs:
         with:
           name: FlutterRunlet-${{ needs.plan.outputs.version }}-notes-${{ github.run_attempt }}
           path: ${{ runner.temp }}/release-notes
-      - name: Verify approval and publish
+      - name: Verify pre-merge authorization and publish
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.plan.outputs.version }}
