@@ -2,13 +2,13 @@
 
 ## 构建与运行
 
-准备完整的 Git 检出和 Xcode。v0.2 的本地验收使用 macOS 26.7.1、Xcode 27.1；项目的最低部署目标为 macOS 15.0。打开 [FlutterRunlet.xcodeproj](../FlutterRunlet.xcodeproj)，选择共享的 `FlutterRunlet` scheme 和本机 Mac，按 Command-R 运行。
+准备完整的 Git 检出和 Xcode。项目的最低部署目标为 macOS 15.0。打开 [FlutterRunlet.xcodeproj](../FlutterRunlet.xcodeproj)，选择共享的 `FlutterRunlet` scheme 和本机 Mac，按 Command-R 运行。本地复现 CI 时使用 [CI 同款 Xcode](CI-CD.md#自动-ci)。
 
 主应用源码在 [FlutterRunlet](../FlutterRunlet/)，同一 scheme 会构建 [会话 worker](../FlutterRunletSessionWorker/) 和 [更新助手](../FlutterRunletUpdateHelper/)。构建应用本身无需 Flutter SDK；验证真实调试还需可用的 Flutter SDK、测试项目及模拟器或真机。
 
 ## 测试与本地取证
 
-在仓库根目录运行 XCTest：
+在仓库根目录运行 XCTest（同时构建 Debug 应用）：
 
 ```sh
 xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
@@ -24,7 +24,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 ## 打包与发布
 
-按照 [Release 模板](RELEASE-TEMPLATE.md)构建和校验 DMG、准备中英文更新说明并上传发布资产。
+目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，并上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选；用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。
 
 ## 项目文档
 

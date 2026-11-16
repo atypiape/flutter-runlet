@@ -83,7 +83,7 @@ if [[ "$build" != "$requested_build" || ( -n "$requested_version" && "$version" 
 fi
 
 verify_packaged_app() {
-  local packaged_app="$1" executable architectures
+  local packaged_app="$1" executable architectures arch signature
   local helper='Contents/Helpers/FlutterRunletUpdateHelper.app'
   local worker='Contents/Helpers/FlutterRunletSessionWorker'
   codesign --verify --deep --strict --all-architectures "$packaged_app" || return 1
@@ -99,6 +99,13 @@ verify_packaged_app() {
         return 1
         ;;
     esac
+    for arch in arm64 x86_64; do
+      signature="$(codesign --display --verbose=2 --arch "$arch" "$packaged_app/$executable" 2>&1)" || return 1
+      if ! grep -qxF 'Signature=adhoc' <<< "$signature"; then
+        printf '%s (%s) 的签名不是预期的临时签名。\n' "$executable" "$arch" >&2
+        return 1
+      fi
+    done
     # 直接扫描二进制字节，覆盖 fat Mach-O 的两个切片及字符串表。
     if ! /usr/bin/perl -e '
       my ($file, @prefixes) = @ARGV;
@@ -131,6 +138,11 @@ hdiutil verify -quiet "$work_dir/$dmg"
 mkdir "$work_dir/mount"
 mount_point="$work_dir/mount"
 hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$mount_point" "$work_dir/$dmg"
+if [[ ! -d "$mount_point/FlutterRunlet.app" || -L "$mount_point/FlutterRunlet.app" ||
+      ! -L "$mount_point/Applications" || "$(readlink "$mount_point/Applications")" != /Applications ]]; then
+  printf 'DMG 缺少预期的应用或 Applications 安装链接。\n' >&2
+  exit 1
+fi
 verify_packaged_app "$mount_point/FlutterRunlet.app"
 hdiutil detach -quiet "$mount_point"
 mount_point=
