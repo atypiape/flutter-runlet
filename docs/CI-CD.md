@@ -45,6 +45,7 @@
 | 现象 | 检查项 |
 |---|---|
 | PR 缺少 CI | 确认 PR 目标、是否有合并冲突、外部贡献者是否等待运行批准，以及 Actions 是否被禁用 |
+| PR 找不到 DMG | 在 CI 运行摘要查看 `CI scope`。只有 `package` 会打包，并在通过校验后上传 DMG 和 SHA-256 |
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
 | 找不到 Run workflow | 确认 `release.yml` 已合入默认分支，且触发人有仓库写权限 |
 | 候选未生成 | 查看 Plan prerelease。仅 CI 或文档改动时会跳过。应用改动缺少发布类型或 Copilot 补写失败时，修正源 PR 信息后重跑 `main` CI |
