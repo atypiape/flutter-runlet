@@ -21,6 +21,8 @@
 - `main` 和 `dev` 均须通过 PR 合并，禁止直接 Push、强推和删除，且无豁免。 [共用保护 Ruleset](https://github.com/atypiape/flutter-runlet/rules/27331981)
 - `dev` 要求 GitHub Actions 的 `branch-policy (dev)` 检查通过，仅允许 Squash Merge。 [dev Ruleset](https://github.com/atypiape/flutter-runlet/rules/27350459)
 - `main` 要求 GitHub Actions 的 `branch-policy (main)` 检查通过，仅允许 Merge Commit 和 Squash Merge。`dev → main` 使用 Merge Commit，`hotfix/* → main` 使用 Squash Merge。 [main Ruleset](https://github.com/atypiape/flutter-runlet/rules/27350524)
+- 两条分支都应将 `macOS build and test` 加入必需检查，来源选择 GitHub Actions，并保留各自的 `branch-policy`。先让测试 PR 出现并通过新检查，再启用必需状态，避免首次部署阻塞。具体操作见 [CI/CD 指南](CI-CD.md#设置分支保护)。
+- PR 检查验证拟合入结果；合入 `main` 后，CI 再验证实际发布提交。合入不会触发发布。版本标签和公开预发布由 [Release 流程](RELEASE-TEMPLATE.md)在用户授权后创建。
 
 ## `codex/*` 的安全迁移
 

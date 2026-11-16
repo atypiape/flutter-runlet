@@ -30,7 +30,7 @@ The DevTools, [General settings](docs/screenshots/settings.jpg), and About scree
 
 ## Install
 
-Download the universal macOS DMG from the [latest GitHub release](https://github.com/atypiape/flutter-runlet/releases/latest). Follow the release page's checksum instructions, open the DMG, and drag FlutterRunlet to **Applications**.
+Download the Universal macOS DMG from [GitHub Releases](https://github.com/atypiape/flutter-runlet/releases). Follow the release page's checksum instructions, open the DMG, and drag FlutterRunlet to **Applications**.
 
 The deployment target is macOS 15.0. Universal builds include Apple Silicon and Intel. Runtime testing was done on Apple Silicon with macOS 26.7.1; running on Intel or macOS 15 has not yet been verified. See the [release notes](docs/RELEASE-NOTES.md) (Simplified Chinese).
 

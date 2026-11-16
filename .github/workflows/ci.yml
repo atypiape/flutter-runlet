@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS build and test
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check source and toolchain
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          git diff --check "$BASE_SHA" HEAD
+          plutil -lint FlutterRunlet.xcodeproj/project.pbxproj FlutterRunlet/FlutterRunlet.entitlements
+          bash -n scripts/package-release.sh
+          bash -n scripts/release-prerelease.sh
+      - name: Build and run XCTest
+        run: |
+          xcodebuild -quiet -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
+            -configuration Debug -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath .build/ci/debug -parallel-testing-enabled NO test
+      - name: Build and verify Universal DMG
+        id: dmg
+        uses: ./.github/actions/package-dmg
+      - name: Upload candidate
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: FlutterRunlet-CI-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ steps.dmg.outputs.directory }}/FlutterRunlet-*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
