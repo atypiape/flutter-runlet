@@ -4,7 +4,7 @@
 
 [CI](../.github/workflows/ci.yml) 在目标为 `dev` 或 `main` 的 PR 上测试拟合入结果；`main` 更新后重测实际提交。工作流检查 Git 差异、工程与权限配置文件、Shell 语法，构建 Debug 并运行 XCTest，再通过 [打包脚本](../scripts/package-release.sh)构建和校验 Release Universal DMG。在 Actions 运行详情下载 DMG 和 SHA-256；PR 产物只供检查，与 GitHub Releases 无关。
 
-工作流使用 [`macos-26` Apple Silicon 镜像](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md)内置的 Xcode 26.6，通过 `DEVELOPER_DIR` 选择工具链。源码编译与 XCTest 不依赖 Flutter SDK；需要真实 Flutter 环境的验证仍按[开发者指南](DEVELOPMENT.md)手工执行。Xcode 无需下载，构建无外部依赖；XCTest 一次完成 Debug 编译和测试，Release 由打包脚本单独构建，不跨运行缓存 DerivedData。
+工作流使用 [`xcode-27` Apple Silicon 镜像](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)内置的 Xcode 27.1（Runner 镜像处于公开预览），通过 `DEVELOPER_DIR` 选择工具链；Xcode 26.6 在编译项目时发生 Swift 编译器崩溃。源码编译与 XCTest 不依赖 Flutter SDK；需要真实 Flutter 环境的验证仍按[开发者指南](DEVELOPMENT.md)手工执行。Xcode 无需下载，构建无外部依赖；XCTest 一次完成 Debug 编译和测试，Release 由打包脚本单独构建，不跨运行缓存 DerivedData。
 
 ## 设置分支保护
 
