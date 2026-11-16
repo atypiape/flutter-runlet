@@ -16,8 +16,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  checks:
+    name: Repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check diff and select build scope
+        id: scope
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            # Compare the checked-out PR merge commit with its actual base.
+            base=$(git rev-parse HEAD^1)
+            git diff --check "$base" HEAD --
+            # A rename across scopes must count both its old and new paths.
+            files=$(git diff --no-renames --name-only "$base" HEAD --)
+            scope=static
+            while IFS= read -r path; do
+              case "$path" in
+                ''|AGENTS.md|CLAUDE.md|README.md|README.zh-CN.md|LICENSE|docs/*.md|docs/screenshots/*|.planning/*.md|.github/pull_request_template.md)
+                  ;;
+                .github/workflows/branch-policy.yml|.github/workflows/slack-notifications.yml|.githooks/pre-push|scripts/plan-prerelease.py|scripts/release-prerelease.sh|scripts/verify-release-authorization.sh|scripts/tests/*)
+                  ;;
+                FlutterRunletTests/*)
+                  scope='test'
+                  ;;
+                *)
+                  scope=package
+                  break
+                  ;;
+              esac
+            done <<< "$files"
+          else
+            git diff --check "$BEFORE_SHA" HEAD --
+            scope=package
+          fi
+          printf 'scope=%s\n' "$scope" >> "$GITHUB_OUTPUT"
+          printf 'CI scope: %s\n' "$scope" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check release scripts
+        run: |
+          set -euo pipefail
+          bash -n scripts/package-release.sh
+          bash -n scripts/release-prerelease.sh
+          bash -n scripts/verify-release-authorization.sh
+          sh -n .githooks/pre-push
+          python3 -B -m unittest discover -s scripts/tests
+
   macos:
-    name: macOS build and test
+    name: Xcode tests and packaging
+    needs: checks
+    if: needs.checks.outputs.scope == 'test' || needs.checks.outputs.scope == 'package'
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -27,19 +83,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check source and toolchain
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Check project and toolchain
         run: |
           set -euo pipefail
           xcodebuild -version
           xcrun --sdk macosx --show-sdk-version
-          git diff --check "$BASE_SHA" HEAD
           plutil -lint FlutterRunlet.xcodeproj/project.pbxproj FlutterRunlet/FlutterRunlet.entitlements
-          bash -n scripts/package-release.sh
-          bash -n scripts/release-prerelease.sh
-          bash -n scripts/verify-release-authorization.sh
-          python3 -B -m unittest discover -s scripts/tests
       - name: Build and run XCTest
         run: |
           xcodebuild -quiet -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
@@ -47,8 +96,10 @@ jobs:
             -derivedDataPath .build/ci/debug -parallel-testing-enabled NO test
       - name: Build and verify Universal DMG
         id: dmg
+        if: needs.checks.outputs.scope == 'package'
         uses: ./.github/actions/package-dmg
       - name: Upload candidate
+        if: needs.checks.outputs.scope == 'package'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: FlutterRunlet-CI-${{ github.sha }}-${{ github.run_attempt }}
@@ -56,3 +107,25 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+
+  required:
+    name: macOS build and test
+    needs: [checks, macos]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Verify CI results
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          SCOPE: ${{ needs.checks.outputs.scope }}
+          MACOS: ${{ needs.macos.result }}
+        run: |
+          case "$CHECKS:$SCOPE:$MACOS" in
+            success:static:skipped|success:test:success|success:package:success) ;;
+            *)
+              printf '::error::CI did not complete successfully (checks=%s, scope=%s, macOS=%s).\n' "$CHECKS" "$SCOPE" "$MACOS"
+              exit 1
+              ;;
+          esac

@@ -2,7 +2,13 @@
 
 ## 自动 CI
 
-[CI](../.github/workflows/ci.yml) 在目标为 `dev` 或 `main` 的 PR 上测试拟合入结果；`main` 更新后重测实际提交。工作流检查 Git 差异、工程与权限配置文件、Shell 语法，构建 Debug 并运行 XCTest，再通过 [打包脚本](../scripts/package-release.sh)构建和校验 Release Universal DMG。在 Actions 运行详情下载 DMG 和 SHA-256；PR 产物只供检查，与 GitHub Releases 无关。
+[CI](../.github/workflows/ci.yml) 在 Ubuntu 检查 Git 差异、Shell 语法和 Python 发布脚本测试。PR 按拟合入结果选择验证范围，`main` 更新后始终对实际提交执行完整验证。
+
+- 仅改文档、截图或工作流中列出的通知、分支检查和发布脚本等文件时，只运行 Ubuntu 检查。
+- 若还改了 XCTest，则在 macOS 校验工程与权限配置文件、构建 Debug 并运行 XCTest。
+- 涉及其他路径时执行完整验证，包括应用、Xcode 工程、随包资源、CI 和打包脚本。完整验证在 XCTest 后通过[打包脚本](../scripts/package-release.sh)构建并校验 Release Universal DMG。DMG 和 SHA-256 可在 Actions 运行详情下载，PR 产物只供检查，与 GitHub Releases 无关。
+
+必需检查 `macOS build and test` 汇总 Ubuntu 和 macOS 作业结果。Ubuntu 检查通过且本次只需静态检查时，才接受 macOS 作业跳过。
 
 工作流使用 [`xcode-27` Apple Silicon 镜像](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)内置的 Xcode 27.1（Runner 镜像处于公开预览），通过 `DEVELOPER_DIR` 选择工具链；Xcode 26.6 在编译项目时发生 Swift 编译器崩溃。源码编译与 XCTest 不依赖 Flutter SDK；需要真实 Flutter 环境的验证仍按[开发者指南](DEVELOPMENT.md)手工执行。Xcode 无需下载，构建无外部依赖；XCTest 一次完成 Debug 编译和测试，Release 由打包脚本单独构建，不跨运行缓存 DerivedData。
 
@@ -39,6 +45,7 @@
 | 现象 | 检查项 |
 |---|---|
 | PR 缺少 CI | 确认 PR 目标、是否有合并冲突、外部贡献者是否等待运行批准，以及 Actions 是否被禁用 |
+| PR 找不到 DMG | 在 CI 运行摘要查看 `CI scope`。只有 `package` 会打包，并在通过校验后上传 DMG 和 SHA-256 |
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
 | 找不到 Run workflow | 确认 `release.yml` 已合入默认分支，且触发人有仓库写权限 |
 | 候选未生成 | 查看 Plan prerelease。仅 CI 或文档改动时会跳过。应用改动缺少发布类型或 Copilot 补写失败时，修正源 PR 信息后重跑 `main` CI |
