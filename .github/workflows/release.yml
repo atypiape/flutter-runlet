@@ -89,6 +89,8 @@ jobs:
     name: Notify Slack that packaging started
     needs: plan
     if: needs.plan.outputs.version != ''
+    permissions:
+      pull-requests: read
     uses: ./.github/workflows/slack-notifications.yml
     with:
       version: ${{ needs.plan.outputs.version }}
@@ -133,6 +135,8 @@ jobs:
     name: Notify Slack of packaging result
     needs: [plan, build, notify-build-start]
     if: always() && needs.plan.outputs.version != '' && needs.build.result != 'skipped'
+    permissions:
+      pull-requests: read
     uses: ./.github/workflows/slack-notifications.yml
     with:
       version: ${{ needs.plan.outputs.version }}
