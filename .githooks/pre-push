@@ -1,0 +1,145 @@
+#!/bin/sh
+
+# Git 规则见 docs/GIT-WORKFLOW.md，规则变更时同步核对 .github/workflows/branch-policy.yml。
+export LC_ALL=C GIT_NO_REPLACE_OBJECTS=1
+set -f
+
+reject() {
+  printf 'pre-push: %s\n' "$1" >&2
+  exit 1
+}
+
+is_zero_oid() {
+  case "$1" in
+    ''|*[!0]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+is_ancestor() {
+  git merge-base --is-ancestor "$1" "$2"
+  case $? in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) reject '无法验证提交历史，请先获取完整对象。' ;;
+  esac
+}
+
+load_history() {
+  [ -z "$published_tips" ] || return 0
+  [ "$(git rev-parse --is-shallow-repository)" = false ] ||
+    reject '无法在浅克隆中验证提交历史，请先获取完整历史。'
+
+  # 使用实际推送地址核验基线，避免把过期的远端跟踪引用当作已发布历史。
+  protected_refs=$(git ls-remote --refs -- "$remote_url" refs/heads/main refs/heads/dev 2>/dev/null) ||
+    reject '无法读取目标远端的 main/dev，请检查连接和读取权限。'
+  while read -r tip ref
+  do
+    [ -n "$ref" ] || continue
+    [ "$(git cat-file -t "$tip" 2>/dev/null)" = commit ] ||
+      reject "本地缺少远端 $ref 的提交，请先 Fetch 后重试。"
+    published_tips="$published_tips $tip"
+  done <<EOF
+$protected_refs
+EOF
+  [ -n "$published_tips" ] || reject '目标远端缺少可核验的 main/dev 基线。'
+
+  codex_tips=$(git for-each-ref --format='%(objectname)' refs/heads/codex/) ||
+    reject '无法读取本地 codex/* 分支。'
+  branch_reflogs=$(git reflog show --format='%H %gD %gs' --branches) ||
+    reject '无法读取本地分支的引用日志。'
+  # 改名、复制和重置后，引用日志仍可能保留原来的 codex/* 提交。
+  codex_tips=$(awk '
+    NF == 1 || $2 ~ /^(refs\/heads\/)?codex\// ||
+      ($3 == "Branch:" && $4 ~ /^(renamed|copied)$/ && $5 ~ /^refs\/heads\/codex\//) {
+        if (!seen[$1]++) print $1
+      }
+  ' <<EOF
+$branch_reflogs
+$codex_tips
+EOF
+  ) || reject '无法识别引用日志中的 codex/* 提交。'
+}
+
+remote_url=$2
+published_tips=
+while read -r local_ref local_oid remote_ref remote_oid
+do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/dev|refs/heads/codex/*)
+      reject "禁止直接更新远端 $remote_ref。" ;;
+    refs/heads/*|refs/tags/*) ;;
+    *) reject "不支持的目标引用 $remote_ref。" ;;
+  esac
+
+  if [ "$local_ref" = '(delete)' ] && is_zero_oid "$local_oid"; then
+    continue
+  fi
+
+  case "$local_ref" in
+    HEAD)
+      source_ref=$(git symbolic-ref -q HEAD) ||
+        reject '分离的 HEAD 无法确认来源，请显式指定合规的源分支。' ;;
+    refs/heads/*|refs/tags/*) source_ref=$local_ref ;;
+    *) reject "无法确认源引用 $local_ref，请显式指定合规的分支或标签。" ;;
+  esac
+  # 分支和标签也可能是符号引用。核验最终指向及 Git 实际要发送的对象。
+  source_ref=$(git rev-parse --symbolic-full-name "$source_ref") ||
+    reject "无法解析源引用 $local_ref。"
+  [ "$(git show-ref --verify --hash "$source_ref" 2>/dev/null)" = "$local_oid" ] ||
+    reject "源引用 $local_ref 与待推送对象不一致。"
+  commit=$(git rev-parse --verify "${local_oid}^{commit}" 2>/dev/null) ||
+    reject "源引用 $local_ref 未指向提交。"
+
+  case "$source_ref:$remote_ref" in
+    refs/heads/codex/*:*|refs/heads/main:*|refs/heads/dev:*)
+      reject "禁止从 $source_ref 直接推送。" ;;
+    refs/tags/*:refs/tags/*)
+      is_zero_oid "$remote_oid" || reject "禁止重写远端标签 $remote_ref。"
+      load_history
+      published=
+      for tip in $published_tips
+      do
+        if is_ancestor "$commit" "$tip"; then
+          published=yes
+          break
+        fi
+      done
+      [ -n "$published" ] || reject "标签 $source_ref 必须指向远端 main/dev 已包含的提交。"
+      ;;
+    refs/heads/*:refs/heads/*)
+      for ref in "$source_ref" "$remote_ref"
+      do
+        case "$ref" in
+          refs/heads/feat/*|refs/heads/fix/*|refs/heads/docs/*|refs/heads/refactor/*|refs/heads/perf/*|refs/heads/test/*|refs/heads/chore/*|refs/heads/hotfix/*) ;;
+          *) reject "工作分支名称不符合 Git 工作流：$ref。" ;;
+        esac
+      done
+      reflog=$(git reflog show --format=%gs "$source_ref") ||
+        reject "无法读取源分支 $source_ref 的引用日志。"
+      case "$reflog" in
+        *'Branch: renamed refs/heads/codex/'*|*'Branch: copied refs/heads/codex/'*)
+          reject "源分支 $source_ref 由 codex/* 改名或复制而来，请从可信基线重新迁移。" ;;
+      esac
+      load_history
+      if ! is_zero_oid "$remote_oid" && ! is_ancestor "$remote_oid" "$commit"; then
+        reject "禁止非快进更新远端分支 $remote_ref。"
+      fi
+      unpublished_roots=$(git rev-list --max-parents=0 "$commit" --not $published_tips) ||
+        reject "无法核验 $source_ref 的历史基线。"
+      [ -z "$unpublished_roots" ] ||
+        reject "源分支 $source_ref 包含与远端 main/dev 无关的提交历史。"
+      if [ -n "$codex_tips" ]; then
+        # 排除已发布历史后，计数减少说明待推送历史仍包含 codex/* 的提交。
+        unpublished=$(git rev-list --count "$commit" --not $published_tips) &&
+          without_codex=$(git rev-list --count "$commit" --not $published_tips $codex_tips) ||
+          reject "无法核验 $source_ref 的待推送提交。"
+        [ "$unpublished" = "$without_codex" ] ||
+          reject "待推送历史包含 codex/* 的原始提交，请从可信基线执行 Squash 迁移。"
+      fi
+      ;;
+    *) reject "源引用 $source_ref 与目标引用 $remote_ref 的类型不匹配。" ;;
+  esac
+done
+
+exit 0
