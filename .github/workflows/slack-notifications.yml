@@ -1,0 +1,108 @@
+name: Slack notifications
+
+on:
+  workflow_run:
+    workflows: [CI, Branch policy, macOS Prerelease]
+    types: [completed]
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      build_result:
+        type: string
+        default: ''
+
+permissions: {}
+
+jobs:
+  notify:
+    name: Send Slack DM
+    # Environment credentials are used only by trusted refs; never check out PR code.
+    if: >-
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
+      (github.event_name != 'pull_request_target' || github.event.pull_request.merged == true)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    environment:
+      name: slack-notifications
+      deployment: false
+    steps:
+      - name: Post notification
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
+          VERSION: ${{ inputs.version }}
+          BUILD_RESULT: ${{ inputs.build_result }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -z "$VERSION" ]]; then
+              printf '::error::%s\n' "$1"
+              exit 1
+            fi
+            printf '::warning::%s\n' "$1"
+            exit 0
+          }
+
+          if [[ -z "$SLACK_BOT_TOKEN" || -z "$SLACK_USER_ID" ]]; then
+            fail 'Set SLACK_BOT_TOKEN and SLACK_USER_ID in the slack-notifications environment.'
+          fi
+          [[ "$SLACK_USER_ID" =~ ^[UW][A-Z0-9]+$ ]] || fail 'SLACK_USER_ID must be a Slack member ID.'
+
+          status() {
+            case "$1" in
+              success) printf '成功' ;;
+              failure) printf '失败' ;;
+              cancelled) printf '已取消' ;;
+              timed_out) printf '超时' ;;
+              *) printf '%s' "$1" ;;
+            esac
+          }
+
+          repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          url="$repo_url/actions/runs/$GITHUB_RUN_ID"
+          if [[ -n "$VERSION" ]]; then
+            case "$BUILD_RESULT" in
+              '') message="Release $VERSION 开始打包（可能正在等待 macOS runner）" ;;
+              success) message="Release $VERSION 打包完成，DMG 和校验文件已上传" ;;
+              *) message="Release $VERSION 打包结束：$(status "$BUILD_RESULT")" ;;
+            esac
+          else
+            case "$GITHUB_EVENT_NAME" in
+              workflow_run)
+                run_id=$(jq -er '.workflow_run.id' "$GITHUB_EVENT_PATH")
+                attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
+                name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
+                result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
+                message="$name 第 $attempt 次运行结束：$(status "$result")"
+                url="$repo_url/actions/runs/$run_id/attempts/$attempt"
+                ;;
+              pull_request_target)
+                number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
+                message="PR #$number 已合入 main"
+                url="$repo_url/pull/$number"
+                ;;
+              workflow_dispatch) message='Slack 通知测试' ;;
+              *) fail 'Unsupported Slack notification event.' ;;
+            esac
+          fi
+
+          payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
+            --arg text "[$GITHUB_REPOSITORY] $message"$'\n'"$url" \
+            '{channel: $channel, text: $text, mrkdwn: false, unfurl_links: false, unfurl_media: false}')
+          if ! response=$(curl --silent --fail --max-time 15 \
+            --header "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            --header 'Content-Type: application/json; charset=utf-8' \
+            --data-binary "$payload" https://slack.com/api/chat.postMessage); then
+            fail 'Could not reach Slack or Slack returned an HTTP error.'
+          fi
+          if ! jq -e '.ok == true' <<< "$response" >/dev/null; then
+            error=$(jq -r '.error // empty | select(type == "string" and test("^[a-z0-9_]+$"))' <<< "$response" 2>/dev/null) || error=''
+            fail "Slack rejected the notification (${error:-unexpected_response})."
+          fi

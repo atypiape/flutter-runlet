@@ -12,6 +12,14 @@
 2. 先让测试 PR 运行并通过 `macOS build and test`；对尚未出现此检查的仓库，不要提前设为必需。
 3. 在 **Settings → Rules → Rulesets** 分别编辑 `dev` 和 `main` 的 Ruleset，在 **Require status checks to pass** 中添加 `macOS build and test`，集成来源选择 **GitHub Actions**。保留相应分支的 `branch-policy (...)`，以及 [Git 规范](GIT-WORKFLOW.md#github-rulesets)规定的保护与合并方式。
 
+## Slack 私信通知
+
+[通知工作流](../.github/workflows/slack-notifications.yml)在 CI、Branch policy、macOS Prerelease 运行结束或 PR 合入 `main` 后发送私信。发布流程选出候选版本后通知开始打包，构建结束后单独报告结果。DMG 和校验文件上传后才报告打包完成；工作流仍须另行通过发布校验。跳过候选时不发送打包通知。
+
+1. 在 [Slack API](https://api.slack.com/apps)创建 Slack App，添加 Bot Token Scope `chat:write`，并安装到收件人所在工作区。保存 Bot User OAuth Token，从收件人 Slack 个人资料复制成员 ID。
+2. 在 GitHub 仓库 **Settings → Environments** 新建 `slack-notifications`，只允许 `dev` 和 `main` 两条分支使用，不设审批。将 Bot Token 和成员 ID 分别填入环境 Secrets `SLACK_BOT_TOKEN` 和 `SLACK_USER_ID`，避免出现在公开日志中。
+3. 工作流进入默认分支后，在 **Actions → Slack notifications → Run workflow** 发送测试私信。测试失败时查看运行日志；自动通知失败会记录警告，不影响构建和发布。Release 打包通知随改动进入 `main` 后生效。
+
 ## 发布授权和 AI
 
 仓库所有者在发布 PR 合入前完成 [公开脱敏审计](PUBLIC-RELEASE-AUDIT.md)，并按 [Release 模板](RELEASE-TEMPLATE.md)留下授权评论。评论绑定 PR 源提交、目标提交和发布方式。发布脚本核对评论作者和时间，拒绝合入后的补签或审批后发生变动的提交。通过授权检查后无需 Actions 部署审批。
@@ -20,7 +28,9 @@
 
 ## 运行与排查
 
-[macOS Prerelease](../.github/workflows/release.yml) 在同仓库 `main` 的 push CI 成功后运行。它以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker、更新助手和随包分发的菜单栏图标均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
+[macOS Prerelease](../.github/workflows/release.yml) 监听同仓库 `main` 的 push CI，CI 成功后仅在运行引用为 `main` 时规划候选。GitHub 为 [`workflow_run`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) 使用默认分支；默认分支为 `dev` 时，自动入口会跳过，可在 `main` 手动运行候选构建。
+
+候选以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker、更新助手和随包分发的菜单栏图标均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
 
 按 [PR 模板](../.github/pull_request_template.md)填写发布类型。若本批含 `minor`，升次版本并将补丁位归零。只有 `patch` 时升补丁版本，`none` 不计入。同批只有 `none` 时跳过。缺少中文或英文说明时用 Copilot 补齐。PR 无法关联、缺少发布类型或标为 `manual` 时，日志指出原因并停止自动处理。
 

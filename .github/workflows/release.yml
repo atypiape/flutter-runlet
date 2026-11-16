@@ -85,6 +85,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  notify-build-start:
+    name: Notify Slack that packaging started
+    needs: plan
+    if: needs.plan.outputs.version != ''
+    uses: ./.github/workflows/slack-notifications.yml
+    with:
+      version: ${{ needs.plan.outputs.version }}
+
   build:
     name: Build release candidate
     needs: plan
@@ -120,6 +128,15 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+  notify-build-result:
+    name: Notify Slack of packaging result
+    needs: [plan, build, notify-build-start]
+    if: always() && needs.plan.outputs.version != '' && needs.build.result != 'skipped'
+    uses: ./.github/workflows/slack-notifications.yml
+    with:
+      version: ${{ needs.plan.outputs.version }}
+      build_result: ${{ needs.build.result }}
 
   publish:
     name: Publish approved prerelease
