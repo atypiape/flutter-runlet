@@ -1,5 +1,6 @@
 name: Branch policy
 
+# Git 规则见 docs/GIT-WORKFLOW.md，规则变更时同步核对 .githooks/pre-push。
 on:
   pull_request:
     branches: [dev, main]
@@ -33,11 +34,15 @@ jobs:
             exit 1
           }
 
+          case "$PR_HEAD" in
+            codex/*) fail "codex/ branches are local-only and cannot open pull requests." ;;
+          esac
+
           case "$PR_BASE" in
             dev)
               case "$PR_HEAD" in
-                codex/?*|feat/?*|fix/?*) exit 0 ;;
-                *) fail "PRs into dev must come from a codex/, feat/, or fix/ branch." ;;
+                feat/?*|fix/?*|docs/?*|refactor/?*|perf/?*|test/?*|chore/?*|hotfix/?*) exit 0 ;;
+                *) fail "PRs into dev must come from a feat/, fix/, docs/, refactor/, perf/, test/, chore/, or hotfix/ branch." ;;
               esac
               ;;
             main)
@@ -45,8 +50,8 @@ jobs:
                 fail "PRs into main must come from this repository."
               case "$PR_HEAD" in
                 dev) exit 0 ;;
-                fix/?*) ;;
-                *) fail "PRs into main must come from dev or from a fix/ branch based on main." ;;
+                hotfix/?*) ;;
+                *) fail "PRs into main must come from dev or from a hotfix/ branch based on main." ;;
               esac
               ;;
             *) fail "Unexpected PR target." ;;
@@ -64,9 +69,10 @@ jobs:
             "$PR_HEAD_SHA:refs/policy/head"
 
           git -C "$graph" merge-base --is-ancestor refs/policy/main refs/policy/head ||
-            fail "A fix/ PR into main must include the current main tip."
+            fail "A hotfix/ PR into main must include the current main tip."
 
-          git -C "$graph" rev-list refs/policy/main..refs/policy/head | sort > "$graph/fix-commits"
-          git -C "$graph" rev-list refs/policy/main..refs/policy/dev | sort > "$graph/dev-commits"
-          shared_commits=$(comm -12 "$graph/fix-commits" "$graph/dev-commits")
-          [[ -z "$shared_commits" ]] || fail "A fix/ PR into main cannot include commits unique to dev."
+          # Excluding dev must not remove any commits beyond those already in main.
+          hotfix_commits=$(git -C "$graph" rev-list --count refs/policy/main..refs/policy/head)
+          hotfix_without_dev=$(git -C "$graph" rev-list --count refs/policy/head --not refs/policy/main refs/policy/dev)
+          [[ "$hotfix_commits" == "$hotfix_without_dev" ]] ||
+            fail "A hotfix/ PR into main cannot include commits unique to dev."
