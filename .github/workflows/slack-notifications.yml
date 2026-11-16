@@ -67,6 +67,8 @@ jobs:
 
           repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
+          repo="$GITHUB_REPOSITORY"
+          link_text=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
               '') result_text='⏳ 开始打包（可能正在等待 macOS runner）' ;;
@@ -81,8 +83,13 @@ jobs:
                 attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
                 name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
                 result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
-                message="工作流：${name}（第 $attempt 次运行）"$'\n'"运行结果：$(status "$result")"
+                if [[ "$attempt" != 1 ]]; then
+                  name="${name}（第 $attempt 次运行）"
+                fi
+                message="工作流：$name"$'\n'"运行结果：$(status "$result")"
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
+                repo=''
+                link_text='查看详情'
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
@@ -95,22 +102,23 @@ jobs:
           fi
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
-            --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
+            --arg repo "$repo" --arg message "$message" --arg url "$url" \
+            --arg link_text "${link_text:-$url}" \
             'def section($label; $value):
                {type: "rich_text_section", elements: [
                  {type: "text", text: $label, style: {bold: true}},
                  {type: "text", text: ("：" + $value)}
                ]};
              {channel: $channel,
-              text: ("仓库：" + $repo + "\n" + $message + "\n链接：" + $url),
+              text: ((if $repo == "" then "" else "仓库：" + $repo + "\n" end) + $message + "\n链接：" + $url),
               blocks: [{type: "rich_text", elements:
-                ([section("仓库"; $repo)] +
+                ((if $repo == "" then [] else [section("仓库"; $repo)] end) +
                  [$message | split("\n")[] | split("：") |
                    section(.[0]; .[1:] | join("："))] +
                  [{type: "rich_text_section", elements: [
                    {type: "text", text: "链接", style: {bold: true}},
                    {type: "text", text: "："},
-                   {type: "link", url: $url}
+                   {type: "link", url: $url, text: $link_text}
                  ]}])}],
               unfurl_links: false, unfurl_media: false}')
           if ! response=$(curl --silent --fail --max-time 15 \
