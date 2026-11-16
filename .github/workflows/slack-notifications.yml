@@ -22,6 +22,8 @@ permissions: {}
 jobs:
   notify:
     name: Send Slack DM
+    permissions:
+      pull-requests: read
     # Environment credentials are used only by trusted refs; never check out PR code.
     if: >-
       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
@@ -34,6 +36,7 @@ jobs:
     steps:
       - name: Post notification
         env:
+          GH_TOKEN: ${{ github.token }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
           VERSION: ${{ inputs.version }}
@@ -65,10 +68,38 @@ jobs:
             esac
           }
 
+          workflow_reference() {
+            local event="$1" branch="$2" sha="$3" title="$4" number='' suffix=''
+            local pr_prefix='^\[PR #([1-9][0-9]*)\] '
+            if [[ "$event" == pull_request && "$title" =~ $pr_prefix ]]; then
+              number="${BASH_REMATCH[1]}"
+            elif [[ "$branch" == main && "$sha" =~ ^[0-9a-f]{40}$ &&
+                    ( "$event" == push || "$event" == workflow_run ) ]]; then
+              # Only report the PR merged at this exact commit. A direct push can have other PR associations.
+              number=$(gh api --paginate --slurp \
+                -H 'X-GitHub-Api-Version: 2022-11-28' \
+                "repos/$GITHUB_REPOSITORY/commits/$sha/pulls?per_page=100" |
+                jq -r --arg sha "$sha" --arg repo "$GITHUB_REPOSITORY" '
+                  [.[][] | select(.merged_at and .merge_commit_sha == $sha and
+                    .base.ref == "main" and .base.repo.full_name == $repo) | .number] |
+                  unique | if length == 1 then .[0] else empty end
+                ') || number=''
+            fi
+
+            if [[ -n "$number" ]]; then
+              printf 'PR #%s' "$number"
+            elif [[ -n "$branch" ]]; then
+              [[ -z "$sha" ]] || suffix=" · ${sha:0:7}"
+              printf '%s%s' "$branch" "$suffix"
+            elif [[ -n "$sha" ]]; then
+              printf '%s' "${sha:0:7}"
+            fi
+          }
+
           repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
-          repo="$GITHUB_REPOSITORY"
-          link_text=''
+          workflow_context=''
+          workflow_status=''
           pr_title=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
@@ -80,17 +111,24 @@ jobs:
           else
             case "$GITHUB_EVENT_NAME" in
               workflow_run)
-                run_id=$(jq -er '.workflow_run.id' "$GITHUB_EVENT_PATH")
-                attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
-                name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
-                result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
+                run=$(jq -ce '.workflow_run' "$GITHUB_EVENT_PATH")
+                run_id=$(jq -er '.id' <<< "$run")
+                attempt=$(jq -er '.run_attempt' <<< "$run")
+                name=$(jq -er 'if .path == ".github/workflows/ci.yml" then "CI"
+                  elif .path == ".github/workflows/branch-policy.yml" then "Branch policy"
+                  else .name end' <<< "$run")
+                result=$(jq -er '.conclusion' <<< "$run")
+                reference=$(workflow_reference "$(jq -r '.event // ""' <<< "$run")" \
+                  "$(jq -r '.head_branch // ""' <<< "$run")" \
+                  "$(jq -r '.head_sha // ""' <<< "$run")" \
+                  "$(jq -r '.display_title // ""' <<< "$run")")
                 if [[ "$attempt" != 1 ]]; then
                   name="${name}（第 $attempt 次运行）"
                 fi
-                message="工作流：$name"$'\n'"运行结果：$(status "$result")"
+                workflow_context="${reference:+($reference) }$name"
+                workflow_status=$(status "$result")
+                message=''
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
-                repo=''
-                link_text='查看详情'
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
@@ -104,8 +142,9 @@ jobs:
           fi
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
-            --arg repo "$repo" --arg message "$message" --arg url "$url" \
-            --arg link_text "${link_text:-$url}" --arg pr_title "$pr_title" \
+            --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
+            --arg workflow_context "$workflow_context" --arg workflow_status "$workflow_status" \
+            --arg pr_title "$pr_title" \
             'def section($label; $value):
                {type: "rich_text_section", elements: ([
                  {type: "text", text: $label, style: {bold: true}},
@@ -118,18 +157,30 @@ jobs:
                if $pr_title == "" then $message else
                  ($message | split("\n") | .[0] += (" " + $pr_title) | join("\n"))
                end;
-             {channel: $channel,
-              text: ((if $repo == "" then "" else "仓库：" + $repo + "\n" end) + fallback_message + "\n链接：" + $url),
-              blocks: [{type: "rich_text", elements:
-                ((if $repo == "" then [] else [section("仓库"; $repo)] end) +
+             def lines:
+                ([section("仓库"; $repo)] +
                  [$message | split("\n")[] | split("：") |
                    section(.[0]; .[1:] | join("："))] +
                  [{type: "rich_text_section", elements: [
                    {type: "text", text: "链接", style: {bold: true}},
                    {type: "text", text: "："},
-                   {type: "link", url: $url, text: $link_text}
-                 ]}])}],
-              unfurl_links: false, unfurl_media: false}')
+                   {type: "link", url: $url}
+                 ]}]);
+             def workflow_line:
+               [{type: "rich_text_section", elements: [
+                 {type: "text", text: "工作流", style: {bold: true}},
+                 {type: "text", text: ("：" + ($workflow_status | split(" ")[0]) + " ")},
+                 {type: "link", text: "[详情]", url: $url},
+                 {type: "text", text: (" " + $workflow_context)}
+               ]}];
+             {channel: $channel, unfurl_links: false, unfurl_media: false} +
+             (if $workflow_context != "" then
+                {text: ("工作流：" + $workflow_status + " " + $workflow_context + "\n链接：" + $url),
+                 blocks: [{type: "rich_text", elements: workflow_line}]}
+              else
+                {text: ("仓库：" + $repo + "\n" + fallback_message + "\n链接：" + $url),
+                 blocks: [{type: "rich_text", elements: lines}]}
+              end)')
           if ! response=$(curl --silent --fail --max-time 15 \
             --header "Authorization: Bearer $SLACK_BOT_TOKEN" \
             --header 'Content-Type: application/json; charset=utf-8' \

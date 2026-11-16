@@ -1,4 +1,5 @@
 name: Branch policy
+run-name: '[PR #${{ github.event.number }}] ${{ github.event.pull_request.title }}'
 
 # Git 规则见 docs/GIT-WORKFLOW.md，规则变更时同步核对 .githooks/pre-push。
 on:
