@@ -69,6 +69,7 @@ jobs:
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
           repo="$GITHUB_REPOSITORY"
           link_text=''
+          pr_title=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
               '') result_text='⏳ 开始打包（可能正在等待 macOS runner）' ;;
@@ -93,7 +94,8 @@ jobs:
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
-                message="事件：PR #$number"$'\n''结果：✅ 已合入 main'
+                pr_title=$(jq -er '.pull_request.title' "$GITHUB_EVENT_PATH")
+                message="事件：[PR #$number]"$'\n''结果：✅ 已合入 main'
                 url="$repo_url/pull/$number"
                 ;;
               workflow_dispatch) message='事件：Slack 通知测试' ;;
@@ -103,14 +105,21 @@ jobs:
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
             --arg repo "$repo" --arg message "$message" --arg url "$url" \
-            --arg link_text "${link_text:-$url}" \
+            --arg link_text "${link_text:-$url}" --arg pr_title "$pr_title" \
             'def section($label; $value):
-               {type: "rich_text_section", elements: [
+               {type: "rich_text_section", elements: ([
                  {type: "text", text: $label, style: {bold: true}},
                  {type: "text", text: ("：" + $value)}
-               ]};
+               ] + (if $label == "事件" and $pr_title != "" then
+                 [{type: "text", text: " "},
+                  {type: "text", text: $pr_title, style: {bold: true}}]
+               else [] end))};
+             def fallback_message:
+               if $pr_title == "" then $message else
+                 ($message | split("\n") | .[0] += (" " + $pr_title) | join("\n"))
+               end;
              {channel: $channel,
-              text: ((if $repo == "" then "" else "仓库：" + $repo + "\n" end) + $message + "\n链接：" + $url),
+              text: ((if $repo == "" then "" else "仓库：" + $repo + "\n" end) + fallback_message + "\n链接：" + $url),
               blocks: [{type: "rich_text", elements:
                 ((if $repo == "" then [] else [section("仓库"; $repo)] end) +
                  [$message | split("\n")[] | split("：") |
