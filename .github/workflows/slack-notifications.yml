@@ -57,22 +57,25 @@ jobs:
 
           status() {
             case "$1" in
-              success) printf '成功' ;;
-              failure) printf '失败' ;;
-              cancelled) printf '已取消' ;;
-              timed_out) printf '超时' ;;
-              *) printf '%s' "$1" ;;
+              success) printf '✅ 成功' ;;
+              failure) printf '❌ 失败' ;;
+              cancelled) printf '⚪ 已取消' ;;
+              timed_out) printf '⏱️ 超时' ;;
+              *) printf 'ℹ️ %s' "$1" ;;
             esac
           }
 
           repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
+          repo="$GITHUB_REPOSITORY"
+          link_text=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
-              '') message="Release $VERSION 开始打包（可能正在等待 macOS runner）" ;;
-              success) message="Release $VERSION 打包完成，DMG 和校验文件已上传" ;;
-              *) message="Release $VERSION 打包结束：$(status "$BUILD_RESULT")" ;;
+              '') result_text='⏳ 开始打包（可能正在等待 macOS runner）' ;;
+              success) result_text='✅ 打包完成，DMG 和校验文件已上传' ;;
+              *) result_text="$(status "$BUILD_RESULT")" ;;
             esac
+            message="工作流：Release $VERSION"$'\n'"运行结果：$result_text"
           else
             case "$GITHUB_EVENT_NAME" in
               workflow_run)
@@ -80,22 +83,44 @@ jobs:
                 attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
                 name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
                 result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
-                message="$name 第 $attempt 次运行结束：$(status "$result")"
+                if [[ "$attempt" != 1 ]]; then
+                  name="${name}（第 $attempt 次运行）"
+                fi
+                message="工作流：$name"$'\n'"运行结果：$(status "$result")"
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
+                repo=''
+                link_text='查看详情'
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
-                message="PR #$number 已合入 main"
+                message="事件：PR #$number"$'\n''结果：✅ 已合入 main'
                 url="$repo_url/pull/$number"
                 ;;
-              workflow_dispatch) message='Slack 通知测试' ;;
+              workflow_dispatch) message='事件：Slack 通知测试' ;;
               *) fail 'Unsupported Slack notification event.' ;;
             esac
           fi
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
-            --arg text "[$GITHUB_REPOSITORY] $message"$'\n'"$url" \
-            '{channel: $channel, text: $text, mrkdwn: false, unfurl_links: false, unfurl_media: false}')
+            --arg repo "$repo" --arg message "$message" --arg url "$url" \
+            --arg link_text "${link_text:-$url}" \
+            'def section($label; $value):
+               {type: "rich_text_section", elements: [
+                 {type: "text", text: $label, style: {bold: true}},
+                 {type: "text", text: ("：" + $value)}
+               ]};
+             {channel: $channel,
+              text: ((if $repo == "" then "" else "仓库：" + $repo + "\n" end) + $message + "\n链接：" + $url),
+              blocks: [{type: "rich_text", elements:
+                ((if $repo == "" then [] else [section("仓库"; $repo)] end) +
+                 [$message | split("\n")[] | split("：") |
+                   section(.[0]; .[1:] | join("："))] +
+                 [{type: "rich_text_section", elements: [
+                   {type: "text", text: "链接", style: {bold: true}},
+                   {type: "text", text: "："},
+                   {type: "link", url: $url, text: $link_text}
+                 ]}])}],
+              unfurl_links: false, unfurl_media: false}')
           if ! response=$(curl --silent --fail --max-time 15 \
             --header "Authorization: Bearer $SLACK_BOT_TOKEN" \
             --header 'Content-Type: application/json; charset=utf-8' \
