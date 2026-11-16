@@ -45,8 +45,8 @@ class PlanPrereleaseTests(unittest.TestCase):
         self.git("commit", "-q", "-m", path)
         return self.git("rev-parse", "HEAD")
 
-    def app_pr(self, number, kind, english="Fix device selection."):
-        commit = self.commit(f"FlutterRunlet/{number}.swift")
+    def app_pr(self, number, kind, english="Fix device selection.", path=None):
+        commit = self.commit(path or f"FlutterRunlet/{number}.swift")
         self.prs[commit] = [{
             "merged_at": "2026-11-16",
             "merge_commit_sha": commit,
@@ -72,6 +72,10 @@ class PlanPrereleaseTests(unittest.TestCase):
         self.assertIn("## 简体中文\n\n### 修复", notes)
         self.assertIn("## English\n\n### Fixes", notes)
         self.assertEqual(notes.count("https://github.com/owner/project/pull/16"), 2)
+
+    def test_bundled_menu_icon_counts_as_application_change(self):
+        self.app_pr(23, "patch", path="docs/design/assets/flutterrunlet-menubar-template@2x.png")
+        self.assertEqual(self.plan(), ("v0.3.1", "v0.3.0"))
 
     def test_promoted_dev_history_uses_highest_bump(self):
         self.git("switch", "-q", "-c", "dev")

@@ -9,7 +9,15 @@ import subprocess
 import sys
 
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
-APP_PATHS = ("FlutterRunlet", "FlutterRunlet.xcodeproj", "FlutterRunletSessionWorker", "FlutterRunletUpdateHelper")
+APP_PATHS = (
+    "FlutterRunlet",
+    "FlutterRunlet.xcodeproj",
+    "FlutterRunletSessionWorker",
+    "FlutterRunletUpdateHelper",
+    # These resources are copied into the app by Xcode.
+    "docs/design/assets/flutterrunlet-menubar-template@1x.png",
+    "docs/design/assets/flutterrunlet-menubar-template@2x.png",
+)
 FIELDS = ("Release type", "简体中文", "English")
 
 

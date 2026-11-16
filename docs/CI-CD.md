@@ -22,7 +22,7 @@
 
 ## 运行与排查
 
-[macOS Prerelease](../.github/workflows/release.yml) 在同仓库 `main` 的 push CI 成功后运行。它以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker 和更新助手均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
+[macOS Prerelease](../.github/workflows/release.yml) 在同仓库 `main` 的 push CI 成功后运行。它以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker、更新助手和随包分发的菜单栏图标均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
 
 按 [PR 模板](../.github/pull_request_template.md)填写发布类型。若本批含 `minor`，升次版本并将补丁位归零。只有 `patch` 时升补丁版本，`none` 不计入。同批只有 `none` 时跳过。应用改动无法关联 PR、缺少必填说明或标为 `manual` 时，停止自动打包，在运行日志中指出原因。
 
