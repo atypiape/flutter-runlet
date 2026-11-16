@@ -98,8 +98,9 @@ jobs:
 
           repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
-          workflow_context=''
-          workflow_status=''
+          event_context=''
+          event_status=''
+          message=''
           pr_title=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
@@ -107,7 +108,7 @@ jobs:
               success) result_text='✅ 打包完成，DMG 和校验文件已上传' ;;
               *) result_text="$(status "$BUILD_RESULT")" ;;
             esac
-            message="工作流：Release $VERSION"$'\n'"运行结果：$result_text"
+            message="事件：Release $VERSION"$'\n'"运行结果：$result_text"
           else
             case "$GITHUB_EVENT_NAME" in
               workflow_run)
@@ -125,15 +126,15 @@ jobs:
                 if [[ "$attempt" != 1 ]]; then
                   name="${name}（第 $attempt 次运行）"
                 fi
-                workflow_context="${reference:+($reference) }$name"
-                workflow_status=$(status "$result")
-                message=''
+                event_context="${reference:+($reference) }$name"
+                event_status=$(status "$result")
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
                 pr_title=$(jq -er '.pull_request.title' "$GITHUB_EVENT_PATH")
-                message="事件：[PR #$number]"$'\n''结果：✅ 已合入 main'
+                event_context="(PR #$number)"
+                event_status='✅ 已合入 main'
                 url="$repo_url/pull/$number"
                 ;;
               workflow_dispatch) message='事件：Slack 通知测试' ;;
@@ -143,20 +144,13 @@ jobs:
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
             --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
-            --arg workflow_context "$workflow_context" --arg workflow_status "$workflow_status" \
+            --arg event_context "$event_context" --arg event_status "$event_status" \
             --arg pr_title "$pr_title" \
             'def section($label; $value):
-               {type: "rich_text_section", elements: ([
+               {type: "rich_text_section", elements: [
                  {type: "text", text: $label, style: {bold: true}},
                  {type: "text", text: ("：" + $value)}
-               ] + (if $label == "事件" and $pr_title != "" then
-                 [{type: "text", text: " "},
-                  {type: "text", text: $pr_title, style: {bold: true}}]
-               else [] end))};
-             def fallback_message:
-               if $pr_title == "" then $message else
-                 ($message | split("\n") | .[0] += (" " + $pr_title) | join("\n"))
-               end;
+               ]};
              def lines:
                 ([section("仓库"; $repo)] +
                  [$message | split("\n")[] | split("：") |
@@ -166,19 +160,23 @@ jobs:
                    {type: "text", text: "："},
                    {type: "link", url: $url}
                  ]}]);
-             def workflow_line:
-               [{type: "rich_text_section", elements: [
-                 {type: "text", text: "工作流", style: {bold: true}},
-                 {type: "text", text: ("：" + ($workflow_status | split(" ")[0]) + " ")},
+             def event_line:
+               [{type: "rich_text_section", elements: ([
+                 {type: "text", text: "事件", style: {bold: true}},
+                 {type: "text", text: ("：" + ($event_status | split(" ")[0]) + " ")},
                  {type: "link", text: "[详情]", url: $url},
-                 {type: "text", text: (" " + $workflow_context)}
-               ]}];
+                 {type: "text", text: (" " + $event_context)}
+               ] + (if $pr_title == "" then [] else
+                 [{type: "text", text: " "},
+                  {type: "text", text: $pr_title, style: {bold: true}}]
+               end))}];
              {channel: $channel, unfurl_links: false, unfurl_media: false} +
-             (if $workflow_context != "" then
-                {text: ("工作流：" + $workflow_status + " " + $workflow_context + "\n链接：" + $url),
-                 blocks: [{type: "rich_text", elements: workflow_line}]}
+             (if $event_context != "" then
+                {text: ("事件：" + $event_status + " " + $event_context +
+                        (if $pr_title == "" then "" else " " + $pr_title end) + "\n链接：" + $url),
+                 blocks: [{type: "rich_text", elements: event_line}]}
               else
-                {text: ("仓库：" + $repo + "\n" + fallback_message + "\n链接：" + $url),
+                {text: ("仓库：" + $repo + "\n" + $message + "\n链接：" + $url),
                  blocks: [{type: "rich_text", elements: lines}]}
               end)')
           if ! response=$(curl --silent --fail --max-time 15 \
