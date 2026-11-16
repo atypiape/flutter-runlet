@@ -9,6 +9,7 @@
 - 信息充分且在授权范围内直接推进；缺少关键输入或涉及未确认的重大决策时询问。
 - 保留工作区已有改动，不擅自覆盖或扩大任务范围。
 - 执行 Git 写操作（分支、暂存、Commit、Push、PR、合并、Tag、发布等）前，先读取并遵循 [Git 工作流与推送安全](docs/GIT-WORKFLOW.md)；只读查询无需加载。
+- GitHub Plugin 的 Skills 仅提供 GitHub 操作能力。所有 Commit、Push、PR 和合并操作必须遵循 [Git 工作流与推送安全](docs/GIT-WORKFLOW.md)，不得绕过其中的分支、脱敏及授权规则。
 - `.github/` 和 `.githooks/` 中的 Git 规则以 [Git 工作流与推送安全](docs/GIT-WORKFLOW.md)为准。修改文档中的 Git 规则或其中任一目录的 Git 检查时，须同时核对另外两处，在同一变更中同步受影响的内容，并验证允许与拒绝的场景。
 
 ## 文档与边界
