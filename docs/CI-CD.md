@@ -22,14 +22,19 @@
 
 ## 运行与排查
 
-[macOS Prerelease](../.github/workflows/release.yml) 只接受手动触发；文件须先存在于默认分支 `main`。默认只打包并上传 Artifact。需要公开时勾选 `publish`，按 [Release 模板](RELEASE-TEMPLATE.md)审计本次 Artifact，再批准部署。发布脚本核对同一提交的 `main` CI、审核摘要和资产，拒绝已有 Tag 或 Release（含草稿），并始终标为 Prerelease。
+[macOS Prerelease](../.github/workflows/release.yml) 在同仓库 `main` 的 push CI 成功后运行。它以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker、更新助手和随包分发的菜单栏图标均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
+
+按 [PR 模板](../.github/pull_request_template.md)填写发布类型。若本批含 `minor`，升次版本并将补丁位归零。只有 `patch` 时升补丁版本，`none` 不计入。同批只有 `none` 时跳过。应用改动无法关联 PR、缺少必填说明或标为 `manual` 时，停止自动打包，在运行日志中指出原因。
+
+工作流上传双语说明和经过验证的 DMG，等待 `release` 环境批准后才创建 Tag 和 Prerelease。按 [Release 模板](RELEASE-TEMPLATE.md)审计本次产物。需要指定版本时仍可手动触发。发布脚本复核当前 `main` 的提交、CI、批准摘要和资产，并拒绝已有 Tag 或 Release。
 
 | 现象 | 检查项 |
 |---|---|
 | PR 缺少 CI | 确认 PR 目标、是否有合并冲突、外部贡献者是否等待运行批准，以及 Actions 是否被禁用 |
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
 | 找不到 Run workflow | 确认 `release.yml` 已合入默认分支，且触发人有仓库写权限 |
-| 发布未执行或失败 | 确认是新运行、分支为 `main`、已勾选 `publish`，且批准文本与运行摘要完全一致。`main` 更新后须重新构建、审计和批准 |
+| 候选未生成 | 查看 Plan prerelease。仅 CI 或文档改动时会跳过。应用改动缺少发布信息时更新对应 PR，再重新运行 `main` CI |
+| 发布未执行或失败 | 使用新运行并核对批准文本。手动运行时确认已勾选 `publish`。如需重建同一提交，可先取消旧的待审批运行，再重跑 `main` CI |
 | 打包完成后发布失败 | 仍可下载原 Artifact。若已创建 Tag 或草稿，先检查状态；工作流不会覆盖或删除既有引用和资产 |
 
 Artifact 和日志受仓库可见性约束；公开仓库的候选和日志不能存放私有资料。详见 GitHub 的[工作流触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)和[部署环境配置](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)。

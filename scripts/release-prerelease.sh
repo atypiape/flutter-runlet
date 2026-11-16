@@ -7,15 +7,25 @@ fail() {
   exit 1
 }
 
-[[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]] ||
-  fail 'Publication requires a new manual run on main.'
+[[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]] ||
+  fail 'Publication requires a new run on main.'
+case "$GITHUB_EVENT_NAME" in
+  workflow_dispatch) ;;
+  workflow_run)
+    jq -e --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '.workflow_run |
+      .name == "CI" and .event == "push" and .conclusion == "success" and .head_branch == "main"
+      and .head_sha == $sha and .head_repository.full_name == $repo' "$GITHUB_EVENT_PATH" >/dev/null ||
+      fail 'Automatic publication requires the successful main push CI event for this candidate.'
+    ;;
+  *) fail 'Unexpected release event.' ;;
+esac
 [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
   fail 'Invalid release version.'
 [[ "$DMG_SHA256" =~ ^[0-9a-f]{64}$ ]] || fail 'Missing or invalid candidate digest.'
 [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || fail 'Checkout does not match the reviewed commit.'
 
 repo="repos/$GITHUB_REPOSITORY"
-notes="docs/releases/$VERSION.md"
+notes="${2:?Missing reviewed release notes}"
 dmg="FlutterRunlet-$VERSION-macOS-universal.dmg"
 
 # An unprotected or auto-created environment cannot supply this decision.
@@ -25,13 +35,14 @@ gh api "$repo/actions/runs/$GITHUB_RUN_ID/approvals" |
     any(.environments[]; .name == "release"))' >/dev/null ||
   fail 'The release environment must approve this version and DMG digest after audit.'
 
-gh api --method GET "$repo/actions/workflows/ci.yml/runs"   -f branch=main -f event=push -f head_sha="$GITHUB_SHA" -F per_page=1 |
+gh api --method GET "$repo/actions/workflows/ci.yml/runs" \
+  -f branch=main -f event=push -f head_sha="$GITHUB_SHA" -F per_page=1 |
   jq -e --arg sha "$GITHUB_SHA" '.workflow_runs[0] |
     .head_sha == $sha and .head_branch == "main" and .event == "push" and .conclusion == "success"' >/dev/null ||
   fail 'The exact main commit must pass the push CI workflow.'
 
 if ! [[ -s "$notes" ]] || ! grep -qxF '## 简体中文' "$notes" || ! grep -qxF '## English' "$notes"; then
-  fail 'Commit the bilingual version notes under docs/releases/ before publishing.'
+  fail 'The reviewed bilingual notes are missing or malformed.'
 fi
 notes_file="$(mktemp)"
 trap 'rm -f -- "$notes_file"' EXIT

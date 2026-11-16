@@ -37,6 +37,7 @@ jobs:
           plutil -lint FlutterRunlet.xcodeproj/project.pbxproj FlutterRunlet/FlutterRunlet.entitlements
           bash -n scripts/package-release.sh
           bash -n scripts/release-prerelease.sh
+          python3 -B -m unittest discover -s scripts/tests
       - name: Build and run XCTest
         run: |
           xcodebuild -quiet -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
