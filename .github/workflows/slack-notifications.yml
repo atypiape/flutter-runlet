@@ -57,11 +57,11 @@ jobs:
 
           status() {
             case "$1" in
-              success) printf '成功' ;;
-              failure) printf '失败' ;;
-              cancelled) printf '已取消' ;;
-              timed_out) printf '超时' ;;
-              *) printf '%s' "$1" ;;
+              success) printf '✅ 成功' ;;
+              failure) printf '❌ 失败' ;;
+              cancelled) printf '⚪ 已取消' ;;
+              timed_out) printf '⏱️ 超时' ;;
+              *) printf 'ℹ️ %s' "$1" ;;
             esac
           }
 
@@ -69,10 +69,11 @@ jobs:
           url="$repo_url/actions/runs/$GITHUB_RUN_ID"
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
-              '') message="Release $VERSION 开始打包（可能正在等待 macOS runner）" ;;
-              success) message="Release $VERSION 打包完成，DMG 和校验文件已上传" ;;
-              *) message="Release $VERSION 打包结束：$(status "$BUILD_RESULT")" ;;
+              '') result_text='⏳ 开始打包（可能正在等待 macOS runner）' ;;
+              success) result_text='✅ 打包完成，DMG 和校验文件已上传' ;;
+              *) result_text="$(status "$BUILD_RESULT")" ;;
             esac
+            message="*工作流*：Release $VERSION"$'\n'"*运行结果*：$result_text"
           else
             case "$GITHUB_EVENT_NAME" in
               workflow_run)
@@ -80,22 +81,22 @@ jobs:
                 attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
                 name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
                 result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
-                message="$name 第 $attempt 次运行结束：$(status "$result")"
+                message="*工作流*：${name}（第 $attempt 次运行）"$'\n'"*运行结果*：$(status "$result")"
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
-                message="PR #$number 已合入 main"
+                message="*事件*：PR #$number"$'\n''*结果*：✅ 已合入 main'
                 url="$repo_url/pull/$number"
                 ;;
-              workflow_dispatch) message='Slack 通知测试' ;;
+              workflow_dispatch) message='*事件*：Slack 通知测试' ;;
               *) fail 'Unsupported Slack notification event.' ;;
             esac
           fi
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
-            --arg text "[$GITHUB_REPOSITORY] $message"$'\n'"$url" \
-            '{channel: $channel, text: $text, mrkdwn: false, unfurl_links: false, unfurl_media: false}')
+            --arg text "*仓库*：$GITHUB_REPOSITORY"$'\n'"$message"$'\n'"*链接*：$url" \
+            '{channel: $channel, text: ($text | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")), mrkdwn: true, unfurl_links: false, unfurl_media: false}')
           if ! response=$(curl --silent --fail --max-time 15 \
             --header "Authorization: Bearer $SLACK_BOT_TOKEN" \
             --header 'Content-Type: application/json; charset=utf-8' \
