@@ -24,7 +24,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 ## 打包与发布
 
-目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，并上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选；用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。
+目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，执行完整验证时会上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选。用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。
 
 ## 项目文档
 
