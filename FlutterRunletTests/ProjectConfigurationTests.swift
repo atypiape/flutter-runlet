@@ -48,6 +48,23 @@ final class ProjectConfigurationTests: XCTestCase {
         }
     }
 
+    func testJSONCKeepsEscapedCommentMarkersWhenSkippingARealComment() throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        try writeLaunch(#"""
+            {
+              // Launch configurations
+              "configurations": [
+                {"name":"dev\\\"// /*", "type":"dart", "request":"launch"}, /* trailing */
+              ],
+            }
+            """#, fixture)
+
+        let config = configuration(fixture)
+        XCTAssertNil(config.launchIssue)
+        XCTAssertEqual(config.choices.map(\.name), [#"dev\"// /*"#])
+    }
+
     func testLoadedJSONCErrorUsesCurrentLanguageAndOriginalLocation() throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
