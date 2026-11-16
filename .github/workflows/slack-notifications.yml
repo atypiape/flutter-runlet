@@ -73,7 +73,7 @@ jobs:
               success) result_text='✅ 打包完成，DMG 和校验文件已上传' ;;
               *) result_text="$(status "$BUILD_RESULT")" ;;
             esac
-            message="*工作流：* Release $VERSION"$'\n'"*运行结果：* $result_text"
+            message="工作流：Release $VERSION"$'\n'"运行结果：$result_text"
           else
             case "$GITHUB_EVENT_NAME" in
               workflow_run)
@@ -81,22 +81,38 @@ jobs:
                 attempt=$(jq -er '.workflow_run.run_attempt' "$GITHUB_EVENT_PATH")
                 name=$(jq -er '.workflow_run.name' "$GITHUB_EVENT_PATH")
                 result=$(jq -er '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")
-                message="*工作流：* ${name}（第 $attempt 次运行）"$'\n'"*运行结果：* $(status "$result")"
+                message="工作流：${name}（第 $attempt 次运行）"$'\n'"运行结果：$(status "$result")"
                 url="$repo_url/actions/runs/$run_id/attempts/$attempt"
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
-                message="*事件：* PR #$number"$'\n''*结果：* ✅ 已合入 main'
+                message="事件：PR #$number"$'\n''结果：✅ 已合入 main'
                 url="$repo_url/pull/$number"
                 ;;
-              workflow_dispatch) message='*事件：* Slack 通知测试' ;;
+              workflow_dispatch) message='事件：Slack 通知测试' ;;
               *) fail 'Unsupported Slack notification event.' ;;
             esac
           fi
 
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
-            --arg text "*仓库：* $GITHUB_REPOSITORY"$'\n'"$message"$'\n'"*链接：* $url" \
-            '{channel: $channel, text: ($text | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")), mrkdwn: true, unfurl_links: false, unfurl_media: false}')
+            --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
+            'def section($label; $value):
+               {type: "rich_text_section", elements: [
+                 {type: "text", text: $label, style: {bold: true}},
+                 {type: "text", text: ("：" + $value)}
+               ]};
+             {channel: $channel,
+              text: ("仓库：" + $repo + "\n" + $message + "\n链接：" + $url),
+              blocks: [{type: "rich_text", elements:
+                ([section("仓库"; $repo)] +
+                 [$message | split("\n")[] | split("：") |
+                   section(.[0]; .[1:] | join("："))] +
+                 [{type: "rich_text_section", elements: [
+                   {type: "text", text: "链接", style: {bold: true}},
+                   {type: "text", text: "："},
+                   {type: "link", url: $url}
+                 ]}])}],
+              unfurl_links: false, unfurl_media: false}')
           if ! response=$(curl --silent --fail --max-time 15 \
             --header "Authorization: Bearer $SLACK_BOT_TOKEN" \
             --header 'Content-Type: application/json; charset=utf-8' \
