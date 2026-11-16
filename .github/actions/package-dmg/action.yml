@@ -1,0 +1,36 @@
+name: Package Universal DMG
+description: Build and verify the ad hoc signed DMG and its SHA-256 sidecar.
+inputs:
+  version:
+    description: Optional version override, with a v prefix.
+    required: false
+outputs:
+  directory:
+    description: Directory containing only the verified DMG and its sidecar.
+    value: ${{ steps.package.outputs.directory }}
+  sha256:
+    description: SHA-256 of the DMG.
+    value: ${{ steps.package.outputs.sha256 }}
+runs:
+  using: composite
+  steps:
+    - id: package
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [[ -n "$VERSION" ]]; then
+          ./scripts/package-release.sh "$VERSION"
+        else
+          ./scripts/package-release.sh
+        fi
+        images=(.build/release/*/*.dmg)
+        [[ "${#images[@]}" == 1 && -f "${images[0]}" ]]
+        cd "$(dirname "${images[0]}")"
+        dmg="$(basename "${images[0]}")"
+        shasum -a 256 -c "$dmg.sha256"
+        digest="$(shasum -a 256 "$dmg" | cut -d ' ' -f 1)"
+        printf 'directory=%s\nsha256=%s\n' "$PWD" "$digest" >> "$GITHUB_OUTPUT"
+        printf '### Universal DMG\n\n- Commit: `%s`\n- File: `%s`\n- SHA-256: `%s`\n' \
+          "$GITHUB_SHA" "$dmg" "$digest" >> "$GITHUB_STEP_SUMMARY"

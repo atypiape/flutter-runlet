@@ -15,7 +15,13 @@
 
 - 按需查阅相关文档：[产品需求](docs/01-PRODUCT.md)定义产品范围，[技术契约](docs/02-TECHNICAL.md)定义运行行为与安全规则。界面实现遵循 [UI 规格](docs/design/UI-SPEC.md)和[设计系统](docs/design/DESIGN-SYSTEM.md)；仅在布局或视觉变更时核对[已验收设计](docs/design/FIGMA-HANDOFF.md#最终原型与播放入口)。记录实质冲突，优先遵循本轮明确指令，其次是已记录的适用用户决定。
 - 涉及配置解析、任务执行或环境恢复时，先读技术契约对应章节。FlutterRunlet 不直接改写用户 Flutter 项目文件；项目已配置任务的文件副作用按技术契约处理。
+- 修改 GitHub Actions、打包或发布配置时，先读 [CI/CD 指南](docs/CI-CD.md)；执行具体版本发布时使用 [Release 模板](docs/RELEASE-TEMPLATE.md)。
 - UI 修改限于本轮授权范围；超出范围且影响已验收布局、视觉或交互的调整，须经用户确认。
+
+## 文档写作
+
+- 编写和编辑本仓库文档时，阅读并遵循 [语义保真精简规范（SPC）](docs/SPC.md)。
+- 「只输出精简结果」仅适用于明确要求精简的任务。PR 正文、提交说明和日常回复按各自要求处理。
 
 ## 公开文档与截图
 

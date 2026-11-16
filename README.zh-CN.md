@@ -30,7 +30,7 @@ DevTools、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截
 
 ## 安装
 
-在 [GitHub 最新发布页](https://github.com/atypiape/flutter-runlet/releases/latest)下载通用 macOS DMG。按发布页说明核对校验值，打开 DMG，将 FlutterRunlet 拖入「应用程序」。
+在 [GitHub 发布列表](https://github.com/atypiape/flutter-runlet/releases)下载通用 macOS DMG。按发布页说明核对校验值，打开 DMG，将 FlutterRunlet 拖入「应用程序」。
 
 最低部署目标为 macOS 15.0。安装包包含 Apple Silicon 和 Intel 架构。已在 Apple Silicon（macOS 26.7.1）上验证运行，Intel 和 macOS 15 实机运行尚未验证。详见[版本说明](docs/RELEASE-NOTES.md)。
 

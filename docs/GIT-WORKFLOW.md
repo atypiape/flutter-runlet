@@ -6,15 +6,23 @@
 
 ## 分支与 PR
 
-- `main` 为稳定发布分支，`dev` 为开发集成分支；禁止直接 Push、Force Push 或删除，并通过 GitHub Rulesets 强制 PR 和必要检查。规则缺失时不得以直接 Push 代替 PR，应报告并由仓库管理员补齐，不得擅自更改保护规则。
+- `main` 为稳定发布分支，`dev` 为开发集成分支。保护规则缺失时，报告并由仓库管理员补齐。不得以直接 Push 代替 PR 或擅自更改保护规则。
 - 日常从 `dev` 创建 `feat/`、`fix/`、`docs/`、`refactor/`、`perf/`、`test/`、`chore/` 工作分支；紧急修复从 `main` 创建 `hotfix/`。`codex/*` 仅限本地。
 - 日常改动以 PR 合入 `dev`。`hotfix/* → main` 合入后须通过 PR 同步回 `dev`，可使用原 `hotfix/*` 分支。
 - `main` 只接受同仓库的 `dev` 发布 PR，以及从 `main` 创建的 `hotfix/*` 紧急修复 PR。热修复分支须包含当前 `main` 的顶端提交，且不得带入 `dev` 独有的提交。
 - 每个 PR 聚焦一项逻辑变更，写明内容与验证结果；Commit 和 PR 标题遵循 Conventional Commits，使用简体中文，scope 可选。沿用已配置的 Git 提交身份，并确认邮箱适合公开。
 - Commit 前完成必要本地验证，合并前通过已配置的必需 CI，并解决阻塞项；不得虚报验证结果。
-- 工作分支 PR 使用 Squash Merge，`dev → main` 发布 PR 使用 Merge Commit；合并后删除不再需要的远端工作分支。
+- 合并后删除不再需要的远端工作分支。
 - Agent 可自动 Commit、Push 合规工作分支、创建 PR，并在完成代码、安全及必要检查后合入 `dev`；外部贡献 PR 也须审查代码，不能仅凭 CI 通过合并。**合入 `main` 及对应的发布操作须经用户明确授权**，不得自动合并。
 - Push 失败时报告原因；不得强推、擅自改写远程历史或绕过保护。发布遵循 [Release 模板](RELEASE-TEMPLATE.md)及[公开前脱敏审计](PUBLIC-RELEASE-AUDIT.md)。
+
+### GitHub Rulesets
+
+- `main` 和 `dev` 均须通过 PR 合并，禁止直接 Push、强推和删除，且无豁免。 [共用保护 Ruleset](https://github.com/atypiape/flutter-runlet/rules/27331981)
+- `dev` 要求 GitHub Actions 的 `branch-policy (dev)` 检查通过，仅允许 Squash Merge。 [dev Ruleset](https://github.com/atypiape/flutter-runlet/rules/27350459)
+- `main` 要求 GitHub Actions 的 `branch-policy (main)` 检查通过，仅允许 Merge Commit 和 Squash Merge。`dev → main` 使用 Merge Commit，`hotfix/* → main` 使用 Squash Merge。 [main Ruleset](https://github.com/atypiape/flutter-runlet/rules/27350524)
+- 两条分支都应将 `macOS build and test` 加入必需检查，来源选择 GitHub Actions，并保留各自的 `branch-policy`。先让测试 PR 出现并通过新检查，再启用必需状态，避免首次部署阻塞。具体操作见 [CI/CD 指南](CI-CD.md#设置分支保护)。
+- PR 检查验证拟合入结果；合入 `main` 后，CI 再验证实际发布提交。合入不会触发发布。版本标签和公开预发布由 [Release 流程](RELEASE-TEMPLATE.md)在用户授权后创建。
 
 ## `codex/*` 的安全迁移
 
