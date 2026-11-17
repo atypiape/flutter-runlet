@@ -29,11 +29,7 @@ repo="repos/$GITHUB_REPOSITORY"
 notes="${2:?Missing reviewed release notes}"
 dmg="FlutterRunlet-$VERSION-macOS-universal.dmg"
 
-gh api --method GET "$repo/actions/workflows/ci.yml/runs" \
-  -f branch=main -f event=push -f head_sha="$GITHUB_SHA" -F per_page=1 |
-  jq -e --arg sha "$GITHUB_SHA" '.workflow_runs[0] |
-    .head_sha == $sha and .head_branch == "main" and .event == "push" and .conclusion == "success"' >/dev/null ||
-  fail 'The exact main commit must pass the push CI workflow.'
+bash scripts/verify-release-ci.sh
 
 if ! [[ -s "$notes" ]] || ! grep -qxF '## 简体中文' "$notes" || ! grep -qxF '## English' "$notes"; then
   fail 'The bilingual release notes are missing or malformed.'

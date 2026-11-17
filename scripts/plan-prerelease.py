@@ -102,8 +102,11 @@ def plain_markdown(text):
     return re.sub(r"([\\`*_{}\[\]()<>#|!~@&:\$])", r"\\\1", text)
 
 
-def plan(repo, head, notes_path, authorize=lambda: None):
-    releases = [release for page in api(f"repos/{repo}/releases?per_page=100") for release in page]
+def list_releases(repo):
+    return [release for page in api(f"repos/{repo}/releases?per_page=100") for release in page]
+
+
+def application_changes(releases, head):
     published = [
         (tuple(map(int, match.groups())), match[0])
         for release in releases
@@ -111,14 +114,22 @@ def plan(repo, head, notes_path, authorize=lambda: None):
     ]
     if not published:
         raise ValueError("No published vX.Y.Z release to use as a baseline.")
-    (major, minor, patch), base = max(published)
+    version, base = max(published)
     base_ref = f"refs/tags/{base}"
     if subprocess.run(["git", "merge-base", "--is-ancestor", base_ref, head], check=False).returncode:
         raise ValueError(f"Published baseline {base} is not in the selected main history.")
 
-    if not command("git", "diff", "--name-only", base_ref, head, "--", *APP_PATHS):
+    changed = bool(command("git", "diff", "--name-only", base_ref, head, "--", *APP_PATHS))
+    return version, base, changed
+
+
+def plan(repo, head, notes_path, authorize=lambda: None):
+    releases = list_releases(repo)
+    (major, minor, patch), base, changed = application_changes(releases, head)
+    if not changed:
         return None, base
 
+    base_ref = f"refs/tags/{base}"
     entries = []
     # dev and hotfix PRs use squash. The dev-to-main promotion keeps their commits.
     commits = command("git", "rev-list", "--reverse", "--full-history", "--no-merges", f"{base_ref}..{head}", "--", *APP_PATHS)
@@ -162,9 +173,14 @@ def plan(repo, head, notes_path, authorize=lambda: None):
 
 
 if __name__ == "__main__":
+    check_only = sys.argv[1] == "--has-unreleased-app-changes"
     try:
         repo = os.environ["GITHUB_REPOSITORY"]
         head = command("git", "rev-parse", "HEAD")
+        if check_only:
+            _, _, changed = application_changes(list_releases(repo), head)
+            print("true" if changed else "false")
+            sys.exit(0)
         version, baseline = plan(
             repo, head, Path(sys.argv[1]),
             authorize=lambda: subprocess.run(["bash", "scripts/verify-release-authorization.sh", "auto"], check=True),
@@ -177,5 +193,6 @@ if __name__ == "__main__":
             else:
                 print(f"No releasable application changes since `{baseline}`. Candidate skipped.", file=summary)
     except (ValueError, subprocess.CalledProcessError) as error:
-        print(f"::error::{error}", file=sys.stderr)
+        level = "warning" if check_only else "error"
+        print(f"::{level}::{error}", file=sys.stderr)
         sys.exit(1)

@@ -31,33 +31,41 @@ jobs:
         id: scope
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.event_name == 'push' && github.token || '' }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
             # Compare the checked-out PR merge commit with its actual base.
             base=$(git rev-parse HEAD^1)
-            git diff --check "$base" HEAD --
-            # A rename across scopes must count both its old and new paths.
-            files=$(git diff --no-renames --name-only "$base" HEAD --)
-            scope=static
-            while IFS= read -r path; do
-              case "$path" in
-                ''|AGENTS.md|CLAUDE.md|README.md|README.zh-CN.md|LICENSE|docs/*.md|docs/screenshots/*|.planning/*.md|.github/pull_request_template.md)
-                  ;;
-                .github/workflows/branch-policy.yml|.github/workflows/slack-notifications.yml|.githooks/pre-push|scripts/plan-prerelease.py|scripts/release-prerelease.sh|scripts/verify-release-authorization.sh|scripts/tests/*)
-                  ;;
-                FlutterRunletTests/*)
-                  scope='test'
-                  ;;
-                *)
-                  scope=package
-                  break
-                  ;;
-              esac
-            done <<< "$files"
           else
-            git diff --check "$BEFORE_SHA" HEAD --
-            scope=package
+            base="$BEFORE_SHA"
+          fi
+          git diff --check "$base" HEAD --
+          # A rename across scopes must count both its old and new paths.
+          files=$(git diff --no-renames --name-only "$base" HEAD --)
+          scope=static
+          while IFS= read -r path; do
+            case "$path" in
+              ''|AGENTS.md|CLAUDE.md|README.md|README.zh-CN.md|LICENSE|docs/*.md|docs/screenshots/*|.planning/*.md|.github/pull_request_template.md)
+                ;;
+              .github/workflows/branch-policy.yml|.github/workflows/slack-notifications.yml|.githooks/pre-push|scripts/plan-prerelease.py|scripts/release-prerelease.sh|scripts/verify-release-authorization.sh|scripts/tests/*)
+                ;;
+              FlutterRunletTests/*)
+                scope='test'
+                ;;
+              *)
+                scope=package
+                break
+                ;;
+            esac
+          done <<< "$files"
+
+          # A maintenance push may still carry application changes from earlier merges.
+          if [[ "$GITHUB_EVENT_NAME" == push && "$scope" != package ]]; then
+            if ! pending=$(python3 -B scripts/plan-prerelease.py --has-unreleased-app-changes) || [[ "$pending" != false ]]; then
+              scope=package
+              echo 'Full CI required because application changes may be pending release.' >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
           printf 'scope=%s\n' "$scope" >> "$GITHUB_OUTPUT"
           printf 'CI scope: %s\n' "$scope" >> "$GITHUB_STEP_SUMMARY"
@@ -67,6 +75,7 @@ jobs:
           bash -n scripts/package-release.sh
           bash -n scripts/release-prerelease.sh
           bash -n scripts/verify-release-authorization.sh
+          bash -n scripts/verify-release-ci.sh
           sh -n .githooks/pre-push
           python3 -B -m unittest discover -s scripts/tests
 
