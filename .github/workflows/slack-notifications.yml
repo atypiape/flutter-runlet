@@ -5,8 +5,7 @@ on:
     workflows: [CI, Branch policy, macOS Prerelease]
     types: [completed]
   pull_request_target:
-    branches: [main]
-    types: [closed]
+    types: [opened, closed]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -27,7 +26,8 @@ jobs:
     # Environment credentials are used only by trusted refs; never check out PR code.
     if: >-
       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
-      (github.event_name != 'pull_request_target' || github.event.pull_request.merged == true)
+      (github.event_name != 'pull_request_target' || github.event.action == 'opened' ||
+       (github.event.pull_request.base.ref == 'main' && github.event.pull_request.merged == true))
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     environment:
@@ -134,7 +134,11 @@ jobs:
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
                 pr_title=$(jq -er '.pull_request.title' "$GITHUB_EVENT_PATH")
                 event_context="(PR #$number)"
-                event_status='✅ 已合入 main'
+                if [[ $(jq -er '.action' "$GITHUB_EVENT_PATH") == opened ]]; then
+                  event_status='➕'
+                else
+                  event_status='✅ 已合入 main'
+                fi
                 url="$repo_url/pull/$number"
                 ;;
               workflow_dispatch) message='事件：Slack 通知测试' ;;
@@ -163,7 +167,7 @@ jobs:
              def event_line:
                [{type: "rich_text_section", elements: ([
                  {type: "text", text: "事件", style: {bold: true}},
-                 {type: "text", text: ("：" + ($event_status | split(" ")[0]) + " ")},
+                 {type: "text", text: ("：" + ($event_status | sub(" .*"; " ")))},
                  {type: "link", text: "[详情]", url: $url},
                  {type: "text", text: (" " + $event_context)}
                ] + (if $pr_title == "" then [] else
@@ -172,7 +176,8 @@ jobs:
                end))}];
              {channel: $channel, unfurl_links: false, unfurl_media: false} +
              (if $event_context != "" then
-                {text: ("事件：" + $event_status + " " + $event_context +
+                {mrkdwn: false,
+                 text: ("事件：" + $event_status + " " + $event_context +
                         (if $pr_title == "" then "" else " " + $pr_title end) + "\n链接：" + $url),
                  blocks: [{type: "rich_text", elements: event_line}]}
               else
