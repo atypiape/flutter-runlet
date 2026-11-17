@@ -79,6 +79,19 @@ python3 -B scripts/merge-issue-pr.py --record-review "$REVIEW_FILE" \
 
 批准事件和规格摘要来自领取结果。提交 SHA 来自本轮审查的 GitHub 快照。定时任务从记录运行 `python3 -B scripts/merge-issue-pr.py --review-file "$REVIEW_FILE" --require-strict`。合并时沿用同一记录并加 `--apply`。脚本会重新核对批准、规格、提交和必需 CI。规格、批准或提交变化后重新复审并保存记录。
 
+### 清理已合入的本地分支
+
+从仓库运行 [分支清理脚本](../scripts/cleanup-merged-branches.py)。它先刷新 `origin/dev`，再核对本地分支。预览后可加 `--apply` 删除通过核验的分支。
+
+```sh
+python3 -B scripts/cleanup-merged-branches.py
+python3 -B scripts/cleanup-merged-branches.py --apply
+```
+
+脚本接受两种证据。分支当前提交已在 `origin/dev` 历史中，或同仓库的 `dev` PR 合入了该分支的当前提交，且合并提交已在 `origin/dev` 历史中。后者覆盖 Squash 合并。`checked-out` 表示分支已合入但仍被 worktree 使用。`main`、`dev` 和本地 `codex/*` 是保留分支。
+
+定时任务在关单并移除干净的任务 worktree 后，用 `--apply --branch <任务分支>` 清理该任务的本地分支。
+
 ## 打包与发布
 
 目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，执行完整验证时会上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选。用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。
