@@ -67,6 +67,21 @@ class PlanPrereleaseTests(unittest.TestCase):
         self.assertEqual(self.plan(), (None, "v0.3.0"))
         self.assertFalse(self.notes.exists())
 
+    def test_maintenance_head_can_still_have_unreleased_application_changes(self):
+        self.app_pr(15, "patch", path="FlutterRunletUpdateHelper/main.swift")
+        head = self.commit("docs/guide.md")
+        self.assertEqual(
+            planner.application_changes(planner.list_releases("owner/project"), head),
+            ((0, 3, 0), "v0.3.0", True),
+        )
+
+    def test_application_check_rejects_unverifiable_release_baseline(self):
+        with self.assertRaisesRegex(ValueError, "No published"):
+            planner.application_changes([], self.git("rev-parse", "HEAD"))
+        self.releases[0]["tag_name"] = "v0.4.0"
+        with self.assertRaisesRegex(ValueError, "not in the selected main history"):
+            planner.application_changes(self.releases, self.git("rev-parse", "HEAD"))
+
     def test_squashed_fix_bumps_patch_and_links_bilingual_pr(self):
         self.app_pr(16, "patch")
         self.assertEqual(self.plan(), ("v0.3.1", "v0.3.0"))

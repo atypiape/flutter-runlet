@@ -2,11 +2,13 @@
 
 ## 自动 CI
 
-[CI](../.github/workflows/ci.yml) 在 Ubuntu 检查 Git 差异、Shell 语法和 Python 发布脚本测试。PR 按拟合入结果选择验证范围，`main` 更新后始终对实际提交执行完整验证。
+[CI](../.github/workflows/ci.yml) 在 Ubuntu 检查 Git 差异、Shell 语法和 Python 发布脚本测试。PR 按拟合入结果选择验证范围，`main` 推送按更新前后的提交差异选择范围。
 
 - 仅改文档、截图或工作流中列出的通知、分支检查和发布脚本等文件时，只运行 Ubuntu 检查。
 - 若还改了 XCTest，则在 macOS 校验工程与权限配置文件、构建 Debug 并运行 XCTest。
 - 涉及其他路径时执行完整验证，包括应用、Xcode 工程、随包资源、CI 和打包脚本。完整验证在 XCTest 后通过[打包脚本](../scripts/package-release.sh)构建并校验 Release Universal DMG。DMG 和 SHA-256 可在 Actions 运行详情下载，PR 产物只供检查，与 GitHub Releases 无关。
+
+`main` 的轻量路径还会比较最新已发布版本与本次提交的应用文件。存在累计应用改动或无法核实发布基线时，执行完整验证。
 
 必需检查 `macOS build and test` 汇总 Ubuntu 和 macOS 作业结果。Ubuntu 检查通过且本次只需静态检查时，才接受 macOS 作业跳过。
 
@@ -40,7 +42,7 @@
 
 按 [PR 模板](../.github/pull_request_template.md)填写发布类型。若本批含 `minor`，升次版本并将补丁位归零。只有 `patch` 时升补丁版本，`none` 不计入。同批只有 `none` 时跳过。缺少中文或英文说明时用 Copilot 补齐。PR 无法关联、缺少发布类型或标为 `manual` 时，日志指出原因并停止自动处理。
 
-对合入前已授权的应用改动，工作流生成双语说明和 DMG，并在核对当前 `main` 提交、CI、授权和产物校验值后公开 Prerelease。已有 Tag 或 Release 时停止。需要指定版本时仍可手动触发。
+对合入前已授权的应用改动，工作流确认同一 `main` 提交的推送 CI 已通过 XCTest、DMG 构建校验和上传，再构建候选。公开 Prerelease 前再次核对当前 `main` 提交、完整 CI、授权和产物校验值。已有 Tag 或 Release 时停止。需要指定版本时仍可手动触发。
 
 | 现象 | 检查项 |
 |---|---|
@@ -48,7 +50,7 @@
 | PR 找不到 DMG | 在 CI 运行摘要查看 `CI scope`。只有 `package` 会打包，并在通过校验后上传 DMG 和 SHA-256 |
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
 | 找不到 Run workflow | 确认 `release.yml` 已合入默认分支，且触发人有仓库写权限 |
-| 候选未生成 | 查看 Plan prerelease。仅 CI 或文档改动时会跳过。应用改动缺少发布类型或 Copilot 补写失败时，修正源 PR 信息后重跑 `main` CI |
+| 候选未生成 | 查看 Plan prerelease。自已发布版本起无可发布应用改动时会跳过。应用改动缺少发布类型或 Copilot 补写失败时，修正源 PR 信息后重跑 `main` CI |
 | 发布未执行或失败 | 核对发布 PR 的所有者授权记录、源和目标提交。缺少合入前授权时，须走新的发布 PR。手动运行还需勾选 `publish`，且版本与授权一致 |
 | 打包完成后发布失败 | 仍可下载原 Artifact。若已创建 Tag 或草稿，先检查状态；工作流不会覆盖或删除既有引用和资产 |
 
