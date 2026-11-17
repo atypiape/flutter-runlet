@@ -1,5 +1,9 @@
 name: CI
-run-name: "${{ github.event_name == 'pull_request' && format('[PR #{0}] {1}', github.event.number, github.event.pull_request.title) || '' }}"
+run-name: >-
+  ${{ github.event_name == 'pull_request' && format('[PR #{0}] [{1} {2}] {3}', github.event.number,
+  github.event.action == 'edited' && !github.event.changes.base &&
+  (github.event.changes.title || github.event.changes.body) && 'metadata' || 'validate',
+  github.sha, github.event.pull_request.title) || '' }}
 
 on:
   pull_request:
@@ -23,19 +27,31 @@ jobs:
   checks:
     name: Repository checks
     if: >-
-      github.event.action != 'edited' || github.event.changes.base ||
-      !(github.event.changes.title || github.event.changes.body)
+      github.event.action != 'edited' || github.event.pull_request.state != 'closed' ||
+      github.event.changes.base || !(github.event.changes.title || github.event.changes.body)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: ${{ github.event.action == 'edited' && 40 || 5 }}
+    permissions:
+      actions: read
+      contents: read
     outputs:
-      scope: ${{ steps.scope.outputs.scope }}
+      scope: ${{ steps.previous.outputs.reused == 'true' && 'reused' || steps.scope.outputs.scope }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Reuse CI for the same PR merge commit
+        id: previous
+        if: >-
+          github.event.action == 'edited' && !github.event.changes.base &&
+          (github.event.changes.title || github.event.changes.body)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/reuse-pr-check.sh ci.yml 'macOS build and test'
       - name: Check diff and select build scope
         id: scope
+        if: steps.previous.outputs.reused != 'true'
         env:
           BEFORE_SHA: ${{ github.event.before }}
           GH_TOKEN: ${{ github.event_name == 'push' && github.token || '' }}
@@ -77,12 +93,14 @@ jobs:
           printf 'scope=%s\n' "$scope" >> "$GITHUB_OUTPUT"
           printf 'CI scope: %s\n' "$scope" >> "$GITHUB_STEP_SUMMARY"
       - name: Check release scripts
+        if: steps.previous.outputs.reused != 'true'
         run: |
           set -euo pipefail
           bash -n scripts/package-release.sh
           bash -n scripts/release-prerelease.sh
           bash -n scripts/verify-release-authorization.sh
           bash -n scripts/verify-release-ci.sh
+          bash -n scripts/reuse-pr-check.sh
           sh -n .githooks/pre-push
           python3 -B -m unittest discover -s scripts/tests
 
@@ -125,15 +143,14 @@ jobs:
           retention-days: 7
 
   required:
-    # A skipped job can satisfy a required check. Give metadata edits a different name.
     name: >-
-      ${{ github.event.action == 'edited' && !github.event.changes.base &&
-      (github.event.changes.title || github.event.changes.body) &&
-      'CI skipped for PR metadata edit' || 'macOS build and test' }}
+      ${{ github.event.action == 'edited' && github.event.pull_request.state == 'closed' &&
+      !github.event.changes.base && (github.event.changes.title || github.event.changes.body) &&
+      'CI skipped for closed PR' || 'macOS build and test' }}
     needs: [checks, macos]
     if: >-
-      always() && (github.event.action != 'edited' || github.event.changes.base ||
-      !(github.event.changes.title || github.event.changes.body))
+      always() && (github.event.action != 'edited' || github.event.pull_request.state != 'closed' ||
+      github.event.changes.base || !(github.event.changes.title || github.event.changes.body))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -145,7 +162,7 @@ jobs:
           MACOS: ${{ needs.macos.result }}
         run: |
           case "$CHECKS:$SCOPE:$MACOS" in
-            success:static:skipped|success:test:success|success:package:success) ;;
+            success:static:skipped|success:reused:skipped|success:test:success|success:package:success) ;;
             *)
               printf '::error::CI did not complete successfully (checks=%s, scope=%s, macOS=%s).\n' "$CHECKS" "$SCOPE" "$MACOS"
               exit 1
