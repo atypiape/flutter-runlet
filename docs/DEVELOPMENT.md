@@ -41,6 +41,44 @@ gh api --method GET --paginate --slurp "repos/$repo/pulls" \
 
 确认 PR 已创建或已找到后，将 Issue 切换为 `task:review`。如果在创建 PR 后、切换标签前中断，先重跑上述查询，再复用原 PR 并补齐标签。
 
+## 定时处理 Issue
+
+定时任务用 [队列核验脚本](../scripts/verify-issue-queue.py)的 `--preflight` 核对 origin、当前 `gh` 身份和四个 `task:*` 标签，再查询队列。推送前在任务 worktree 运行同一脚本的 `--check-push-hook`。检查通过后再推送。
+
+误删标签时，先暂停定时任务，运行 [补建脚本](../scripts/create-github-labels.sh)，再核对并恢复受影响的 Issue 标签。需要重新添加 `task:ready` 时，由维护者复核后贴标。确认任务状态后恢复定时任务。
+
+```sh
+bash scripts/create-github-labels.sh --repo atypiape/flutter-runlet
+```
+
+新建迁移目标仓库时，将 `--repo` 改为目标仓库全名。脚本只创建缺失的标签定义。迁移流程时另行核对定时任务的仓库目标、批准账号和 `dev` 合并门槛。
+
+在已推送的任务 worktree 内运行 [PR 创建与恢复脚本](../scripts/ensure-issue-pr.py)。使用领取时记录的 `spec_sha256`。
+
+```sh
+python3 -B "$RUNLET_ROOT/scripts/ensure-issue-pr.py" \
+  --issue "$ISSUE_NUMBER" --spec "$SPEC_SHA256" \
+  --title 'docs: 更新开发说明' --body-file "$PR_BODY_FILE"
+```
+
+`RUNLET_ROOT` 指向可信的 FlutterRunlet 控制检出目录。定时任务在首次推送前，把标题保存在 `.private/issue-loop/tasks/<Issue 编号>.json`，正文保存在同目录的 `<Issue 编号>-pr.md`。推送后可从这两处恢复开 PR。已有 PR 时可省略标题和正文。
+
+脚本按来源分支查询所有历史 PR。只有查询成功且没有匹配项时才创建 `dev` PR。找到唯一匹配的开放 PR 时复用原编号。确认 PR 后切换为 `task:review`。在开 PR 或切换标签时中断，可用同一参数重跑。匹配不唯一、PR 已关闭或目标不符时，先人工核对。
+
+### 保存独立审查
+
+另起一轮复查 Issue 验收项和 PR 差异。从可信的控制检出目录调用[合并脚本](../scripts/merge-issue-pr.py)，把通过的审查存到 `.private/issue-loop/reviews/<Issue 编号>.json`。
+
+```sh
+python3 -B scripts/merge-issue-pr.py --record-review "$REVIEW_FILE" \
+  --issue "$ISSUE_NUMBER" --pr "$PR_NUMBER" --author "$PR_AUTHOR_ID" \
+  --approval-event "$APPROVAL_EVENT_ID" --spec "$SPEC_SHA256" \
+  --head "$PR_HEAD" --base "$DEV_SHA" --test-merge "$TEST_MERGE_SHA" \
+  --summary 'O1：通过，附验收证据'
+```
+
+批准事件和规格摘要来自领取结果。提交 SHA 来自本轮审查的 GitHub 快照。定时任务从记录运行 `python3 -B scripts/merge-issue-pr.py --review-file "$REVIEW_FILE" --require-strict`。合并时沿用同一记录并加 `--apply`。脚本会重新核对批准、规格、提交和必需 CI。规格、批准或提交变化后重新复审并保存记录。
+
 ## 打包与发布
 
 目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，执行完整验证时会上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选。用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。

@@ -1,0 +1,57 @@
+name: Codex 开发任务
+description: 提交范围明确、可以自动验证的小任务。
+body:
+  - type: markdown
+    attributes:
+      value: |
+        维护者审阅后手动添加 `task:ready`。批准后如修改标题或正文，请重新贴标。
+        配置解析、进程执行、会话恢复、依赖、已验收 UI、签名发布、CI 与 Git 规则变更请选择「人工处理」。
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标
+      placeholder: 说明当前问题与期望结果。
+    validations:
+      required: true
+  - type: textarea
+    id: outcomes
+    attributes:
+      label: 验收条件
+      description: 每行一项，从 O1 开始连续编号。用竖线分隔可观察结果与验证方法。
+      placeholder: 'O1. 可观察结果 | 验证方法'
+    validations:
+      required: true
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: 排除项
+      description: 每行一项，从 X1 开始连续编号。没有排除项时填「无」。
+      placeholder: X1. 不在任务范围内的改动
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 任务类型
+      options:
+        - 文档
+        - XCTest 回归测试
+        - Swift 纯逻辑修复
+        - 人工处理
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 改动范围
+      placeholder: 写明可修改的目录或文件，以及需要的验证环境。
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 前置 Issue
+      description: 每行一个本仓库 Issue 编号。没有前置 Issue 时填「无」。
+      placeholder: '#123'
+    validations:
+      required: true
