@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      actions: read
       contents: read
       pull-requests: read
       copilot-requests: write
@@ -76,6 +77,11 @@ jobs:
             fi
             printf 'version=%s\n' "$REQUESTED_VERSION" >> "$GITHUB_OUTPUT"
           fi
+      - name: Verify full CI for the release commit
+        if: steps.plan.outputs.version != '' && (github.event_name == 'workflow_run' || inputs.publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/verify-release-ci.sh
       - name: Upload bilingual notes
         if: steps.plan.outputs.version != '' && (github.event_name == 'workflow_run' || inputs.publish)
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
