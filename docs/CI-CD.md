@@ -52,10 +52,10 @@
 |---|---|
 | PR 缺少 CI | 确认 PR 目标、是否有合并冲突、外部贡献者是否等待运行批准，以及 Actions 是否被禁用 |
 | PR 检查显示通过但 GitHub 拒绝合并 | 确认合并提示并核对当前拟合入提交的必需检查。PR 检查列表也会显示同一源提交的历史运行 |
-| 定时合并提示 `dev 已前进` | 将最新 `origin/dev` 合入任务分支，重新验证和复审后再尝试合并。有冲突时交由维护者处理 |
 | 核对编辑 PR 后复用的检查 | 打开编辑触发的 CI 或 Branch policy 运行，在 `Reuse` 步骤日志查看原运行编号 |
 | 核对 `main` 合入后的验证范围 | 在 Actions 选择由 `main` 推送触发的 CI 运行，打开运行摘要查看 `CI scope`。值为 `static` 时，`Xcode tests and packaging` 显示为跳过 |
 | 纯文档 PR 的 Xcode 作业跳过 | 打开 CI 运行摘要。若 `CI scope` 为 `static`，跳过 `Xcode tests and packaging` 是预期行为。 |
+| 定时合并提示 `dev 已前进` | 将最新 `origin/dev` 合入任务分支，重新验证和复审后再尝试合并。有冲突时交由维护者处理 |
 | PR 找不到 DMG | 在 CI 运行摘要查看 `CI scope`。只有 `package` 会打包，并在通过校验后上传 DMG 和 SHA-256 |
 | DMG 构建或校验失败 | 在 Build and verify Universal DMG 日志查看最后一个阶段。若 `hdiutil` 命令失败，日志会保留其操作、退出码和诊断输出 |
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
