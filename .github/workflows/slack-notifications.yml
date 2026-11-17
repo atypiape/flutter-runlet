@@ -31,6 +31,9 @@ jobs:
     # Environment credentials are used only by trusted refs; never check out PR code.
     if: >-
       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'skipped' ||
+       (github.event.workflow_run.path != '.github/workflows/ci.yml' &&
+        github.event.workflow_run.path != '.github/workflows/branch-policy.yml')) &&
       (github.event_name != 'pull_request_target' || github.event.action == 'opened' ||
        (github.event.pull_request.base.ref == 'main' && github.event.pull_request.merged == true))
     runs-on: ubuntu-24.04
