@@ -22,6 +22,25 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 更新用户文档时，同步维护[英文首页](../README.md)和[简体中文说明](../README.zh-CN.md)。各语言的 [README 截图](screenshots/)按[公开文档与截图约定](../AGENTS.md#公开文档与截图)完成脱敏、压缩与核验。
 
+## 手动处理 Issue
+
+1. 维护者核对验收条件、改动范围及依赖后添加 `task:ready`。领取前核验批准和依赖，确认队列没有正在开发或审查的任务，再将该 Issue 切换为 `task:working`。
+2. 从最新 `origin/dev` 创建独立 worktree。用包含 Issue 编号的合规分支名，例如 `docs/issue-123-pr-resume`。重跑时先用 `git worktree list` 找到原目录，继续使用原分支。
+3. 在该 worktree 完成改动和本地验证。按[Git 工作流](GIT-WORKFLOW.md)检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。
+
+创建 PR 前按来源仓库和分支查找历史 PR。将下例的分支名换成任务分支。查询包含已关闭的 PR，也能发现被改投其他分支的 PR。
+
+```sh
+repo=atypiape/flutter-runlet
+branch=docs/issue-123-pr-resume
+gh api --method GET --paginate --slurp "repos/$repo/pulls" \
+  -f state=all -f "head=${repo%/*}:$branch" -F per_page=100
+```
+
+只有查询成功且没有匹配项时，才创建目标为 `dev` 的 PR。若已有唯一开放的 PR，确认来源仓库、目标分支和 Issue 引用后复用。查询失败、匹配不唯一、PR 已关闭或目标不符时，先人工核对。
+
+确认 PR 已创建或已找到后，将 Issue 切换为 `task:review`。如果在创建 PR 后、切换标签前中断，先重跑上述查询，再复用原 PR 并补齐标签。
+
 ## 打包与发布
 
 目标为 `dev` 或 `main` 的 PR 会自动执行 [CI](CI-CD.md)，执行完整验证时会上传通过校验的 Universal DMG 供检查。在本地可运行 `./scripts/package-release.sh vX.Y.Z` 构建同类候选。用 [Release 模板](RELEASE-TEMPLATE.md)准备版本说明、完成脱敏验收并授权公开发布。
