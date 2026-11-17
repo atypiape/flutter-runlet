@@ -100,6 +100,9 @@ jobs:
     uses: ./.github/workflows/slack-notifications.yml
     with:
       version: ${{ needs.plan.outputs.version }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
 
   build:
     name: Build release candidate
@@ -147,6 +150,9 @@ jobs:
     with:
       version: ${{ needs.plan.outputs.version }}
       build_result: ${{ needs.build.result }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
 
   publish:
     name: Publish approved prerelease
