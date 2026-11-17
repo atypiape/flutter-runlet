@@ -42,11 +42,26 @@ fi
 
 mkdir -p "$output_root"
 work_dir="$(mktemp -d "$output_root/.package.XXXXXXXX")"
+
+run_hdiutil() {
+  local operation="$1" output status
+  printf '正在执行 hdiutil %s…\n' "$operation"
+  # Capture normal output without hiding the diagnostics on failure.
+  output="$(hdiutil "$@" 2>&1)" || {
+    status=$?
+    printf 'hdiutil %s 失败（退出码 %d）。\n' "$operation" "$status" >&2
+    if [[ -n "$output" ]]; then
+      printf '%s\n' "$output" >&2
+    fi
+    return "$status"
+  }
+}
+
 cleanup() {
   local status=$?
   # 挂载期间收到信号也先卸载。未挂载时，验证目录和临时目录在同一个设备上。
   if [[ -n "$mount_point" && "$(stat -f '%d' "$mount_point")" != "$(stat -f '%d' "$work_dir")" ]] &&
-    ! hdiutil detach -quiet "$mount_point"; then
+    ! run_hdiutil detach "$mount_point"; then
     printf '无法卸载验证用 DMG，已保留临时目录：%s\n' "$work_dir" >&2
     exit 1
   fi
@@ -83,7 +98,7 @@ if [[ "$build" != "$requested_build" || ( -n "$requested_version" && "$version" 
 fi
 
 verify_packaged_app() {
-  local packaged_app="$1" executable architectures arch signature
+  local packaged_app="$1" executable architectures arch signature status
   local helper='Contents/Helpers/FlutterRunletUpdateHelper.app'
   local worker='Contents/Helpers/FlutterRunletSessionWorker'
   codesign --verify --deep --strict --all-architectures "$packaged_app" || return 1
@@ -100,7 +115,14 @@ verify_packaged_app() {
         ;;
     esac
     for arch in arm64 x86_64; do
-      signature="$(codesign --display --verbose=2 --arch "$arch" "$packaged_app/$executable" 2>&1)" || return 1
+      signature="$(codesign --display --verbose=2 --arch "$arch" "$packaged_app/$executable" 2>&1)" || {
+        status=$?
+        printf '无法读取 %s (%s) 的签名（codesign 退出码 %d）。\n' "$executable" "$arch" "$status" >&2
+        if [[ -n "$signature" ]]; then
+          printf '%s\n' "$signature" >&2
+        fi
+        return 1
+      }
       if ! grep -qxF 'Signature=adhoc' <<< "$signature"; then
         printf '%s (%s) 的签名不是预期的临时签名。\n' "$executable" "$arch" >&2
         return 1
@@ -131,21 +153,22 @@ ditto "$app" "$stage/FlutterRunlet.app"
 ln -s /Applications "$stage/Applications"
 
 dmg="FlutterRunlet-v$version-macOS-universal.dmg"
-printf '正在创建并校验 DMG…\n'
-hdiutil create -quiet -srcfolder "$stage" -volname FlutterRunlet \
+run_hdiutil create -srcfolder "$stage" -volname FlutterRunlet \
   -fs 'HFS+' -format UDZO "$work_dir/$dmg"
-hdiutil verify -quiet "$work_dir/$dmg"
+run_hdiutil verify "$work_dir/$dmg"
 mkdir "$work_dir/mount"
 mount_point="$work_dir/mount"
-hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$mount_point" "$work_dir/$dmg"
+run_hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount_point" "$work_dir/$dmg"
+printf '正在检查 DMG 内容、签名、架构及构建机路径…\n'
 if [[ ! -d "$mount_point/FlutterRunlet.app" || -L "$mount_point/FlutterRunlet.app" ||
       ! -L "$mount_point/Applications" || "$(readlink "$mount_point/Applications")" != /Applications ]]; then
   printf 'DMG 缺少预期的应用或 Applications 安装链接。\n' >&2
   exit 1
 fi
 verify_packaged_app "$mount_point/FlutterRunlet.app"
-hdiutil detach -quiet "$mount_point"
+run_hdiutil detach "$mount_point"
 mount_point=
+printf '正在生成 DMG 的 SHA-256 校验文件…\n'
 (
   cd "$work_dir"
   shasum -a 256 "$dmg" > "$dmg.sha256"
