@@ -15,6 +15,11 @@ on:
       build_result:
         type: string
         default: ''
+    secrets:
+      SLACK_BOT_TOKEN:
+        required: true
+      SLACK_USER_ID:
+        required: true
 
 permissions: {}
 
