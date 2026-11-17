@@ -10,12 +10,22 @@ on:
 permissions: {}
 
 concurrency:
-  group: branch-policy-${{ github.event.pull_request.number }}
+  group: >-
+    branch-policy-${{ github.event.action == 'edited' && !github.event.changes.base &&
+    (github.event.changes.title || github.event.changes.body) && 'metadata-' || '' }}${{
+    github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   branch-policy:
-    name: branch-policy (${{ github.base_ref }})
+    # Keep skipped metadata edits separate from the required branch-policy check.
+    name: >-
+      ${{ github.event.action == 'edited' && !github.event.changes.base &&
+      (github.event.changes.title || github.event.changes.body) &&
+      'Branch policy skipped for PR metadata edit' || format('branch-policy ({0})', github.base_ref) }}
+    if: >-
+      github.event.action != 'edited' || github.event.changes.base ||
+      !(github.event.changes.title || github.event.changes.body)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -12,12 +12,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
+  # Metadata edits must not cancel checks already queued for this PR.
+  group: >-
+    ci-${{ github.event.action == 'edited' && !github.event.changes.base &&
+    (github.event.changes.title || github.event.changes.body) && 'metadata-' || '' }}${{
+    github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
   checks:
     name: Repository checks
+    if: >-
+      github.event.action != 'edited' || github.event.changes.base ||
+      !(github.event.changes.title || github.event.changes.body)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -118,9 +125,15 @@ jobs:
           retention-days: 7
 
   required:
-    name: macOS build and test
+    # A skipped job can satisfy a required check. Give metadata edits a different name.
+    name: >-
+      ${{ github.event.action == 'edited' && !github.event.changes.base &&
+      (github.event.changes.title || github.event.changes.body) &&
+      'CI skipped for PR metadata edit' || 'macOS build and test' }}
     needs: [checks, macos]
-    if: always()
+    if: >-
+      always() && (github.event.action != 'edited' || github.event.changes.base ||
+      !(github.event.changes.title || github.event.changes.body))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
