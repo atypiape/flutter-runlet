@@ -12,7 +12,7 @@
 
 必需检查 `macOS build and test` 汇总 Ubuntu 和 macOS 作业结果。Ubuntu 检查通过且本次只需静态检查时，才接受 macOS 作业跳过。
 
-仅编辑 PR 标题或正文时，CI 和分支检查的作业均跳过。Actions 仍显示运行记录。跳过记录使用单独的检查名称和并发组，原有必需检查继续有效。更改目标分支时重新验证。
+开放 PR 仅编辑标题或正文时，Ubuntu 作业查找同一拟合入提交的检查结果。已有检查通过时沿用结果，跳过实际验证步骤。先前检查仍运行时等待其结果，检查失败时保留失败状态。没有同一提交的记录或目标分支变化时重新验证。已关闭的 PR 仅编辑标题或正文时，跳过所有作业。
 
 工作流使用 [`xcode-27` Apple Silicon 镜像](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)内置的 Xcode 27.1（Runner 镜像处于公开预览），通过 `DEVELOPER_DIR` 选择工具链；Xcode 26.6 在编译项目时发生 Swift 编译器崩溃。源码编译与 XCTest 不依赖 Flutter SDK；需要真实 Flutter 环境的验证仍按[开发者指南](DEVELOPMENT.md)手工执行。Xcode 无需下载，构建无外部依赖；XCTest 一次完成 Debug 编译和测试，Release 由打包脚本单独构建，不跨运行缓存 DerivedData。
 

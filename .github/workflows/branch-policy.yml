@@ -1,5 +1,9 @@
 name: Branch policy
-run-name: '[PR #${{ github.event.number }}] ${{ github.event.pull_request.title }}'
+run-name: >-
+  ${{ format('[PR #{0}] [{1} {2}] {3}', github.event.number,
+  github.event.action == 'edited' && !github.event.changes.base &&
+  (github.event.changes.title || github.event.changes.body) && 'metadata' || 'validate',
+  github.sha, github.event.pull_request.title) }}
 
 # Git 规则见 docs/GIT-WORKFLOW.md，规则变更时同步核对 .githooks/pre-push。
 on:
@@ -18,18 +22,36 @@ concurrency:
 
 jobs:
   branch-policy:
-    # Keep skipped metadata edits separate from the required branch-policy check.
     name: >-
-      ${{ github.event.action == 'edited' && !github.event.changes.base &&
-      (github.event.changes.title || github.event.changes.body) &&
-      'Branch policy skipped for PR metadata edit' || format('branch-policy ({0})', github.base_ref) }}
+      ${{ github.event.action == 'edited' && github.event.pull_request.state == 'closed' &&
+      !github.event.changes.base && (github.event.changes.title || github.event.changes.body) &&
+      'Branch policy skipped for closed PR' || format('branch-policy ({0})', github.base_ref) }}
     if: >-
-      github.event.action != 'edited' || github.event.changes.base ||
-      !(github.event.changes.title || github.event.changes.body)
+      github.event.action != 'edited' || github.event.pull_request.state != 'closed' ||
+      github.event.changes.base || !(github.event.changes.title || github.event.changes.body)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: ${{ github.event.action == 'edited' && 15 || 5 }}
+    permissions:
+      actions: read
+      contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: >-
+          github.event.action == 'edited' && !github.event.changes.base &&
+          (github.event.changes.title || github.event.changes.body)
+        with:
+          persist-credentials: false
+      - name: Reuse branch policy for the same PR merge commit
+        id: previous
+        if: >-
+          github.event.action == 'edited' && !github.event.changes.base &&
+          (github.event.changes.title || github.event.changes.body)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_NAME: branch-policy (${{ github.base_ref }})
+        run: bash scripts/reuse-pr-check.sh branch-policy.yml "$CHECK_NAME"
       - name: Check PR source and hotfix history
+        if: steps.previous.outputs.reused != 'true'
         shell: bash
         env:
           PR_BASE: ${{ github.base_ref }}
