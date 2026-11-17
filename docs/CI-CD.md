@@ -24,7 +24,7 @@
 
 ## Slack 私信通知
 
-新建 PR、PR 合入 `main`，以及 CI、Branch policy 或 macOS Prerelease 运行结束时，[通知工作流](../.github/workflows/slack-notifications.yml)发送 Slack 私信。新建 PR 通知包含 ➕、PR 编号、标题和指向 PR 的「详情」链接。发布流程选出候选版本后通知开始打包，构建结束后单独报告结果。DMG 和校验文件上传后才报告打包完成；工作流仍须另行通过发布校验。跳过候选时不发送打包通知。
+新建 PR、PR 合入 `main`，以及 CI、Branch policy 或 macOS Prerelease 运行结束时，[通知工作流](../.github/workflows/slack-notifications.yml)发送 Slack 私信。CI 或 Branch policy 整条运行均跳过时省略通知。新建 PR 通知包含 ➕、PR 编号、标题和指向 PR 的「详情」链接。发布流程选出候选版本后通知开始打包，构建结束后单独报告结果。DMG 和校验文件上传后才报告打包完成；工作流仍须另行通过发布校验。跳过候选时不发送打包通知。
 
 1. 在 [Slack API](https://api.slack.com/apps)创建 Slack App，添加 Bot Token Scope `chat:write`，并安装到收件人所在工作区。保存 Bot User OAuth Token，从收件人 Slack 个人资料复制成员 ID。
 2. 在 GitHub 仓库 **Settings → Environments** 新建 `slack-notifications`，只允许 `dev` 和 `main` 两条分支使用，不设审批。将 Bot Token 和成员 ID 分别填入环境 Secrets `SLACK_BOT_TOKEN` 和 `SLACK_USER_ID`，避免出现在公开日志中。
