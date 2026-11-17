@@ -24,7 +24,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 ## 手动处理 Issue
 
-1. 维护者核对验收条件、改动范围及依赖后添加 `task:ready`。领取前核验批准和依赖，确认队列没有正在开发或审查的任务，再将该 Issue 切换为 `task:working`。
+1. 推荐用 [Codex 开发任务表单](../.github/ISSUE_TEMPLATE/codex-task.yml) 说明目标、改动范围和验证方法。维护者核对任务后添加 `task:ready`，普通 Issue 同样可以进入领取评估。领取前核验批准和依赖，确认任务属于自动开发范围、有可行的验证方法，且队列没有正在开发或审查的任务，再将 Issue 切换为 `task:working`。
 2. 从最新 `origin/dev` 创建独立 worktree。用包含 Issue 编号的合规分支名，例如 `docs/issue-123-pr-resume`。重跑时先用 `git worktree list` 找到原目录，继续使用原分支。
 3. 在该 worktree 完成改动和本地验证。按[Git 工作流](GIT-WORKFLOW.md)检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。
 
