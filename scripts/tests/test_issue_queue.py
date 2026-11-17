@@ -1,10 +1,13 @@
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify-issue-queue.py"
@@ -52,6 +55,56 @@ def event(event_id=1, kind="labeled", at=APPROVED, label="task:ready", actor=OWN
         "id": event_id, "event": kind, "created_at": at,
         "label": {"name": label}, "actor": actor,
     }
+
+
+class GitHubRequestTests(unittest.TestCase):
+    def setUp(self):
+        queue = runpy.run_path(str(SCRIPT))
+        self.gh_json = queue["gh_json"]
+        self.error_type = queue["GitHubError"]
+        self.query = queue["ISSUE_EDIT_QUERY"]
+        with ExitStack() as patches:
+            self.run_gh = patches.enter_context(patch("subprocess.run"))
+            self.sleep = patches.enter_context(patch("time.sleep"))
+            self.addCleanup(patches.pop_all().close)
+
+    def test_read_recovers_from_transport_timeout_or_service_error(self):
+        for request, failure in (
+            (("--method", "GET", "user"),
+             subprocess.CompletedProcess([], 1, "", "gh: unexpected EOF")),
+            (("--method", "GET", "repos/atypiape/flutter-runlet/labels?per_page=100"),
+             subprocess.CompletedProcess([], 1, "", "gh: Service Unavailable (HTTP 503)")),
+            (("graphql", "-f", f"query={self.query}", "-f", "id=issue-7"),
+             subprocess.TimeoutExpired("gh", 45)),
+        ):
+            with self.subTest(request=request[0:2]):
+                self.run_gh.reset_mock()
+                self.sleep.reset_mock()
+                self.run_gh.side_effect = [failure, subprocess.CompletedProcess([], 0, "{}", "")]
+                self.assertEqual(self.gh_json(*request), {})
+                self.assertEqual(self.run_gh.call_count, 2)
+                self.sleep.assert_called_once_with(1)
+
+    def test_repeat_failure_reports_the_endpoint_without_raw_output(self):
+        self.run_gh.return_value = subprocess.CompletedProcess([], 1, "", "fixture secret: EOF")
+        with self.assertRaises(self.error_type) as raised:
+            self.gh_json("--method", "GET", "repos/atypiape/flutter-runlet/issues?labels=task:ready")
+        self.assertEqual(self.run_gh.call_count, 2)
+        self.assertIn("GET repos/atypiape/flutter-runlet/issues", str(raised.exception))
+        self.assertIn("已重试一次", str(raised.exception))
+        self.assertNotIn("fixture secret", str(raised.exception))
+        self.assertNotIn("labels=", str(raised.exception))
+
+    def test_permission_rate_limit_and_write_failures_are_not_retried(self):
+        for method, detail in (("GET", "HTTP 401"), ("GET", "HTTP 403"),
+                               ("GET", "HTTP 429"), ("POST", "HTTP 503")):
+            with self.subTest(method=method, detail=detail):
+                self.run_gh.reset_mock()
+                self.run_gh.return_value = subprocess.CompletedProcess([], 1, "", f"gh: ({detail})")
+                with self.assertRaisesRegex(self.error_type, detail):
+                    self.gh_json("--method", method, "repos/atypiape/flutter-runlet/pulls")
+                self.run_gh.assert_called_once()
+                self.sleep.assert_not_called()
 
 
 class IssueQueueTests(unittest.TestCase):
@@ -102,7 +155,7 @@ print(json.dumps(response))
             [[event()]] if events is None else events
         )
         self.responses[f"graphql/issue-{number}"] = {"data": {"node": {
-            "title": item["title"], "body": item["body"],
+            "title": item["title"], "body": item["body"] or "",
             "state": item["state"].upper(), "lastEditedAt": edited,
         }}}
         self.responses[f"issues/{number}/dependencies/blocked_by?per_page=100"] = [native]
@@ -214,9 +267,9 @@ print(json.dumps(response))
         self.assertIn(reason, result["checked"][0]["reason"])
 
     def test_selects_oldest_eligible_and_ignores_pull_requests_across_pages(self):
-        bad = issue(5, body="缺少规格")
+        bad = issue(5, body="没有有效批准")
         ready = issue(7, labels=("task:ready", "bug"))
-        self.add_issue(bad)
+        self.add_issue(bad, events=[[]])
         self.add_issue(ready, events=[[event(at=BEFORE)], [event(2)]], edited=BEFORE)
         self.responses[self.list_path("task:ready")] = [
             [issue(9), issue(3, pull_request={})], [ready, bad],
@@ -228,6 +281,28 @@ print(json.dumps(response))
         self.assertEqual(result["checked"][1]["approval_event_id"], 2)
         self.assertRegex(result["checked"][1]["spec_sha256"], r"^[0-9a-f]{64}$")
 
+    def test_approved_issues_enter_scope_review_in_either_format(self):
+        for body in ("补充窗口启动说明。验证开发者指南中的启动步骤。", None,
+                     CONTRACT.replace(" | 核对指南", ""),
+                     CONTRACT + "\n### 目标\n\n补充说明"):
+            with self.subTest(body=body):
+                self.add_issue(issue(7, body=body))
+                result = self.inspect("--issue", 7)
+                self.assertEqual(result["candidate"], 7)
+                self.assertEqual(result["checked"][0]["approval_event_id"], 1)
+                self.assertRegex(result["checked"][0]["spec_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_skips_scope_reviewed_issues_for_this_search(self):
+        issues = [issue(number, body="补充窗口说明") for number in (5, 7, 9)]
+        for item in issues:
+            self.add_issue(item)
+        self.responses[self.list_path("task:ready")] = [issues]
+        self.assertEqual(self.inspect()["candidate"], 5)
+        result = self.inspect("--skip", 5, "--skip", 7)
+        self.assertEqual(result["candidate"], 9)
+        self.assertEqual([item["number"] for item in result["checked"]], [9])
+        self.assertEqual(self.inspect("--issue", 5)["candidate"], 5)
+
     def test_empty_or_existing_active_tasks_have_no_candidate(self):
         self.assertEqual(self.inspect(), {"candidate": None, "active": [], "checked": []})
         for label in ("task:working", "task:review"):
@@ -237,7 +312,7 @@ print(json.dumps(response))
                 self.assertEqual(self.inspect(), {"candidate": None, "active": [9], "checked": []})
                 self.responses[self.list_path(label)] = [[]]
 
-    def test_rejects_closed_conflicting_or_incomplete_tasks(self):
+    def test_rejects_closed_conflicting_or_manual_tasks(self):
         for item, reason in (
             (issue(7, pull_request={}), "PR"),
             (issue(7, state="closed"), "已关闭"),
@@ -245,8 +320,7 @@ print(json.dumps(response))
             (issue(7, labels=("task:ready", "task:blocked")), "只能有 task:ready"),
             (issue(7, labels=("task:ready", "task:working")), "只能有 task:ready"),
             (issue(7, body=CONTRACT.replace("文档", "人工处理")), "需要人工处理"),
-            (issue(7, body=CONTRACT.replace(" | 核对指南", "")), "验收条件"),
-            (issue(7, body=CONTRACT + "\n### 目标\n\n另一目标"), "六个字段"),
+            (issue(7, body="定位窗口问题。\n\n## 任务类型\n\n人工处理"), "需要人工处理"),
         ):
             with self.subTest(reason=reason):
                 self.add_issue(item)
@@ -265,14 +339,14 @@ print(json.dumps(response))
             ([[event()]], AFTER, "正文有修改"),
         ):
             with self.subTest(history=history, edited=edited):
-                self.add_issue(issue(7), events=history, edited=edited)
+                self.add_issue(issue(7, body="补充窗口说明"), events=history, edited=edited)
                 self.assert_ineligible(reason)
         self.add_issue(issue(7), events=[[event(), event(2, label="task:blocked"), event(3, at=AFTER)]],
                        edited=APPROVED)
         self.assertEqual(self.inspect("--issue", 7)["candidate"], 7)
 
     def test_checks_written_and_github_dependencies(self):
-        dependent = issue(7, body=CONTRACT.removesuffix("无\n") + "#8\n")
+        dependent = issue(7, body="补充窗口说明。\n\n### 前置 Issue\n\n- #8\n")
         done = issue(8, state="closed", state_reason="completed")
         self.add_issue(dependent)
         for prereq, reason in (
@@ -285,12 +359,14 @@ print(json.dumps(response))
                 self.responses["issues/8"] = prereq
                 self.assert_ineligible(reason)
         self.responses["issues/8"] = done
-        self.add_issue(dependent, native=[issue(9)])
+        self.add_issue(issue(7, body="补充窗口说明"), native=[issue(9)])
         self.assert_ineligible("GitHub 标记的阻塞")
         self.add_issue(dependent, native=[done])
         self.assertEqual(self.inspect("--issue", 7)["candidate"], 7)
         self.add_issue(issue(7, body=dependent["body"].replace("#8", "#7")))
         self.assert_ineligible("不能依赖自身")
+        self.add_issue(issue(7, body=dependent["body"].replace("#8", "另一个仓库的修复")))
+        self.assert_ineligible("无法核实正文声明的前置 Issue")
 
     def test_api_failure_returns_error_instead_of_empty_queue(self):
         self.responses[self.list_path("task:ready")] = {"_http_error": 403}

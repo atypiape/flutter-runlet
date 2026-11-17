@@ -4,6 +4,7 @@ body:
   - type: markdown
     attributes:
       value: |
+        推荐用此表单说明目标、改动范围和验证方法，也可以提交普通 Issue。
         维护者审阅后手动添加 `task:ready`。批准后如修改标题或正文，请重新贴标。
         配置解析、进程执行、会话恢复、依赖、已验收 UI、签名发布、CI 与 Git 规则变更请选择「人工处理」。
   - type: textarea

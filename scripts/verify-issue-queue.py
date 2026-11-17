@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 
 REPO = "atypiape/flutter-runlet"
@@ -18,9 +19,14 @@ ACTIVE = ("task:working", "task:review")
 BLOCKED = "task:blocked"
 TASK_LABELS = {READY, *ACTIVE, BLOCKED}
 TASK_TYPES = {"文档", "XCTest 回归测试", "Swift 纯逻辑修复"}
-FIELDS = {"目标", "验收条件", "排除项", "任务类型", "改动范围", "前置 Issue"}
 HOOK_DIR = ".githooks"
 PUSH_HOOK = f"{HOOK_DIR}/pre-push"
+RETRYABLE_HTTP = {408, 500, 502, 503, 504}
+TRANSPORT_FAILURE = re.compile(
+    r"\bEOF\b|(?:i/o|TLS handshake) timeout|timed out|no such host|"
+    r"temporary failure in name resolution|connection (?:reset|refused)|network is unreachable",
+    re.IGNORECASE,
+)
 ISSUE_EDIT_QUERY = """
 query($id: ID!) {
   node(id: $id) {
@@ -35,22 +41,58 @@ class Ineligible(Exception):
 
 
 class GitHubError(RuntimeError):
-    def __init__(self, returncode, stderr):
+    def __init__(self, request, attempt, *, returncode=None, stderr=""):
         match = re.search(r"\(HTTP ([0-9]{3})\)", stderr)
         self.status = int(match[1]) if match else None
-        detail = f"HTTP {self.status}" if self.status else f"gh 退出码 {returncode}"
-        super().__init__(f"GitHub 查询失败（{detail}）。请检查登录和读取权限。")
+        self.transient = self.status in RETRYABLE_HTTP
+        hint = ""
+        if self.status:
+            detail = f"HTTP {self.status}"
+            if self.status == 401:
+                hint = " 请检查 gh 登录状态。"
+            elif self.status in {403, 429}:
+                hint = " 请检查权限和 GitHub API 限流状态。"
+        elif returncode is None:
+            detail = "gh 请求超时"
+            self.transient = True
+        else:
+            detail = f"gh 退出码 {returncode}"
+            if TRANSPORT_FAILURE.search(stderr):
+                detail += "，网络连接异常"
+                self.transient = True
+            elif "gh auth login" in stderr:
+                hint = " 请检查 gh 登录状态。"
+        retry = "，已重试一次" if attempt == 2 else ""
+        super().__init__(f"GitHub 请求失败（{request}，{detail}{retry}）。{hint}")
 
 
 def gh_json(*args):
-    result = subprocess.run(
-        ["gh", "api", "--hostname", "github.com", *args],
-        capture_output=True, text=True, encoding="utf-8", timeout=45,
-    )
-    if result.returncode:
-        # Avoid echoing remote responses, which may contain issue content.
-        raise GitHubError(result.returncode, result.stderr)
-    return json.loads(result.stdout)
+    if args[0] == "--method":
+        method = args[1]
+        endpoint = next(arg for arg in args[2:] if not arg.startswith("--")).partition("?")[0]
+        request = f"{method} {endpoint}"
+        read_only = method == "GET"
+    else:
+        request = args[0]
+        read_only = args[:3] == ("graphql", "-f", f"query={ISSUE_EDIT_QUERY}")
+
+    command = ["gh", "api", "--hostname", "github.com", *args]
+    for attempt in (1, 2):
+        # Avoid echoing raw gh output, which can include remote content or credentials.
+        try:
+            result = subprocess.run(
+                command, capture_output=True, text=True, encoding="utf-8", timeout=45,
+            )
+        except subprocess.TimeoutExpired:
+            error = GitHubError(request, attempt)
+        else:
+            if not result.returncode:
+                return json.loads(result.stdout)
+            error = GitHubError(request, attempt, returncode=result.returncode, stderr=result.stderr)
+
+        if attempt == 2 or not read_only or not error.transient:
+            raise error
+        time.sleep(1)
 
 
 def read_git(*args, error):
@@ -127,33 +169,22 @@ def timestamp(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def parse_contract(body):
-    sections = re.split(r"(?m)^### ([^\n]+)\n", (body or "").replace("\r\n", "\n"))
-    headings = [heading.strip() for heading in sections[1::2]]
-    fields = dict(zip(headings, map(str.strip, sections[2::2])))
-    if (sections[0].strip() or len(headings) != len(FIELDS) or fields.keys() != FIELDS
-            or any(value in {"", "_No response_"} for value in fields.values())):
-        raise Ineligible("请按模板填写六个字段，每个字段只出现一次。")
-    if fields["任务类型"] not in TASK_TYPES:
-        raise Ineligible("任务类型需要人工处理。")
-    for index, line in enumerate(fields["验收条件"].splitlines(), start=1):
-        match = re.fullmatch(rf"O{index}\.\s+([^|]+)\|([^|]+)", line.strip())
-        if not match or not all(value.strip() for value in match.groups()):
-            raise Ineligible("验收条件须连续编号，并用竖线分隔结果与验证方法。")
-    exclusions = fields["排除项"]
-    if exclusions != "无" and any(
-        not re.fullmatch(rf"X{index}\.\s+\S.*", line.strip())
-        for index, line in enumerate(exclusions.splitlines(), start=1)
-    ):
-        raise Ineligible("排除项须连续编号，或填「无」。")
-    if fields["前置 Issue"] == "无":
-        return []
+def check_declared_fields(body):
+    sections = re.split(r"(?m)^#{1,6}[ \t]+([^\n]+)\n", (body or "").replace("\r\n", "\n"))
     dependencies = []
-    for line in fields["前置 Issue"].splitlines():
-        match = re.fullmatch(r"#([1-9][0-9]*)", line.strip())
-        if not match:
-            raise Ineligible("前置 Issue 须逐行填写本仓库编号，或填「无」。")
-        dependencies.append(int(match[1]))
+    for heading, value in zip(sections[1::2], sections[2::2]):
+        heading, value = heading.strip(), value.strip()
+        if value in {"", "_No response_"}:
+            continue
+        if heading == "任务类型" and value not in TASK_TYPES:
+            raise Ineligible("任务类型需要人工处理。")
+        if heading != "前置 Issue" or value == "无":
+            continue
+        for reference in filter(None, map(str.strip, re.split(r"[,，\n]", value))):
+            match = re.fullmatch(r"(?:[-*]\s+|\d+\.\s+)?#([1-9][0-9]*)", reference)
+            if not match:
+                raise Ineligible("无法核实正文声明的前置 Issue，请填写本仓库编号。")
+            dependencies.append(int(match[1]))
     return list(dict.fromkeys(dependencies))
 
 
@@ -183,9 +214,8 @@ def approval_for(issue):
 
     response = gh_json("graphql", "-f", f"query={ISSUE_EDIT_QUERY}", "-f", f"id={issue['node_id']}")
     current = response["data"]["node"]
-    if not current or current["state"] != "OPEN" or any(
-        current[key] != issue[key] for key in ("title", "body")
-    ):
+    if (not current or current["state"] != "OPEN" or current["title"] != issue["title"]
+            or (current["body"] or "") != (issue["body"] or "")):
         raise Ineligible("Issue 已变化或无法核对，请重新运行核验。")
     edited_at = current["lastEditedAt"]
     # GitHub reports seconds. A body edit in the same second cannot prove prior approval.
@@ -222,7 +252,7 @@ def check_issue(issue):
             raise Ineligible("Issue 已关闭。")
         if {label["name"] for label in issue["labels"]} & TASK_LABELS != {READY}:
             raise Ineligible("领取时四个任务标签中只能有 task:ready。")
-        dependencies = parse_contract(issue["body"])
+        dependencies = check_declared_fields(issue["body"])
         if number in dependencies:
             raise Ineligible("Issue 不能依赖自身。")
         approval = approval_for(issue)
@@ -240,7 +270,7 @@ def check_issue(issue):
     }
 
 
-def check_queue(number=None):
+def check_queue(number=None, *, skip=()):
     active = sorted({item["number"] for label in ACTIVE for item in open_with_label(label)})
     result = {"candidate": None, "active": active, "checked": []}
     if active and number is None:
@@ -248,7 +278,7 @@ def check_queue(number=None):
     numbers = [number] if number is not None else [
         item["number"] for item in sorted(
             open_with_label(READY), key=lambda item: (timestamp(item["created_at"]), item["number"]),
-        )
+        ) if item["number"] not in skip
     ]
     for issue_number in numbers:
         checked = check_issue(get(f"issues/{issue_number}"))
@@ -262,6 +292,8 @@ def check_queue(number=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue", type=int, help="诊断指定 Issue 编号")
+    parser.add_argument("--skip", type=int, action="append", default=[],
+                        help="搜索队列时跳过本轮已评估的 Issue，可重复指定")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--preflight", action="store_true", help="核对仓库和 gh 身份后查询队列")
     mode.add_argument("--check-push-hook", action="store_true", help="只读检查当前 worktree 的推送 Hook")
@@ -270,12 +302,14 @@ def main():
         parser.error("Issue 编号须为正整数。")
     if args.check_push_hook and args.issue is not None:
         parser.error("--check-push-hook 无需指定 Issue。")
+    if args.skip and (args.issue is not None or args.check_push_hook or min(args.skip) < 1):
+        parser.error("--skip 仅用于搜索队列，须传入正整数。")
     try:
         if args.check_push_hook:
             result = check_push_hook()
         else:
             context = check_github_context() if args.preflight else None
-            result = check_queue(args.issue)
+            result = check_queue(args.issue, skip=set(args.skip))
             if context:
                 result["preflight"] = context
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
