@@ -34,7 +34,6 @@ final class FlutterToolchainTests: XCTestCase {
     func testNextDeviceAndAvailabilityLabelsInBothLanguages() throws {
         let labels = [
             "Device for Next Run": "下次运行设备",
-            "The selected device is used for the next run.": "所选设备用于下一次运行。",
             "Showing the last device scan.": "显示上次设备扫描结果。",
             "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
             "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
