@@ -1,59 +1,21 @@
-name: Codex 开发任务
-description: 说明希望 Codex 处理的问题和预期结果。
+name: 任务或问题
+description: 记录一个问题、改进想法或开发任务。
 body:
   - type: markdown
     attributes:
       value: |
-        推荐用此表单说明目标、改动范围和验证方法，也可以提交普通 Issue。
-        维护者添加 `task:ready` 后，Codex 会领取并开始排查。批准后如修改标题或正文，请重新贴标。
-        需要真实设备或人工验收时，可在验收条件中说明。
+        准备好交给 Codex 时，由维护者添加 `task:ready`。贴标后若修改标题或正文，请移除后重新添加该标签。
   - type: textarea
     id: goal
     attributes:
-      label: 目标
-      placeholder: 说明当前问题与期望结果。
+      label: 问题与预期
+      placeholder: 现在发生了什么？希望改成什么样？
     validations:
       required: true
   - type: textarea
-    id: outcomes
+    id: details
     attributes:
-      label: 验收条件
-      description: 每行一项，从 O1 开始连续编号。用竖线分隔可观察结果与验证方法。
-      placeholder: 'O1. 可观察结果 | 验证方法'
+      label: 补充信息
+      description: 按需补充复现步骤、截图、验证方法或改动边界。
     validations:
-      required: true
-  - type: textarea
-    id: exclusions
-    attributes:
-      label: 排除项
-      description: 每行一项，从 X1 开始连续编号。没有排除项时填「无」。
-      placeholder: X1. 不在任务范围内的改动
-    validations:
-      required: true
-  - type: dropdown
-    id: kind
-    attributes:
-      label: 任务类型
-      options:
-        - 文档
-        - XCTest 回归测试
-        - Swift 纯逻辑修复
-        - 功能或缺陷修复
-        - 人工处理
-    validations:
-      required: true
-  - type: textarea
-    id: scope
-    attributes:
-      label: 改动范围
-      placeholder: 写明可修改的目录或文件，以及需要的验证环境。
-    validations:
-      required: true
-  - type: textarea
-    id: dependencies
-    attributes:
-      label: 前置 Issue
-      description: 每行一个本仓库 Issue 编号。没有前置 Issue 时填「无」。
-      placeholder: '#123'
-    validations:
-      required: true
+      required: false
