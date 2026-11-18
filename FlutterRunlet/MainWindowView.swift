@@ -259,11 +259,13 @@ struct DeviceSelectionControls: View {
     }
 
     private func choices(for session: SessionController) -> some View {
-        RunletPopup(title: "Select Device", close: { isShowing = false }) {
-            Text("The selected device is used for the next run.")
-                .padding(.horizontal, 5)
-                .font(RunletType.localized(locale, size: 11))
-                .foregroundStyle(palette.secondary)
+        RunletPopup(title: "Select Device") {
+            Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help("Refresh Devices")
+                .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
+        } content: {
             if session.isBusy {
                 Text("Showing the last device scan.").foregroundStyle(palette.secondary)
             }
@@ -286,7 +288,7 @@ struct DeviceSelectionControls: View {
                         ForEach(session.deviceChoices) { device in
                             Button {
                                 session.selectDevice(device.id)
-                                if device.launchTarget == nil { isShowing = false }
+                                isShowing = false
                             } label: {
                                 deviceRow(device)
                             }
@@ -301,15 +303,6 @@ struct DeviceSelectionControls: View {
                 .frame(idealHeight: min(CGFloat(session.deviceChoices.count) * 37 - 5, 224), maxHeight: 224)
                 .fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
-                Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("Refresh Devices")
-                    .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
-                Spacer()
-            }
-            .padding(.horizontal, 5)
         }
     }
 
@@ -350,9 +343,14 @@ struct DeviceSelectionControls: View {
                 .controlSize(.small)
                 .accessibilityHidden(true)
         } else {
+            let color: Color = switch availability {
+            case .online: palette.success
+            case .offline: palette.error
+            case .unknown, .starting: palette.secondary
+            }
             Text(availabilityTitle(availability))
                 .font(RunletType.localized(locale, size: 11))
-                .foregroundStyle(palette.secondary)
+                .foregroundStyle(color)
                 .fixedSize()
                 .accessibilityHidden(true)
         }
