@@ -29,7 +29,7 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
   -derivedDataPath .build/dev -parallel-testing-enabled NO test
 ```
 
-用[隔离 Flutter 示例](examples/sample-flutter-app/README.md)验证真实设备、前后置任务及异常恢复。更新和界面验收的前置条件、私有清单及复跑方法见[阶段 07 验证方案](../.planning/milestones/v0.2-phases/07-settings-about-updates/07-VALIDATION.md)；最终结果见[阶段 06 验收](../.planning/milestones/v0.2-phases/06-main-window-menu-bar/06-ACCEPTANCE.md)和[阶段 07 验收](../.planning/milestones/v0.2-phases/07-settings-about-updates/07-ACCEPTANCE.md)。
+用[隔离 Flutter 示例](examples/sample-flutter-app/README.md)验证真实设备、前后置任务及异常恢复。历史结果见[阶段 06 验收](../.planning/milestones/v0.2-phases/06-main-window-menu-bar/06-VERIFICATION.md)和[阶段 07 验收](../.planning/milestones/v0.2-phases/07-settings-about-updates/07-VERIFICATION.md)。复验时重新构建候选并采集当轮证据。
 
 把可重建的编译缓存和试打包产物放在 `.build/`，把原始验收截图、日志、测试结果包和与签核摘要绑定的候选留在 `.private/`，只提交脱敏结论。清理时保留签核引用的原始证据及候选；重新构建的二进制不能替代锁定摘要的原件。
 

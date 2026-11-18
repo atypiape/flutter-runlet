@@ -1,6 +1,6 @@
 # Phase 02 · P2 验收记录
 
-执行日期为 2026-11-12，时区为 Asia/Shanghai。macOS 26.7.1（25G241，arm64），Xcode 27.1（27A9275）。自动与人工验收的最终结果汇总在 [02-UAT.md](02-UAT.md)。
+执行日期为 2026-11-12，时区为 Asia/Shanghai。macOS 26.7.1（25G241，arm64），Xcode 27.1（27A9275）。自动与人工验收的最终结果汇总在 [02-UAT.md](02-VERIFICATION.md)。
 
 ## 最终构建
 

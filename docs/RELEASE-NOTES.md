@@ -26,7 +26,7 @@
 
 最低部署目标为 macOS 15.0。主程序及内嵌 worker 的最低版本已从实际二进制核对。宿主实测使用 macOS 26.7.1。按阶段决定取消 macOS 15 实机及虚拟机运行验收，该版本的运行兼容性未验证。
 
-冻结候选源码为 `36916dd`。G3 本地包使用 ad hoc 签名，签名校验及解包复验通过。该 ZIP 的 SHA-256 为 `5e4e29423b539090e8ed3867b94c0b6e50637e4f6abc8e9581928f756d262e55`。同一候选通过 30 分钟日志压力、真实项目三环境及强退恢复验收。[候选构建](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-01-SUMMARY.md) · [G3 验收记录](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
+冻结候选源码为 `36916dd`。G3 本地包使用 ad hoc 签名，签名校验及解包复验通过。该 ZIP 的 SHA-256 为 `5e4e29423b539090e8ed3867b94c0b6e50637e4f6abc8e9581928f756d262e55`。同一候选通过 30 分钟日志压力、真实项目三环境及强退恢复验收。[阶段验证](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-VERIFICATION.md) · [G3 验收记录](../.planning/milestones/v0.1-phases/05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
 后续已在 GitHub 提供 [v0.1.0 预发布包](https://github.com/atypiape/flutter-runlet/releases/tag/v0.1.0)。正式分发所需的 Developer ID 签名、公证及最终公开复核留待后续完成。[公开前检查](PUBLIC-RELEASE-AUDIT.md)
 

@@ -1,5 +1,13 @@
 # FlutterRunlet 里程碑
 
+## v0.3 Inspector 与设置 — 归档（2026-11-16）
+
+阶段 08–09 共 2 份计划，8 项需求通过。独立 DevTools 按需连接当前调试会话，复用 Inspector 标签并支持源码跳转。设置新增 DevTools 分类和三种外观。全量 XCTest 139 项通过，失败与跳过均为 0。v0.3.0 双架构 DMG 随预发布版交付。
+
+[路线图](milestones/v0.3-ROADMAP.md) · [需求](milestones/v0.3-REQUIREMENTS.md) · [里程碑审计](milestones/v0.3-MILESTONE-AUDIT.md)
+
+---
+
 ## v0.2 界面与调试体验 — 本地归档（2026-11-15）
 
 **交付范围** 阶段 06–07，共 10 份计划、28 个任务。14 项需求、9 条跨阶段连接和 8 条端到端流程全部通过。本机 DMG v0.2.0（构建 201）已校验并解包启动，133 项 XCTest 全部通过。
@@ -32,3 +40,7 @@
 **档案：** [路线图](milestones/v0.1-ROADMAP.md) · [需求](milestones/v0.1-REQUIREMENTS.md) · [里程碑审计](milestones/v0.1-MILESTONE-AUDIT.md) · [阶段记录](milestones/v0.1-phases/) · [回顾](RETROSPECTIVE.md)
 
 **发布范围：** macOS 15.0 为部署目标，未验证该系统的运行兼容性。公开分发、公证和链接匿名访问另行核对。本次归档未创建发布标签。
+
+## 历史证据保留范围
+
+阶段 04–07 与 v0.1–v0.3 的本地取证和发布工作目录按 2026-11-18 的清理决定移除。各版本审计保留脱敏结论、验证范围、已知限制和关键候选身份。复验时需重新构建和采集证据，新构建具有独立的候选身份及校验值。

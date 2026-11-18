@@ -1,6 +1,6 @@
 # Phase 05 · G3 验收矩阵
 
-受测版本 0.1.0（1）。macOS 26.7.1、Xcode 27.1、iOS 27.0。早期通过项及复用范围分别见 [G1](../01-upstream-audit-ui-shell/01-G1-ACCEPTANCE.md)、[P2](../02-config-task-execution-core/02-P2-ACCEPTANCE.md)、[G2](../03-flutter/03-G2-ACCEPTANCE.md)、[P4](../04-macos/04-P4-ACCEPTANCE.md)。最终候选见 [构建记录](05-01-SUMMARY.md) 和 [恢复矩阵](05-RECOVERY.md)。
+受测版本 0.1.0（1）。macOS 26.7.1、Xcode 27.1、iOS 27.0。早期通过项及复用范围分别见 [G1](../01-upstream-audit-ui-shell/01-G1-ACCEPTANCE.md)、[P2](../02-config-task-execution-core/02-P2-ACCEPTANCE.md)、[G2](../03-flutter/03-G2-ACCEPTANCE.md)、[P4](../04-macos/04-P4-ACCEPTANCE.md)。最终候选见 [构建记录](05-VERIFICATION.md) 和 [恢复矩阵](05-VERIFICATION.md)。
 
 | ID | 判定 | 候选与证据 |
 |---|---|---|
@@ -49,4 +49,4 @@ commit=36916dd1f6a6f916a1c76ca93aa37ae84f8247f6 app=52b6a4b1a6916e4ca0d457efcb98
 
 G3 通过。32 项验收均有记录。A18 覆盖 Android 模拟器，实体设备按 G2 记录的不适用范围执行。A31 按用户更新后的 15.0 部署目标验收，macOS 15 运行兼容性未验证。
 
-本地交付为 0.1.0（1）的同一签名 `FlutterRunlet.app`、`FlutterRunlet.zip` 和 `FlutterRunlet.zip.sha256`。ZIP SHA-256 为 `5e4e29423b539090e8ed3867b94c0b6e50637e4f6abc8e9581928f756d262e55`。解包候选通过文件、执行位、签名、普通启动、真实调试停止与恢复复验。公开分发、公证和链接匿名访问另按发布审计执行。 [归档证据](05-ENVIRONMENT.md) · [使用说明](../../../../README.md) · [发布说明](../../../../docs/RELEASE-NOTES.md) · [项目许可证](../../../../LICENSE)
+本地交付为 0.1.0（1）的同一签名 `FlutterRunlet.app`、`FlutterRunlet.zip` 和 `FlutterRunlet.zip.sha256`。ZIP SHA-256 为 `5e4e29423b539090e8ed3867b94c0b6e50637e4f6abc8e9581928f756d262e55`。解包候选通过文件、执行位、签名、普通启动、真实调试停止与恢复复验。公开分发、公证和链接匿名访问另按发布审计执行。 [归档证据](05-VERIFICATION.md) · [使用说明](../../../../README.md) · [发布说明](../../../../docs/RELEASE-NOTES.md) · [项目许可证](../../../../LICENSE)

@@ -3,12 +3,11 @@ gsd_state_version: "1.0"
 milestone: v0.3
 milestone_name: Inspector 与设置
 current_phase: 09
-status: Ready for review
-stopped_at: "v0.3 已通过本地验证，等待评审"
-last_updated: "2026-11-15T18:26:27.644Z"
-last_activity: 2026-11-16
-last_activity_desc: v0.3 两阶段通过本地验证
-state_head: 43cfc9d8f0599c6235626289321e3275451aec54
+status: Milestone archived
+stopped_at: "v0.3 已归档，等待下一里程碑"
+last_updated: "2026-11-18"
+last_activity: 2026-11-18
+last_activity_desc: 整理 v0.1 至 v0.3 里程碑档案
 progress:
   total_phases: 2
   completed_phases: 2
@@ -21,43 +20,8 @@ progress:
 
 ## Current Position
 
-Phase: 09 · DevTools 设置与外观
-Plan: —
-Status: Ready for review
-Progress: [██████████] 100%
-Last activity: 2026-11-16 — v0.3 两阶段通过本地验证
-
-## Session
-
-**Last session:** 2026-11-15T18:25:27.720Z
-**Stopped at:** v0.3 已通过本地验证，等待评审
-**Resume file:** .planning/ROADMAP.md
-
-## Performance Metrics
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 02 P01 | 10min | 2 tasks | 10 files |
-| Phase 02 P02 | 8min | 3 tasks | 8 files |
-| Phase 02 P03 | 10min | 2 tasks | 10 files |
-| Phase 02 P04 | 22min | 2 tasks | 4 files |
-| Phase 03 P01 | 12min | 1 tasks | 8 files |
-| Phase 03 P02 | 20min | 2 tasks | 8 files |
-| Phase 03 P03 | 23min | 3 tasks | 10 files |
-| Phase 03 P04 | 27min | 2 tasks | 1 files |
-| Phase 04 P01 | 12min | 2 tasks | 18 files |
-| Phase 04 P02 | 11min | 3 tasks | 14 files |
-| Phase 04 P03 | 15min | 3 tasks | 7 files |
-| Phase 04 P04 | 9min | 2 tasks | 12 files |
-| Phase 04 P05 | 19min | 2 tasks | 2 files |
-| Phase 05 P01 | 6min | 2 tasks | 4 files |
-| Phase 05 P02 | 46min | 3 tasks | 2 files |
-| Phase 05 P03 | 30min | 2 tasks | 3 files |
-| Phase 05 P04 | 10min | 3 tasks | 2 files |
-| Phase 05 P05 | 6min | 3 tasks | 4 files |
-| Phase 07 P01 | 19min | 2 tasks | 2 files |
-| Phase 07 P02 | 41min | 3 tasks | 24 files |
+v0.3 已通过阶段 08–09 验收并归档。下一里程碑尚未启动。 [里程碑索引](MILESTONES.md) · [路线图](ROADMAP.md)
 
 ## Operator Next Steps
 
-- 下一里程碑目标和需求待确认。公开发行保持冻结，签名与公证按发布交接接续。
+确认下一里程碑目标和需求。正式分发接续按 [公开发布检查](../docs/PUBLIC-RELEASE-AUDIT.md)执行。旧独立发布候选已清理，恢复正式分发时需重新选定和审计候选。
