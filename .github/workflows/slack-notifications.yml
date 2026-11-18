@@ -5,6 +5,7 @@ on:
     workflows: [CI, Branch policy, macOS Prerelease]
     types: [completed]
   pull_request_target:
+    branches: [dev, main]
     types: [opened, closed]
   workflow_dispatch:
   workflow_call:
@@ -35,7 +36,7 @@ jobs:
        (github.event.workflow_run.path != '.github/workflows/ci.yml' &&
         github.event.workflow_run.path != '.github/workflows/branch-policy.yml')) &&
       (github.event_name != 'pull_request_target' || github.event.action == 'opened' ||
-       (github.event.pull_request.base.ref == 'main' && github.event.pull_request.merged == true))
+       github.event.pull_request.merged == true)
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     environment:
@@ -145,7 +146,8 @@ jobs:
                 if [[ $(jq -er '.action' "$GITHUB_EVENT_PATH") == opened ]]; then
                   event_status='➕'
                 else
-                  event_status='✅ 已合入 main'
+                  base_branch=$(jq -er '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
+                  event_status="✅ 已合入 $base_branch"
                 fi
                 url="$repo_url/pull/$number"
                 ;;
@@ -157,7 +159,7 @@ jobs:
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
             --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
             --arg event_context "$event_context" --arg event_status "$event_status" \
-            --arg pr_title "$pr_title" \
+            --arg pr_title "$pr_title" --arg event_name "$GITHUB_EVENT_NAME" \
             'def section($label; $value):
                {type: "rich_text_section", elements: [
                  {type: "text", text: $label, style: {bold: true}},
@@ -175,7 +177,8 @@ jobs:
              def event_line:
                [{type: "rich_text_section", elements: ([
                  {type: "text", text: "事件", style: {bold: true}},
-                 {type: "text", text: ("：" + ($event_status | sub(" .*"; " ")))},
+                 {type: "text", text: ("：" + (if $event_name == "pull_request_target"
+                   then $event_status + " " else $event_status | sub(" .*"; " ") end))},
                  {type: "link", text: "[详情]", url: $url},
                  {type: "text", text: (" " + $event_context)}
                ] + (if $pr_title == "" then [] else
