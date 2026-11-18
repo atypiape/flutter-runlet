@@ -10,6 +10,15 @@
 
 脚本将产物写到目标工作树的 `.build/debug/Build/Products/Debug/FlutterRunlet.app`，并将绝对路径输出到标准输出。加 `--open` 可在构建成功后打开应用。重测前先退出正在运行的 FlutterRunlet。
 
+### 在 VS Code 中构建、启动和停止
+
+用 VS Code 打开仓库根目录，在「运行和调试」侧栏顶部选择操作，再点击左侧的绿色 ▶。仅需上文的 Xcode 环境，无需安装扩展。
+
+- 「FlutterRunlet: 构建并启动」构建并打开应用。应用运行期间，可点击 VS Code 工具栏的红色停止按钮退出应用。
+- 「FlutterRunlet: 仅构建」构建 Debug 版。也可按 `⇧⌘B` 运行默认构建任务。
+
+如果 Flutter 会话仍在运行，在 FlutterRunlet 中确认停止并退出。
+
 ## 测试与本地取证
 
 在仓库根目录运行 XCTest（同时构建 Debug 应用）：
