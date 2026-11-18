@@ -38,6 +38,7 @@ final class FlutterToolchainTests: XCTestCase {
             "Showing the last device scan.": "显示上次设备扫描结果。",
             "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
             "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
+            "Start Simulator": "启动模拟器", "Starting Simulator": "正在启动模拟器",
             "Online": "在线", "Offline": "离线", "Unknown": "未知"
         ]
         for language in ["en", "zh-Hans"] {
@@ -544,6 +545,115 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
+    }
+
+    func testAndroidAVDMappingUsesIdentityAndFiltersInvalidEntries() throws {
+        let data = Data(#"""
+        {"emulator.getEmulators":[
+          {"id":"pixel_xl","name":"Pixel XL","platformType":"android"},
+          {"id":"pixel_xl","name":"Duplicate","platformType":"android"},
+          {"id":"pixel_small","name":"Pixel Small","platformType":"android"},
+          {"id":"apple_ios_simulator","name":"iOS","platformType":"ios"},
+          {"id":"--launch","name":"Invalid","platformType":"android"}],
+         "device.getDevices":[
+          {"id":"emulator-5554","emulatorId":"pixel_xl","platform":"android-arm64","emulator":true,"isConnected":true},
+          {"id":"phone","emulatorId":"pixel_small","platform":"android-arm64","emulator":false,"isConnected":true}]}
+        """#.utf8)
+        XCTAssertEqual(try FlutterToolchain.decodeAndroidEmulators(data), [
+            AndroidEmulator(id: "pixel_small", name: "Pixel Small", deviceID: nil),
+            AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: "emulator-5554")
+        ])
+        XCTAssertThrowsError(try FlutterToolchain.decodeAndroidEmulators(Data("{}".utf8)))
+    }
+
+    func testAndroidStartSelectsMatchingAVDWithoutLaunchingDebug() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let scanner = DeviceScanner()
+        let bootDiscovery = PausedProbe()
+        let target = FlutterDevice(id: "emulator-5556", name: "sdk gphone16k arm64", platform: "android-arm64", isSimulator: true)
+        let neighbor = FlutterDevice(id: "emulator-5554", name: target.name, platform: target.platform, isSimulator: true)
+        var toolchain = FlutterToolchain(
+            resolve: { _, _ in FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "3", dartVersion: "3") },
+            discover: { _, _ in scanner.boots.isEmpty ? [neighbor] : [neighbor, target] }
+        )
+        toolchain.androidEmulators = { _, _ in
+            if !scanner.boots.isEmpty { await bootDiscovery.wait() }
+            return [AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: scanner.boots.isEmpty ? nil : target.id),
+                    AndroidEmulator(id: "pixel_other", name: "Other Pixel", deviceID: neighbor.id)]
+        }
+        scanner.fails = true
+        toolchain.bootAndroidEmulator = { id, _, _ in
+            if scanner.fails { throw SessionIssue("AVD launch failed") }
+            scanner.boots.append(id)
+        }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        try fixture.select("prod", in: session)
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.androidEmulators.map(\.id), ["pixel_xl"])
+        XCTAssertEqual(session.selectedDeviceID, neighbor.id)
+        session.startAndroidEmulator("unknown")
+        XCTAssertTrue(scanner.boots.isEmpty)
+        session.startAndroidEmulator("pixel_xl")
+        try await eventually { session.simulatorIssue != nil && !session.isStartingSimulator }
+        XCTAssertEqual(session.selectedDeviceID, neighbor.id)
+        XCTAssertTrue(session.canStartSimulator)
+        scanner.fails = false
+        session.startAndroidEmulator("pixel_xl")
+        try await eventually { bootDiscovery.continuation != nil }
+        XCTAssertTrue(session.isStartingSimulator)
+        XCTAssertFalse(session.canRun)
+        session.startAndroidEmulator("pixel_xl")
+        XCTAssertEqual(scanner.boots, ["pixel_xl"])
+        bootDiscovery.release()
+        try await eventually { !session.isStartingSimulator }
+        XCTAssertEqual(session.selectedDeviceID, target.id)
+        XCTAssertTrue(session.androidEmulators.isEmpty)
+        XCTAssertTrue(session.canRun)
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
+    }
+
+    func testAndroidDaemonProbeUsesSDKAndReadsFragmentedResponses() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let executable = try makeSDK(fixture.base.appending(path: "sdk"), version: "3")
+        let script = #"""
+        #!/bin/sh
+        if [ "$1" = emulators ]; then
+          [ "$2" = --launch ] && [ "$3" = pixel_xl ] || exit 7
+          printf booted > "$BOOT_MARKER"
+          exit
+        fi
+        [ "$1" = daemon ] || exit 7
+        read -r first
+        read -r second
+        case "$first" in *emulator.getEmulators*) ;; *) exit 8 ;; esac
+        case "$second" in *device.getDevices*) ;; *) exit 9 ;; esac
+        printf 'noise\n[{"event":"daemon.connected","params":{}}]\n'
+        printf '[{"id":"device.getDevices","result":[]}]\n'
+        printf '[{"id":"emulator.getEmulators","res'
+        sleep 0.1
+        printf 'ult":[{"id":"pixel_xl","name":"Pixel XL","platformType":"android"}]}]\n'
+        read -r keep_open
+        """#
+        try script.write(to: executable, atomically: false, encoding: .utf8)
+        let sdk = FlutterSDK(executable: executable, flutterVersion: "3", dartVersion: "3")
+        var environment = fixture.environment
+        let marker = fixture.base.appending(path: "boot-marker")
+        environment["BOOT_MARKER"] = marker.path
+        let emulators = try await FlutterToolchain.production.androidEmulators(sdk, environment)
+        XCTAssertEqual(emulators, [AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: nil)])
+        try await FlutterToolchain.production.bootAndroidEmulator("pixel_xl", sdk, environment)
+        XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "booted")
+        try FileManager.default.removeItem(at: marker)
+        do {
+            try await FlutterToolchain.production.bootAndroidEmulator("--launch", sdk, environment)
+            XCTFail("Invalid AVD identifier was accepted")
+        } catch {}
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 
     func testObsoleteDeviceScanCannotReplaceTheNewProjectsSelection() async throws {

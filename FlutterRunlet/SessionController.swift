@@ -138,6 +138,7 @@ final class SessionController {
     private var devicePreference: DevicePreference?
     private(set) var activeLaunch: ActiveLaunch?
     private(set) var simulators: [FlutterSimulator] = []
+    private(set) var androidEmulators: [AndroidEmulator] = []
     private(set) var isStartingSimulator = false
     private(set) var simulatorIssue: LocalizedStringResource?
     private(set) var isRefreshingDevices = false
@@ -281,7 +282,7 @@ final class SessionController {
     private var sdkStatusIssue: LocalizedStringResource? { isCheckingSDK ? "Checking Flutter SDK" : sdkIssue }
     private var deviceSelectionIssue: LocalizedStringResource? {
         guard toolchain != nil, project != nil, !isBusy else { return nil }
-        if isStartingSimulator { return "Starting iOS Simulator" }
+        if isStartingSimulator { return "Starting Simulator" }
         if isRefreshingDevices { return "Refreshing Devices" }
         if let deviceIssue { return deviceIssue }
         if let target = selection?.launch?.deviceID, target != selectedDeviceID {
@@ -653,6 +654,7 @@ final class SessionController {
             hasDeviceSnapshot = false
             devicePreference = projectDevices[canonical.path]
             simulators = []
+            androidEmulators = []
             deviceIssue = nil
             choices = []
             selectedID = nil
@@ -1008,6 +1010,15 @@ final class SessionController {
                 self.simulators = []
                 self.simulatorIssue = "Could not list iOS simulators: \(LocalizedStringResource.appIssue(error)). Refresh devices and try again."
             }
+            do {
+                let emulators = try await toolchain.androidEmulators(sdk, probeEnvironment)
+                guard self.discoveryID == request, self.project == project else { return }
+                self.androidEmulators = emulators.filter { $0.deviceID == nil }
+            } catch {
+                guard self.discoveryID == request, self.project == project else { return }
+                self.androidEmulators = []
+                self.simulatorIssue = "Could not list Android emulators: \(LocalizedStringResource.appIssue(error)). Refresh devices and try again."
+            }
             self.isRefreshingDevices = false
         }
     }
@@ -1066,6 +1077,48 @@ final class SessionController {
             } catch {
                 guard self.simulatorLaunchID == request, self.project == project else { return }
                 self.simulatorIssue = "Could not start the iOS simulator: \(LocalizedStringResource.appIssue(error)). Check the simulator and try again."
+            }
+        }
+    }
+
+    func startAndroidEmulator(_ id: String) {
+        guard canStartSimulator, let toolchain, let sdk, let project,
+              androidEmulators.contains(where: { $0.id == id }) else { return }
+        let request = UUID()
+        simulatorLaunchID = request
+        isStartingSimulator = true
+        simulatorIssue = nil
+        let environment = FlutterToolchain.probeEnvironment(environment, project)
+        Task { [weak self] in
+            guard let self, self.simulatorLaunchID == request, self.project == project else { return }
+            defer {
+                if self.simulatorLaunchID == request {
+                    self.simulatorLaunchID = nil
+                    self.isStartingSimulator = false
+                }
+            }
+            do {
+                try await toolchain.bootAndroidEmulator(id, sdk, environment)
+                let deadline = ContinuousClock.now + .seconds(90)
+                while self.simulatorLaunchID == request, self.project == project, .now < deadline {
+                    let emulators = try await toolchain.androidEmulators(sdk, environment)
+                    let discovered = try await toolchain.discover(sdk, environment)
+                    guard self.simulatorLaunchID == request, self.project == project else { return }
+                    if let deviceID = emulators.first(where: { $0.id == id })?.deviceID,
+                       discovered.contains(where: { $0.id == deviceID && $0.isSimulator && $0.platform.hasPrefix("android") }) {
+                        self.applyDeviceSnapshot(discovered, project: project)
+                        if let device = discovered.first(where: { $0.id == deviceID }) {
+                            self.storeDevice(DevicePreference(device: device), for: project)
+                        }
+                        self.androidEmulators = emulators.filter { $0.deviceID == nil }
+                        return
+                    }
+                    try await Task.sleep(for: .seconds(2))
+                }
+                throw SessionIssue(localized: "Flutter has not found the selected simulator")
+            } catch {
+                guard self.simulatorLaunchID == request, self.project == project else { return }
+                self.simulatorIssue = "Could not start the Android emulator: \(LocalizedStringResource.appIssue(error)). Check the emulator and try again."
             }
         }
     }

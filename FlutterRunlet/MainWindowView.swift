@@ -269,7 +269,7 @@ struct DeviceSelectionControls: View {
             if session.isRefreshingDevices || session.isStartingSimulator {
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text(session.isStartingSimulator ? "Starting iOS Simulator" : "Refreshing Devices")
+                    Text(session.isStartingSimulator ? "Starting Simulator" : "Refreshing Devices")
                 }
             }
             if let issue = session.deviceIssue ?? session.sdkIssue ?? session.simulatorIssue {
@@ -308,8 +308,13 @@ struct DeviceSelectionControls: View {
                     .help("Refresh Devices")
                     .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
                 Spacer()
-                if !session.simulators.isEmpty {
-                    Menu("Start iOS Simulator", systemImage: "iphone") {
+                if !session.simulators.isEmpty || !session.androidEmulators.isEmpty {
+                    Menu("Start Simulator", systemImage: "iphone") {
+                        ForEach(session.androidEmulators) { emulator in
+                            Button { session.startAndroidEmulator(emulator.id) } label: {
+                                Text(verbatim: "\(emulator.name) (Android)")
+                            }
+                        }
                         ForEach(session.simulators) { simulator in
                             Button {
                                 session.startSimulator(simulator.id)
