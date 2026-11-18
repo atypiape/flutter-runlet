@@ -73,6 +73,10 @@ jobs:
                 ;;
               .github/workflows/branch-policy.yml|.github/workflows/slack-notifications.yml|.githooks/pre-push|scripts/plan-prerelease.py|scripts/release-prerelease.sh|scripts/verify-release-authorization.sh|scripts/tests/*)
                 ;;
+              scripts/verify-issue-queue.py|scripts/ensure-issue-pr.py|scripts/merge-issue-pr.py|scripts/create-github-labels.sh|scripts/cleanup-merged-branches.py)
+                ;;
+              .github/ISSUE_TEMPLATE/codex-task.yml|.agents/skills/flutter-runlet-issue-queue/SKILL.md)
+                ;;
               FlutterRunletTests/*)
                 scope='test'
                 ;;
