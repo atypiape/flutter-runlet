@@ -6,6 +6,10 @@
 
 主应用源码在 [FlutterRunlet](../FlutterRunlet/)，同一 scheme 会构建 [会话 worker](../FlutterRunletSessionWorker/) 和 [更新助手](../FlutterRunletUpdateHelper/)。构建应用本身无需 Flutter SDK；验证真实调试还需可用的 Flutter SDK、测试项目及模拟器或真机。
 
+在仓库根目录运行 `./scripts/build-debug.sh`，构建本机架构的 Debug 版。传入工作树目录即可构建该处检出的代码，例如 `./scripts/build-debug.sh ../flutter-runlet-fix`。
+
+脚本将产物写到目标工作树的 `.build/debug/Build/Products/Debug/FlutterRunlet.app`，并将绝对路径输出到标准输出。加 `--open` 可在构建成功后打开应用。重测前先退出正在运行的 FlutterRunlet。
+
 ## 测试与本地取证
 
 在仓库根目录运行 XCTest（同时构建 Debug 应用）：
