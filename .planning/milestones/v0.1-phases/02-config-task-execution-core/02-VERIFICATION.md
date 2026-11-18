@@ -102,7 +102,7 @@ human_verification: []
 | 15 | 同提交 Debug 和 Release 构建、签名及监督进程产物，Release 排除验收装配 | 通过 | 本轮 Debug 57/57、Release 构建通过，两套 App 与 worker 通过可执行及严格签名检查。等同 Release 产物同时传入两个历史参数后进入普通模式，未点 Run 时无 worker，样例及固定验收存储摘要与启动前一致。 |
 | 16 | 恢复记录清理失败或结果不明仍保留可用记录 | 通过 | 完成凭据目录同步失败时保留原记录，重启仍阻断。凭据已持久而旧记录删除失败时，重启确认原会话完成，凭据无法抵销下一会话的新风险。两个定向回归通过。 |
 
-行为证据见 [P2 验收记录](02-P2-ACCEPTANCE.md)、[任务验证策略](02-VALIDATION.md)、[阶段验收矩阵](../../../../docs/04-ACCEPTANCE.md) 和 [公开样例](../../../../docs/examples/sample-flutter-app/README.md)。
+行为证据见 [P2 验收记录](02-P2-ACCEPTANCE.md)、任务验证策略、[阶段验收矩阵](../../../../docs/04-ACCEPTANCE.md) 和 [公开样例](../../../../docs/examples/sample-flutter-app/README.md)。
 
 ## 工件与调用链
 
@@ -132,10 +132,10 @@ GSD 决策覆盖 15/15。检查未发现跳过、预期失败标记或循环生�
 
 ## 本轮复验
 
-- 受测源码为 `a0ca3ba6ccb9bf2d27db29526159642f6dca27a0`。用 macOS 共享 scheme 执行全量 Debug XCTest，57/57 通过，含 G1 和全部 P2 回归。Release 构建通过，Debug 和 Release 的 App 主程序及内嵌监督进程共四个文件均可执行。两套监督进程的严格签名和 App 的深度严格签名均通过。原始日志与摘要存于 `/tmp/flutter-runlet-phase02-refresh.hKllJY`。 [验证策略](02-VALIDATION.md)
+- 受测源码为 `a0ca3ba6ccb9bf2d27db29526159642f6dca27a0`。用 macOS 共享 scheme 执行全量 Debug XCTest，57/57 通过，含 G1 和全部 P2 回归。Release 构建通过，Debug 和 Release 的 App 主程序及内嵌监督进程共四个文件均可执行。两套监督进程的严格签名和 App 的深度严格签名均通过。原始日志与摘要存于 `/tmp/flutter-runlet-phase02-refresh.hKllJY`。 验证策略
 - 四个可执行文件的 SHA-256 与 G2 最终原生候选 `0416505db76e7dde868db92110e8a0fb2d074520` 逐一相同。两提交的 App、worker、XCTest 和 Xcode 工程文件也无差异。复用该候选的原生证据核对普通模式 Stop 与原任务恢复顺序、Release 参数隔离。 [G2 原生复验](../03-flutter/03-G2-ACCEPTANCE.md#审查修正复验)
 - Phase 02 原始 Release 候选尚无生产适配器，原验收观察到 prod 的 Run 禁用。当前普通模式具备生产适配器，合法配置和设备可供用户主动运行。两个历史参数仍无法启用验收装配，G2 实测未点 Run 时，样例、固定 Debug 存储与 worker 数保持不变。 [P2 原始 Release 验收](02-P2-ACCEPTANCE.md#release-参数隔离自动复验) · [G2 原生复验](../03-flutter/03-G2-ACCEPTANCE.md#审查修正复验)
-- 路线四项均通过。第 1、8–10 项覆盖项目配置与只读行为，第 2 项覆盖执行阻断，第 3、5、11–13、16 项覆盖任务顺序与风险恢复，第 4、6、14 项覆盖会话和项目租约。共享文件增量审查未发现 P2 回归。 [路线](../../v0.1-ROADMAP.md#phase-2-配置和任务执行内核) · [增量审查](02-REVIEW.md) · [安全复核](02-SECURITY.md)
+- 路线四项均通过。第 1、8–10 项覆盖项目配置与只读行为，第 2 项覆盖执行阻断，第 3、5、11–13、16 项覆盖任务顺序与风险恢复，第 4、6、14 项覆盖会话和项目租约。共享文件增量审查未发现 P2 回归。 [路线](../../v0.1-ROADMAP.md#phase-2-配置和任务执行内核) · 增量审查 · 安全复核
 
 ## 审查边界
 
@@ -143,21 +143,21 @@ GSD 决策覆盖 15/15。检查未发现跳过、预期失败标记或循环生�
 - WR-03 的特殊 YAML 项目识别仍是兼容性限制。公开样例及常规 Flutter 项目目录已覆盖。
 - WR-04 已修复。只有真实后置退出 0 后才写入绑定该会话记录的认证完成凭据。凭据持久前不删除原记录。重启读取时重新确认凭据同步，凭据与新会话记录不能互认。最终 Debug 原生 Stop 已复验恢复 `test`，风险与完成凭据文件均已清理。 [恢复存储](../../../../FlutterRunlet/ProjectRecoveryStore.swift) · [重启回归](../../../../FlutterRunletTests/ProjectRecoveryTests.swift)
 
-详见 [审查处置](02-REVIEW-DISPOSITION.md) 与 [安全复核](02-SECURITY.md)。
+详见 审查处置 与 安全复核。
 
 ## 验收结果
 
-原 UAT 三项全部通过。前两项由用户确认，Release 项由自动交互和磁盘断言覆盖。已验收路径有本轮自动验证及等同产物证据支持，无待人工复验项。 [UAT 记录](02-UAT.md) · [P2 原始 Release 验收](02-P2-ACCEPTANCE.md#release-参数隔离自动复验)
+原 UAT 三项全部通过。前两项由用户确认，Release 项由自动交互和磁盘断言覆盖。已验收路径有本轮自动验证及等同产物证据支持，无待人工复验项。 UAT 记录 · [P2 原始 Release 验收](02-P2-ACCEPTANCE.md#release-参数隔离自动复验)
 
 ## v0.1 最终候选复核（2026-11-14）
 
-最终候选 `36916dd1f6a6f916a1c76ca93aa37ae84f8247f6` 的应用、worker、XCTest 和 Xcode 工程与本轮复核源码一致。当前 16/16 项及 11/11 项需求通过。复用同候选 Debug 全量 77/77、配置和启动定向 22/22、两套构建的签名记录及已完成的 G3 实测。前四份计划的 15 个产物通过 GSD 探针。Swift 同一 target 的调用未引用文件路径，另按实际类型调用、嵌入 worker 和任务结果核对接线。决策覆盖为 15/15。[G3 验证](../05-stability-recovery-release/05-VERIFICATION.md) · [两套构建](../05-stability-recovery-release/05-01-SUMMARY.md#替换候选) · [验收判定](../05-stability-recovery-release/05-G3-ACCEPTANCE.md)
+最终候选 `36916dd1f6a6f916a1c76ca93aa37ae84f8247f6` 的应用、worker、XCTest 和 Xcode 工程与本轮复核源码一致。当前 16/16 项及 11/11 项需求通过。复用同候选 Debug 全量 77/77、配置和启动定向 22/22、两套构建的签名记录及已完成的 G3 实测。前四份计划的 15 个产物通过 GSD 探针。Swift 同一 target 的调用未引用文件路径，另按实际类型调用、嵌入 worker 和任务结果核对接线。决策覆盖为 15/15。[G3 验证](../05-stability-recovery-release/05-VERIFICATION.md) · [两套构建](../05-stability-recovery-release/05-VERIFICATION.md) · [验收判定](../05-stability-recovery-release/05-G3-ACCEPTANCE.md)
 
 | 原验证项 | 最终候选证据 |
 | --- | --- |
-| 1、8–10 · CONF-01–05，A07–A11 | `ProjectConfigurationTests` 核对四个原名、JSONC 精确位置、旧 define、PATH、参数字节及任务目录。`ProjectSelectionTests` 断言无效、删除和重名配置、有效定义变化需两次 Run、注释变化和最近项目零执行。`ProjectConfiguration` 只读两份 JSONC，`SessionController` 在持锁时重读并比较。A29 绑定同候选复验授权隔离项目，确认原工程摘要和 Git 状态一致。[配置读取](../../../../FlutterRunlet/ProjectConfiguration.swift#L145) · [运行前复验](../../../../FlutterRunlet/SessionController.swift#L806) · [真实工程对照](../05-stability-recovery-release/05-ENVIRONMENT.md#a29--真实项目) |
-| 2 · TASK-01、TASK-02，A12、A32 | `testRealTaskArgumentsDirectoryEnvironmentAndExitStatus` 以真实命令核对 argv、cwd、环境及退出码。`testZeroAndNullArgumentsAndUnsupportedTasksHaveDistinctResults` 和 `testNoAdapterAndNonDebugLeaveConfigurationAndProjectUntouched` 覆盖不适用输入的阻断。故障矩阵包含前置失败后未启动 Flutter。其候选 `c80ec88` 至最终候选仅有日志视图和测试变更。[任务实现](../../../../FlutterRunlet/ProjectConfiguration.swift#L233) · [恢复矩阵](../05-stability-recovery-release/05-RECOVERY.md) |
-| 3–6、11–14、16 · SAFE-01–04，A13–A16 | 最终候选的 A13 先确认受管组退出，再执行原后置任务，约 123 ms 后观察到退出 0，最终恢复 test、风险清零。三处强退复验和同实现的后置失败、切换与第二实例证据补足异常路径。现有 `SessionLifecycleTests`、`ProjectRecoveryTests`、`ProjectConcurrencyTests` 断言 fsync 失败零派发、原后置快照、重试等价性、目录及环境身份、同组后代持锁和持久凭据失败等边界。两窗口共用控制器，日志外恢复入口在最终候选复验。[执行与恢复](../../../../FlutterRunlet/SessionController.swift#L985) · [持久记录](../../../../FlutterRunlet/ProjectRecoveryStore.swift#L103) · [受管组退出](../../../../FlutterRunletSessionWorker/main.swift#L44) · [恢复矩阵](../05-stability-recovery-release/05-RECOVERY.md) |
-| 7、15 · Debug 夹具与 Release 隔离 | 最终 Debug 两处强退用固定项目根、专用命名空间和独立样例，重启后实际找到记录并完成原任务。`testFixtureAssemblyRequiresExactFlagAndRejectsOutsideProjectAlias`、`testFixtureRootRunsPublicSampleAndRejectsModifiedScriptAndLinkedState` 覆盖根外及符号链接。普通 Release 的历史参数隔离沿用 P4 原生记录。`988ac81` 至最终候选的 `LaunchPresentation` 未变，`SessionController` 的 `#if DEBUG` 入口和 Xcode 编译条件保持一致。最终签名 Release 的独立存储、普通启动和真实调试恢复已有 G3 取证。[P4 参数隔离](../04-macos/04-P4-ACCEPTANCE.md#release-历史参数隔离) · [编译分支](../../../../FlutterRunlet/SessionController.swift#L290) · [签名及解包复验](../05-stability-recovery-release/05-ENVIRONMENT.md#归档) |
+| 1、8–10 · CONF-01–05，A07–A11 | `ProjectConfigurationTests` 核对四个原名、JSONC 精确位置、旧 define、PATH、参数字节及任务目录。`ProjectSelectionTests` 断言无效、删除和重名配置、有效定义变化需两次 Run、注释变化和最近项目零执行。`ProjectConfiguration` 只读两份 JSONC，`SessionController` 在持锁时重读并比较。A29 绑定同候选复验授权隔离项目，确认原工程摘要和 Git 状态一致。[配置读取](../../../../FlutterRunlet/ProjectConfiguration.swift#L145) · [运行前复验](../../../../FlutterRunlet/SessionController.swift#L806) · [真实工程对照](../05-stability-recovery-release/05-VERIFICATION.md) |
+| 2 · TASK-01、TASK-02，A12、A32 | `testRealTaskArgumentsDirectoryEnvironmentAndExitStatus` 以真实命令核对 argv、cwd、环境及退出码。`testZeroAndNullArgumentsAndUnsupportedTasksHaveDistinctResults` 和 `testNoAdapterAndNonDebugLeaveConfigurationAndProjectUntouched` 覆盖不适用输入的阻断。故障矩阵包含前置失败后未启动 Flutter。其候选 `c80ec88` 至最终候选仅有日志视图和测试变更。[任务实现](../../../../FlutterRunlet/ProjectConfiguration.swift#L233) · [恢复矩阵](../05-stability-recovery-release/05-VERIFICATION.md) |
+| 3–6、11–14、16 · SAFE-01–04，A13–A16 | 最终候选的 A13 先确认受管组退出，再执行原后置任务，约 123 ms 后观察到退出 0，最终恢复 test、风险清零。三处强退复验和同实现的后置失败、切换与第二实例证据补足异常路径。现有 `SessionLifecycleTests`、`ProjectRecoveryTests`、`ProjectConcurrencyTests` 断言 fsync 失败零派发、原后置快照、重试等价性、目录及环境身份、同组后代持锁和持久凭据失败等边界。两窗口共用控制器，日志外恢复入口在最终候选复验。[执行与恢复](../../../../FlutterRunlet/SessionController.swift#L985) · [持久记录](../../../../FlutterRunlet/ProjectRecoveryStore.swift#L103) · [受管组退出](../../../../FlutterRunletSessionWorker/main.swift#L44) · [恢复矩阵](../05-stability-recovery-release/05-VERIFICATION.md) |
+| 7、15 · Debug 夹具与 Release 隔离 | 最终 Debug 两处强退用固定项目根、专用命名空间和独立样例，重启后实际找到记录并完成原任务。`testFixtureAssemblyRequiresExactFlagAndRejectsOutsideProjectAlias`、`testFixtureRootRunsPublicSampleAndRejectsModifiedScriptAndLinkedState` 覆盖根外及符号链接。普通 Release 的历史参数隔离沿用 P4 原生记录。`988ac81` 至最终候选的 `LaunchPresentation` 未变，`SessionController` 的 `#if DEBUG` 入口和 Xcode 编译条件保持一致。最终签名 Release 的独立存储、普通启动和真实调试恢复已有 G3 取证。[P4 参数隔离](../04-macos/04-P4-ACCEPTANCE.md#受测构建) · [编译分支](../../../../FlutterRunlet/SessionController.swift#L290) · [签名及解包复验](../05-stability-recovery-release/05-VERIFICATION.md) |
 
 G3 的本地交付证据覆盖当期改动涉及的执行行为，原参数隔离和界面证据按上述代码边界沿用。复核无需重复设备或原生界面操作。

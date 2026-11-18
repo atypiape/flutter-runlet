@@ -1,6 +1,6 @@
 # Phase 1 · G1 原生界面验收记录
 
-2026-11-12 在 macOS 26.7.1（25G241，arm64）上验证提交 `0f5a5aee3b94abb04381e1b11bd75cbd587413e5` 的 App。Xcode 为 27.1（27A9275），构建 SDK 为 macOS 27.0。本文记录执行者实测结果，G1 用户确认由阶段末验收记录。 [验收矩阵](../../../../docs/04-ACCEPTANCE.md) · [G1 界面契约](01-UI-SPEC.md)
+2026-11-12 在 macOS 26.7.1（25G241，arm64）上验证提交 `0f5a5aee3b94abb04381e1b11bd75cbd587413e5` 的 App。Xcode 为 27.1（27A9275），构建 SDK 为 macOS 27.0。本文记录执行者实测结果，G1 用户确认由阶段末验收记录。 [验收矩阵](../../../../docs/04-ACCEPTANCE.md) · [G1 界面契约](01-VERIFICATION.md)
 
 ## BASE-01 · 上游来源与许可
 
@@ -18,14 +18,14 @@
 | `open -n .build/phase-01/Build/Products/Debug/FlutterRunlet.app --args --g1-ready` | Ready。项目为 `sample-flutter-app`，配置为 `sample-flutter-app(dev)`，设备为 `iPhone 17 Pro (iOS Simulator)`。 |
 | `open -n .build/phase-01/Build/Products/Release/FlutterRunlet.app --args --g1-ready` | Empty。Release 下该参数没有触发演示状态。 |
 
-Ready 主窗无侧栏。原生 AX 窗口外框为 **640 × 580 pt**，工具栏高 52 pt，其下内容区为 640 × 528 pt。正文左右各留 20 pt，可用宽度 600 pt。四个调试按钮同排，标签完整。AX 实测按钮高 24 pt，G0 画板参考为 26 pt，实际高度由原生控件确定。 [G1 视觉约定](01-UI-SPEC.md#spacing-scale)
+Ready 主窗无侧栏。原生 AX 窗口外框为 **640 × 580 pt**，工具栏高 52 pt，其下内容区为 640 × 528 pt。正文左右各留 20 pt，可用宽度 600 pt。四个调试按钮同排，标签完整。AX 实测按钮高 24 pt，G0 画板参考为 26 pt，实际高度由原生控件确定。 [G1 视觉约定](01-VERIFICATION.md)
 
 Ready 的「运行」可用，停止、热重载、热重启、DevTools 和 Inspector 禁用。日志默认展开且为空。点击运行弹出原生「演示模式」，显示「当前为运行演示。」和「关闭提示」。回车关闭提示后，焦点回到主窗并保持 Ready。运行入口仅调用本地 `NSAlert`。 [App 场景](../../../../FlutterRunlet/FlutterRunletApp.swift)
 
 | 外观 | 截图像素 | 原生窗口证据 |
 | --- | --- | --- |
-| 浅色 | 640 × 580 px | [Ready 主窗浅色](g1/ready-main-light.png) |
-| 深色 | 640 × 580 px | [Ready 主窗深色](g1/ready-main-dark.png) |
+| 浅色 | 640 × 580 px | Ready 主窗浅色 |
+| 深色 | 640 × 580 px | Ready 主窗深色 |
 
 深色使用本机系统外观。浅色取证启动时在 `--g1-ready` 后附加 `-NSRequiresAquaSystemAppearance YES`，该参数仅用于本次 App 启动。窗口逻辑点来自 AX 与 WindowServer，截图像素由 `sips` 读取。原始操作与几何记录位于 `.build/phase-01/g1-final-ui.txt`。
 
@@ -35,28 +35,28 @@ Ready 的「运行」可用，停止、热重载、热重启、DevTools 和 Insp
 
 普通 Debug 和带 `--g1-ready` 的 Release 面板均显示 Empty。项目未选择，配置与设备为「—」，无调试会话，四个调试动作与两个浏览器动作均禁用，与对应主窗状态一致。
 
-关闭 Ready 主窗后，PID 31979 仍存活，状态图标继续可用。第一次点击「打开主窗口」建立窗口 6651，第二次聚焦同一窗口，主窗数量为一，固定示例仍为 Ready。 [01-01 主窗重开实测](01-01-SUMMARY.md#verification)
+关闭 Ready 主窗后，PID 31979 仍存活，状态图标继续可用。第一次点击「打开主窗口」建立窗口 6651，第二次聚焦同一窗口，主窗数量为一，固定示例仍为 Ready。 [01-01 主窗重开实测](01-VERIFICATION.md)
 
 | 外观 | 截图像素 | 原生面板证据 |
 | --- | --- | --- |
-| 浅色 | 404 × 278 px | [Ready 面板浅色](g1/ready-menu-light.png) |
-| 深色 | 404 × 278 px | [Ready 面板深色](g1/ready-menu-dark.png) |
+| 浅色 | 404 × 278 px | Ready 面板浅色 |
+| 深色 | 404 × 278 px | Ready 面板深色 |
 
 ## 设置与关于
 
-**执行者实测通过。** 从主窗打开原生设置，首屏选中「通用」，侧栏仅有「通用」「Flutter」。点击 Flutter 再返回通用，两次选中项与右侧标题一致。从菜单栏再次打开设置，聚焦同一窗口 6655。原生外框为 **672 × 520 pt**，分隔线距左边 150 pt，G0 的侧栏参考为 142 pt。标题显示系统生成的 `FlutterRunlet Settings`，保留原生侧栏工具按钮。 [设置「通用」截图，672 × 520 px](g1/settings-general.png)
+**执行者实测通过。** 从主窗打开原生设置，首屏选中「通用」，侧栏仅有「通用」「Flutter」。点击 Flutter 再返回通用，两次选中项与右侧标题一致。从菜单栏再次打开设置，聚焦同一窗口 6655。原生外框为 **672 × 520 pt**，分隔线距左边 150 pt，G0 的侧栏参考为 142 pt。标题显示系统生成的 `FlutterRunlet Settings`，保留原生侧栏工具按钮。 设置「通用」截图，672 × 520 px
 
-主窗标题栏打开独立 `about` 窗口 6673，外框 **440 × 480 pt**，主窗与设置仍可见。关于窗显示项目青蓝矢量标志、FlutterRunlet、版本 `0.1.0`、构建号 `1`。两个构建的 `CFBundleShortVersionString` 与 `CFBundleVersion` 均与显示值一致。项目链接交由 Phase 4 的 A26 验收。 [独立关于截图，440 × 480 px](g1/about.png) · [A26](../../../../docs/04-ACCEPTANCE.md)
+主窗标题栏打开独立 `about` 窗口 6673，外框 **440 × 480 pt**，主窗与设置仍可见。关于窗显示项目青蓝矢量标志、FlutterRunlet、版本 `0.1.0`、构建号 `1`。两个构建的 `CFBundleShortVersionString` 与 `CFBundleVersion` 均与显示值一致。项目链接交由 Phase 4 的 A26 验收。 独立关于截图，440 × 480 px · [A26](../../../../docs/04-ACCEPTANCE.md)
 
 ## 键盘焦点与 G1 用户验收
 
-两处原生提示均可用回车关闭。重开及重复打开后，AX 焦点回到唯一主窗。主窗连续两次按 Tab 时，AX 焦点留在窗口，已观察到禁用按钮的 AX 语义。完整 Tab 焦点顺序与禁用按钮的键盘触发验证，以及点击面板外关闭，留待 G1 用户验收。 [G1 验收步骤](01-UI-SPEC.md#g1-验收)
+两处原生提示均可用回车关闭。重开及重复打开后，AX 焦点回到唯一主窗。主窗连续两次按 Tab 时，AX 焦点留在窗口，已观察到禁用按钮的 AX 语义。完整 Tab 焦点顺序与禁用按钮的键盘触发验证，以及点击面板外关闭，留待 G1 用户验收。 [G1 验收步骤](01-VERIFICATION.md)
 
 ## 长字段复验
 
 **执行者实测通过。** 在 Xcode 27.1 的 `FlutterRunlet` 共享 scheme 和 Debug 配置中，打开主窗与面板源文件的 Live Canvas。分别运行「G1 主窗长字段」（640 pt 外宽，600 pt 正文）和「G1 菜单栏长字段」（404 × 278 pt）。在每份预览中查看项目、配置、设备三个值，并把指针依次悬停在每个值上。部分预览切换后，在目标值上停留并刷新 Live Canvas 可重新登记提示区域。 [主窗预览](../../../../FlutterRunlet/MainWindowView.swift) · [面板预览](../../../../FlutterRunlet/MenuBarPanelView.swift)
 
-两份预览的三个选择字段均单行尾部省略。六个原生 Help Tag 显示各自全文，可见 `PROJECT-END`、`CONFIG-END`、`DEVICE-END`。主窗会话详情中的配置与设备各换成两行，尾段、空日志与底部状态仍可见。执行记录位于 `.build/phase-01/g1-long-fields.txt`。 [01-02 长字段实测](01-02-SUMMARY.md#verification)
+两份预览的三个选择字段均单行尾部省略。六个原生 Help Tag 显示各自全文，可见 `PROJECT-END`、`CONFIG-END`、`DEVICE-END`。主窗会话详情中的配置与设备各换成两行，尾段、空日志与底部状态仍可见。执行记录位于 `.build/phase-01/g1-long-fields.txt`。 [01-02 长字段实测](01-VERIFICATION.md)
 
 ## A31 · macOS 15 部署目标与 API
 
@@ -93,8 +93,8 @@ XCTest 覆盖普通参数、完整 Debug 专用参数和相似参数。通过 `x
 
 ## D-09 · macOS 15 实机
 
-**未执行。** 当前没有可用的 macOS 15 环境。D-09 的例外限于 Phase 5 的该系统实机复验，适用于 A31、REL-03 和路线中的实机部分。A31 的 15.0 目标构建与 API 核查已在本轮完成，四个界面的运行证据来自 macOS 26.7.1。 [D-08、D-09](01-CONTEXT.md#macos-兼容性证据)
+**未执行。** 当前没有可用的 macOS 15 环境。D-09 的例外限于 Phase 5 的该系统实机复验，适用于 A31、REL-03 和路线中的实机部分。A31 的 15.0 目标构建与 API 核查已在本轮完成，四个界面的运行证据来自 macOS 26.7.1。 [D-08、D-09](01-VERIFICATION.md)
 
 ## 代码审查后的复验
 
-提交 `281cafa` 使用当前 SDK 的 Cocoa 框架引用，并给「打开项目」添加显式悬停说明。重新运行同样的 Debug XCTest 与 Release 构建，3 项测试全部通过。两个配置的有效部署目标以及实际 Mach-O 切片仍为 macOS 15.0。修复后的 Debug Ready 原生主窗仍为 640 × 580 pt，已按深色图复核结构与示例内容。实际 Release 携带 `--g1-ready` 仍为 Empty。六张正式截图保留首次原生取证的构建基线。复验命令结果位于 `.build/phase-01/g1-review-recheck.txt`。 [代码审查处置](01-REVIEW-DISPOSITION.md)
+提交 `281cafa` 使用当前 SDK 的 Cocoa 框架引用，并给「打开项目」添加显式悬停说明。重新运行同样的 Debug XCTest 与 Release 构建，3 项测试全部通过。两个配置的有效部署目标以及实际 Mach-O 切片仍为 macOS 15.0。修复后的 Debug Ready 原生主窗仍为 640 × 580 pt，已按深色图复核结构与示例内容。实际 Release 携带 `--g1-ready` 仍为 Empty。六张正式截图保留首次原生取证的构建基线。复验命令结果位于 `.build/phase-01/g1-review-recheck.txt`。 [代码审查处置](01-VERIFICATION.md)

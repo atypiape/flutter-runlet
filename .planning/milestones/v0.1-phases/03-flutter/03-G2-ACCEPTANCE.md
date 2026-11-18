@@ -74,7 +74,7 @@ Android 隔离副本采用 Gradle 8.14.3、AGP 8.13.2、Kotlin 2.3.20 并显式�
 
 截取候选 App 自身窗口，确认主窗 640 × 580 pt、菜单栏面板宽 404 pt，四个调试按钮同排。原生深色就绪、运行和恢复失败取证为 `native-main-ready.png`、`native-menu-ready.png`、`native-main-running.png` 和 `native-main-recovery-folded.png`。恢复失败时折叠日志，原因和「重试恢复」仍可见。Flutter 设置直达和锁定见 A24 取证。
 
-浅色仅做界面补验。隔离复制候选 App，在副本 Info.plist 增设 `NSRequiresAquaSystemAppearance` 并重新签名，用长名称及显式设备冲突的派生样例打开窗口。候选源码及本机外观偏好保持原样。原生省略长文本，Accessibility 仍提供完整项目及配置名称。设备冲突原因和底部窗口操作可读。浅色取证为 `native-main-light-long-conflict.png`、`native-menu-light-long-conflict.png`、`long-conflict.ax`、`long-menu.ax`。完整双语与视觉验收沿用 Phase 04 范围。[Phase 03 UI 契约](03-UI-SPEC.md#G2-验收)
+浅色仅做界面补验。隔离复制候选 App，在副本 Info.plist 增设 `NSRequiresAquaSystemAppearance` 并重新签名，用长名称及显式设备冲突的派生样例打开窗口。候选源码及本机外观偏好保持原样。原生省略长文本，Accessibility 仍提供完整项目及配置名称。设备冲突原因和底部窗口操作可读。浅色取证为 `native-main-light-long-conflict.png`、`native-menu-light-long-conflict.png`、`long-conflict.ax`、`long-menu.ax`。完整双语与视觉验收沿用 Phase 04 范围。[Phase 03 UI 契约](03-VERIFICATION.md)
 
 ## 审查修正复验
 

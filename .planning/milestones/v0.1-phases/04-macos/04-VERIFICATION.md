@@ -94,10 +94,10 @@ decision_coverage:
 
 | 核对范围 | 最终候选及可沿用证据 |
 | --- | --- |
-| 原验证 1、4、5、6、7 · A03、A05、A21 · UI-01 | G3 复验主窗和面板的 Running、等待、停止、恢复错误、日志外恢复和同会话控制。对照 `184ffc5..36916dd`，主窗视图仅调整日志呈现，场景路由、菜单栏、长名控件和快捷键实现保持原样。Phase 04 的双外观、锁定长名、Tab／Shift-Tab、四功能键及前后台对照可沿用。G3 对受影响的日志、控件和深色布局复验通过。[G3 矩阵](../05-stability-recovery-release/05-G3-ACCEPTANCE.md) · [G3 原生审查](../05-stability-recovery-release/05-UI-REVIEW.md) · [P4 原生基线](04-P4-ACCEPTANCE.md#原生复验与差异) |
-| 原验证 1、8 · A05、A23 · UI-02 | G3 复验主窗、面板、控件名及日志的中英文。场景 locale 注入、偏好持久化和本地化资源自登录候选未变，沿用 Phase 04 的即时切换、重启、跟随系统、原始参数保真和系统原生按钮差异。最终 Debug 全量与定向启动回归通过。[G3 矩阵](../05-stability-recovery-release/05-G3-ACCEPTANCE.md) · [最终自动验证](../05-stability-recovery-release/05-VERIFICATION.md#行为与探针复核) · [P4 验收](04-P4-ACCEPTANCE.md#验收矩阵) |
-| 原验证 2、9、10、12 · A04、A24、A25 · UI-03、UI-04 | `184ffc5` 的登录项登记、真实重新登录、主窗偏好和撤销由系统日志及用户确认。App、设置视图、SDK 与 Doctor 实现在该提交至最终候选无变。G3 复验启动偏好与待恢复优先，最终工具链 XCTest 复核 FVM 解析、无效 SDK、诊断与收尾路径。沿用 Phase 04 对真实 FVM 版本、阻断、Doctor 三项摘要、双流输出、取消及重试的原生实测。[登录项用户验收](04-UAT.md) · [P4 验收](04-P4-ACCEPTANCE.md#验收矩阵) · [G3 恢复矩阵](../05-stability-recovery-release/05-RECOVERY.md) |
-| 原验证 3、11 · A06、A26 · UI-05、UI-06 | G3 复验独立关于页 0.1.0（1）、上游归属、版权和三个浏览器目标，并核对最终 Release 包资源。Dock 源图、两倍率状态模板、资源编译设置和两语言资源自 Phase 04 保持一致，双外观辨识沿用其已验收结果。冻结候选的同源 Debug 77/77、Release 构建与签名均通过。[G3 原生审查](../05-stability-recovery-release/05-UI-REVIEW.md) · [最终构建证据](../05-stability-recovery-release/05-01-SUMMARY.md#替换候选) · [P4 图标与关于验收](04-P4-ACCEPTANCE.md#验收矩阵) |
+| 原验证 1、4、5、6、7 · A03、A05、A21 · UI-01 | G3 复验主窗和面板的 Running、等待、停止、恢复错误、日志外恢复和同会话控制。对照 `184ffc5..36916dd`，主窗视图仅调整日志呈现，场景路由、菜单栏、长名控件和快捷键实现保持原样。Phase 04 的双外观、锁定长名、Tab／Shift-Tab、四功能键及前后台对照可沿用。G3 对受影响的日志、控件和深色布局复验通过。[G3 矩阵](../05-stability-recovery-release/05-G3-ACCEPTANCE.md) · [G3 原生审查](../05-stability-recovery-release/05-VERIFICATION.md) · [P4 原生基线](04-P4-ACCEPTANCE.md#原生复验与差异) |
+| 原验证 1、8 · A05、A23 · UI-02 | G3 复验主窗、面板、控件名及日志的中英文。场景 locale 注入、偏好持久化和本地化资源自登录候选未变，沿用 Phase 04 的即时切换、重启、跟随系统、原始参数保真和系统原生按钮差异。最终 Debug 全量与定向启动回归通过。[G3 矩阵](../05-stability-recovery-release/05-G3-ACCEPTANCE.md) · [最终自动验证](../05-stability-recovery-release/05-VERIFICATION.md) · [P4 验收](04-P4-ACCEPTANCE.md#验收矩阵) |
+| 原验证 2、9、10、12 · A04、A24、A25 · UI-03、UI-04 | `184ffc5` 的登录项登记、真实重新登录、主窗偏好和撤销由系统日志及用户确认。App、设置视图、SDK 与 Doctor 实现在该提交至最终候选无变。G3 复验启动偏好与待恢复优先，最终工具链 XCTest 复核 FVM 解析、无效 SDK、诊断与收尾路径。沿用 Phase 04 对真实 FVM 版本、阻断、Doctor 三项摘要、双流输出、取消及重试的原生实测。登录项用户验收 · [P4 验收](04-P4-ACCEPTANCE.md#验收矩阵) · [G3 恢复矩阵](../05-stability-recovery-release/05-VERIFICATION.md) |
+| 原验证 3、11 · A06、A26 · UI-05、UI-06 | G3 复验独立关于页 0.1.0（1）、上游归属、版权和三个浏览器目标，并核对最终 Release 包资源。Dock 源图、两倍率状态模板、资源编译设置和两语言资源自 Phase 04 保持一致，双外观辨识沿用其已验收结果。冻结候选的同源 Debug 77/77、Release 构建与签名均通过。[G3 原生审查](../05-stability-recovery-release/05-VERIFICATION.md) · [最终构建证据](../05-stability-recovery-release/05-VERIFICATION.md) · [P4 图标与关于验收](04-P4-ACCEPTANCE.md#验收矩阵) |
 
 复核结论为通过。已核对 Phase 04 安全记录无开放威胁、任务验证已签核。匿名访问沿用 A26 已确认的发布验收边界。
 
@@ -126,7 +126,7 @@ decision_coverage:
 | 双语资源与四个场景 | 通用绑定写入语言偏好。主窗、菜单栏、设置和关于使用同一 locale，AppKit 走同一翻译资源。编译产物含两个语言目录，已形成的会话错误按当前 locale 渲染。 [场景注入](../../../../FlutterRunlet/FlutterRunletApp.swift) · [资源](../../../../FlutterRunlet/Localizable.xcstrings) |
 | 通用和 Flutter 设置 | 默认启动窗口及恢复优先来自已加载恢复记录。登录项 UI 接系统状态。诊断按钮经控制器把当前 SDK 与项目、请求 ID 绑定给 `FlutterToolchain.doctor`。摘要和完整输出来自实际两路输出。 [设置](../../../../FlutterRunlet/AuxiliaryWindows.swift) · [诊断归属](../../../../FlutterRunlet/SessionController.swift#L632) |
 | 关于与图标 | 关于从运行 Bundle 取真实版本和构建号，使用三个固定链接。Xcode 应用目标的 Debug 和 Release 设置都选择 AppIcon，图标槽指向已验收源图。菜单栏原有模板带两种密度。 [关于实现](../../../../FlutterRunlet/AuxiliaryWindows.swift#L267) · [构建设置](../../../../FlutterRunlet.xcodeproj/project.pbxproj) · [图标槽](../../../../FlutterRunlet/Assets.xcassets/AppIcon.appiconset/Contents.json) |
-| 验收与覆盖记录 | 阶段记录以九个验收编号关联构建、原生观察、回归及系统登录项用户验收。 [矩阵](../../../../docs/04-ACCEPTANCE.md) · [阶段验收](04-P4-ACCEPTANCE.md) · [覆盖审计](04-VALIDATION.md) |
+| 验收与覆盖记录 | 阶段记录以九个验收编号关联构建、原生观察、回归及系统登录项用户验收。 [矩阵](../../../../docs/04-ACCEPTANCE.md) · [阶段验收](04-P4-ACCEPTANCE.md) · 覆盖审计 |
 
 ## 验收矩阵与需求覆盖
 
@@ -142,14 +142,14 @@ decision_coverage:
 | A25 | UI-04 | 通过。三类摘要、双流原文、取消、重试和退出清理。 |
 | A26 | UI-05 | 通过。真实版本、归属、版权及三条确认链接的浏览器委派。匿名可访问性由 D-07 明确留待发布验收。 |
 
-UI-01 至 UI-06 均已覆盖。GSD 决策覆盖检查返回 7/7，验证阶段未将该结果作为实际登录的运行证据。 [需求](../../v0.1-REQUIREMENTS.md#界面与设置) · [候选矩阵证据](04-P4-ACCEPTANCE.md#验收矩阵) · [阶段决定](04-CONTEXT.md)
+UI-01 至 UI-06 均已覆盖。GSD 决策覆盖检查返回 7/7，验证阶段未将该结果作为实际登录的运行证据。 [需求](../../v0.1-REQUIREMENTS.md#界面与设置) · [候选矩阵证据](04-P4-ACCEPTANCE.md#验收矩阵) · 阶段决定
 
 ## 回归与证据边界
 
 - 独立读取最终候选 `97a6713` 的 `debug.xcresult`，确认九个测试类共 75 项通过、0 失败、0 跳过。Release 构建日志成功，两个包的图标、编译语言资源、主程序与 worker 哈希与验收清单一致。新候选的菜单栏设置保持零主窗、显式重开保持唯一、诊断双流显示及菜单栏 Quit 清理均有可复查原生证据。 [受测构建](04-P4-ACCEPTANCE.md#受测构建) · [审查后原生复验](04-P4-ACCEPTANCE.md#审查修正复验)
-- 审查前候选 `988ac81` 的完整原生证据包含 16 张四窗口截图、真实 iOS 模拟器、语言与 FVM 操作、恢复、快捷键、图标和 Release 夹具隔离。两候选的生产差异集中在退出诊断、菜单栏设置激活和诊断详情字体。确认相应路径已在最终候选复验，其余原生结论引用基线。 [原生复验与差异](04-P4-ACCEPTANCE.md#原生复验与差异) · [UI 审查](04-UI-REVIEW.md)
-- 代码复审关闭两项历史问题。安全审计 14 项关闭、0 项未关闭。A04 经用户实测关闭覆盖缺口。生产连接抽查未发现阻断性缺失。 [代码审查](04-REVIEW.md) · [安全复核](04-SECURITY.md) · [覆盖审计](04-VALIDATION.md)
+- 审查前候选 `988ac81` 的完整原生证据包含 16 张四窗口截图、真实 iOS 模拟器、语言与 FVM 操作、恢复、快捷键、图标和 Release 夹具隔离。两候选的生产差异集中在退出诊断、菜单栏设置激活和诊断详情字体。确认相应路径已在最终候选复验，其余原生结论引用基线。 [原生复验与差异](04-P4-ACCEPTANCE.md#原生复验与差异) · UI 审查
+- 代码复审关闭两项历史问题。安全审计 14 项关闭、0 项未关闭。A04 经用户实测关闭覆盖缺口。生产连接抽查未发现阻断性缺失。 代码审查 · 安全复核 · 覆盖审计
 
 ## 用户验收
 
-用户确认新版登录后主窗行为符合偏好，并确认撤销登录项后重新登录，菜单栏图标未自动出现。只读复核未发现应用进程或系统登录项记录。 [A04 用户验收](04-UAT.md)
+用户确认新版登录后主窗行为符合偏好，并确认撤销登录项后重新登录，菜单栏图标未自动出现。只读复核未发现应用进程或系统登录项记录。 A04 用户验收

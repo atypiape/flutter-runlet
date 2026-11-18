@@ -26,4 +26,4 @@
 
 上游根许可证为 MIT，版权为 `Copyright (c) 2026 huseyiniriss`。后续导入上游代码或资源前，先登记原路径及提交，并随实际纳入的文件及分发包保留完整上游许可证和版权声明。上游 App／DMG 脚本只复制可执行文件、图标和 App 包，无法作为许可随包分发的证据。 [上游许可证](https://github.com/huseyiniriss/flutter-gui-runner/blob/1c8468f54f1c7785aca31cfea0a5207feca30c06/LICENSE) · [技术契约](../../../../docs/02-TECHNICAL.md#1-架构原则)
 
-G1 实际导入清单为「无源码或资源导入」。原生骨架由 FlutterRunlet 自行实现，菜单栏位图使用本仓库已验收的同源模板。上游图标、脚本、构建工作流与依赖均未纳入 App。 [菜单栏资产](../../../../docs/design/assets/) · [G1 界面契约](01-UI-SPEC.md)
+G1 实际导入清单为「无源码或资源导入」。原生骨架由 FlutterRunlet 自行实现，菜单栏位图使用本仓库已验收的同源模板。上游图标、脚本、构建工作流与依赖均未纳入 App。 [菜单栏资产](../../../../docs/design/assets/) · [G1 界面契约](01-VERIFICATION.md)
