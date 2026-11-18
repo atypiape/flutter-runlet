@@ -6,6 +6,10 @@
 
 主应用源码在 [FlutterRunlet](../FlutterRunlet/)，同一 scheme 会构建 [会话 worker](../FlutterRunletSessionWorker/) 和 [更新助手](../FlutterRunletUpdateHelper/)。构建应用本身无需 Flutter SDK；验证真实调试还需可用的 Flutter SDK、测试项目及模拟器或真机。
 
+在仓库根目录运行 `./scripts/build-debug.sh`，构建本机架构的 Debug 版。传入工作树目录即可构建该处检出的代码，例如 `./scripts/build-debug.sh ../flutter-runlet-fix`。
+
+脚本将产物写到目标工作树的 `.build/debug/Build/Products/Debug/FlutterRunlet.app`，并将绝对路径输出到标准输出。加 `--open` 可在构建成功后打开应用。重测前先退出正在运行的 FlutterRunlet。
+
 ## 测试与本地取证
 
 在仓库根目录运行 XCTest（同时构建 Debug 应用）：
@@ -24,9 +28,11 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 ## 手动处理 Issue
 
-1. 推荐用 [Codex 开发任务表单](../.github/ISSUE_TEMPLATE/codex-task.yml) 说明目标、改动范围和验证方法。维护者核对任务后添加 `task:ready`，普通 Issue 同样可以进入领取评估。领取前核验批准和依赖，确认任务属于自动开发范围、有可行的验证方法，且队列没有正在开发或审查的任务，再将 Issue 切换为 `task:working`。
+「任务或问题」表单只要求填写标题和「问题与预期」。「补充信息」可填写复现步骤、截图、验证方法或改动边界。有前置任务时，可用 GitHub 的阻塞关系标记。[任务或问题表单](../.github/ISSUE_TEMPLATE/codex-task.yml)
+
+1. 普通 Issue 和表单提交的 Issue 都由维护者添加 `task:ready` 批准领取。贴标后若修改标题或正文，请移除后重新添加该标签。队列空闲时，Agent 复核批准、规格和标签，将候选 Issue 切换为 `task:working`。
 2. 从最新 `origin/dev` 创建独立 worktree。用包含 Issue 编号的合规分支名，例如 `docs/issue-123-pr-resume`。重跑时先用 `git worktree list` 找到原目录，继续使用原分支。
-3. 在该 worktree 完成改动和本地验证。按[Git 工作流](GIT-WORKFLOW.md)检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。
+3. 领取后核对前置依赖，在该 worktree 排查问题、实现改动并做可用的验证。缺少复现信息或设备时，先完成可独立推进的工作，再记录实际阻塞和需要协助的事项。按 Git 工作流检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。[Git 工作流](GIT-WORKFLOW.md)
 
 创建 PR 前按来源仓库和分支查找历史 PR。将下例的分支名换成任务分支。查询包含已关闭的 PR，也能发现被改投其他分支的 PR。
 
@@ -74,7 +80,7 @@ python3 -B scripts/merge-issue-pr.py --record-review "$REVIEW_FILE" \
   --issue "$ISSUE_NUMBER" --pr "$PR_NUMBER" --author "$PR_AUTHOR_ID" \
   --approval-event "$APPROVAL_EVENT_ID" --spec "$SPEC_SHA256" \
   --head "$PR_HEAD" --base "$DEV_SHA" --test-merge "$TEST_MERGE_SHA" \
-  --summary 'O1：通过，附验收证据'
+  --summary '已核对预期结果，附验证证据'
 ```
 
 批准事件和规格摘要来自领取结果。提交 SHA 来自本轮审查的 GitHub 快照。定时任务从记录运行 `python3 -B scripts/merge-issue-pr.py --review-file "$REVIEW_FILE" --require-strict`。合并时沿用同一记录并加 `--apply`。脚本会重新核对批准、规格、提交和必需 CI。规格、批准或提交变化后重新复审并保存记录。

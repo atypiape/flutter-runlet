@@ -18,7 +18,6 @@ READY = "task:ready"
 ACTIVE = ("task:working", "task:review")
 BLOCKED = "task:blocked"
 TASK_LABELS = {READY, *ACTIVE, BLOCKED}
-TASK_TYPES = {"文档", "XCTest 回归测试", "Swift 纯逻辑修复"}
 HOOK_DIR = ".githooks"
 PUSH_HOOK = f"{HOOK_DIR}/pre-push"
 RETRYABLE_HTTP = {408, 500, 502, 503, 504}
@@ -169,16 +168,12 @@ def timestamp(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def check_declared_fields(body):
+def declared_dependencies(body):
     sections = re.split(r"(?m)^#{1,6}[ \t]+([^\n]+)\n", (body or "").replace("\r\n", "\n"))
     dependencies = []
     for heading, value in zip(sections[1::2], sections[2::2]):
         heading, value = heading.strip(), value.strip()
-        if value in {"", "_No response_"}:
-            continue
-        if heading == "任务类型" and value not in TASK_TYPES:
-            raise Ineligible("任务类型需要人工处理。")
-        if heading != "前置 Issue" or value == "无":
+        if heading != "前置 Issue" or value in {"", "_No response_", "无"}:
             continue
         for reference in filter(None, map(str.strip, re.split(r"[,，\n]", value))):
             match = re.fullmatch(r"(?:[-*]\s+|\d+\.\s+)?#([1-9][0-9]*)", reference)
@@ -229,6 +224,8 @@ def completed(issue):
 
 
 def check_dependencies(number, dependencies):
+    if number in dependencies:
+        raise Ineligible("Issue 不能依赖自身。")
     for dependency in dependencies:
         try:
             prereq = get(f"issues/{dependency}")
@@ -243,6 +240,17 @@ def check_dependencies(number, dependencies):
         raise Ineligible("GitHub 标记的阻塞 Issue 尚未完成。")
 
 
+def development_dependencies(number):
+    issue = get(f"issues/{number}")
+    if "pull_request" in issue or issue["state"] != "open":
+        raise RuntimeError("前置依赖检查需要开放的任务 Issue。")
+    try:
+        check_dependencies(number, declared_dependencies(issue["body"]))
+    except Ineligible as error:
+        return {"number": number, "blocker": str(error)}
+    return {"number": number, "blocker": None}
+
+
 def check_issue(issue):
     number = issue["number"]
     try:
@@ -252,11 +260,7 @@ def check_issue(issue):
             raise Ineligible("Issue 已关闭。")
         if {label["name"] for label in issue["labels"]} & TASK_LABELS != {READY}:
             raise Ineligible("领取时四个任务标签中只能有 task:ready。")
-        dependencies = check_declared_fields(issue["body"])
-        if number in dependencies:
-            raise Ineligible("Issue 不能依赖自身。")
         approval = approval_for(issue)
-        check_dependencies(number, dependencies)
     except Ineligible as error:
         return {"number": number, "eligible": False, "reason": str(error)}
 
@@ -270,7 +274,7 @@ def check_issue(issue):
     }
 
 
-def check_queue(number=None, *, skip=()):
+def check_queue(number=None):
     active = sorted({item["number"] for label in ACTIVE for item in open_with_label(label)})
     result = {"candidate": None, "active": active, "checked": []}
     if active and number is None:
@@ -278,7 +282,7 @@ def check_queue(number=None, *, skip=()):
     numbers = [number] if number is not None else [
         item["number"] for item in sorted(
             open_with_label(READY), key=lambda item: (timestamp(item["created_at"]), item["number"]),
-        ) if item["number"] not in skip
+        )
     ]
     for issue_number in numbers:
         checked = check_issue(get(f"issues/{issue_number}"))
@@ -292,24 +296,25 @@ def check_queue(number=None, *, skip=()):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue", type=int, help="诊断指定 Issue 编号")
-    parser.add_argument("--skip", type=int, action="append", default=[],
-                        help="搜索队列时跳过本轮已评估的 Issue，可重复指定")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--preflight", action="store_true", help="核对仓库和 gh 身份后查询队列")
     mode.add_argument("--check-push-hook", action="store_true", help="只读检查当前 worktree 的推送 Hook")
+    mode.add_argument("--check-dependencies", action="store_true", help="领取后核对指定 Issue 的前置依赖")
     args = parser.parse_args()
     if args.issue is not None and args.issue < 1:
         parser.error("Issue 编号须为正整数。")
     if args.check_push_hook and args.issue is not None:
         parser.error("--check-push-hook 无需指定 Issue。")
-    if args.skip and (args.issue is not None or args.check_push_hook or min(args.skip) < 1):
-        parser.error("--skip 仅用于搜索队列，须传入正整数。")
+    if args.check_dependencies and args.issue is None:
+        parser.error("--check-dependencies 须指定 --issue。")
     try:
         if args.check_push_hook:
             result = check_push_hook()
+        elif args.check_dependencies:
+            result = development_dependencies(args.issue)
         else:
             context = check_github_context() if args.preflight else None
-            result = check_queue(args.issue, skip=set(args.skip))
+            result = check_queue(args.issue)
             if context:
                 result["preflight"] = context
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
