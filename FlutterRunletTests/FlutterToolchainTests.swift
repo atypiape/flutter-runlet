@@ -38,8 +38,8 @@ final class FlutterToolchainTests: XCTestCase {
             "Showing the last device scan.": "显示上次设备扫描结果。",
             "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
             "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
-            "Start Simulator": "启动模拟器", "Starting Simulator": "正在启动模拟器",
-            "Online": "在线", "Offline": "离线", "Unknown": "未知"
+            "Starting Simulator": "正在启动模拟器",
+            "online": "在线", "offline": "离线", "Unknown": "未知"
         ]
         for language in ["en", "zh-Hans"] {
             let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
@@ -508,6 +508,7 @@ final class FlutterToolchainTests: XCTestCase {
         let candidate = FlutterSimulator(id: UUID().uuidString, name: "iPhone 18 Pro")
         let other = FlutterSimulator(id: UUID().uuidString, name: "iPhone 17")
         let device = FlutterDevice(id: candidate.id, name: candidate.name, platform: "ios", isSimulator: true)
+        let phone = FlutterDevice(id: "physical-id", name: "iPhone", platform: "ios", isSimulator: false)
         let scanner = DeviceScanner()
         let bootDiscovery = PausedProbe()
         let store = try ProjectRecoveryStore(directory: fixture.storage)
@@ -516,9 +517,9 @@ final class FlutterToolchainTests: XCTestCase {
             discover: { _, _ in
                 if scanner.boots.last == candidate.id {
                     await bootDiscovery.wait()
-                    return [device]
+                    return [phone, device]
                 }
-                return []
+                return [phone]
             }, simulators: { _ in [candidate, other] }, bootSimulator: { id, _ in
                 scanner.boots.append(id)
                 if id == other.id { throw SessionIssue("模拟器启动失败") }
@@ -528,13 +529,16 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { session.simulators.count == 2 && !session.isRefreshingDevices }
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.availability, .offline)
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.kind, .iOSSimulator)
-        session.startSimulator(other.id)
+        session.selectDevice(other.id)
         try await eventually { session.simulatorIssue != nil }
         XCTAssertTrue(session.canStartSimulator)
-        session.startSimulator(candidate.id)
+        XCTAssertEqual(session.selectedDeviceID, phone.id)
+        session.selectDevice(candidate.id)
         try await eventually { bootDiscovery.continuation != nil }
         XCTAssertTrue(session.isStartingSimulator)
         XCTAssertFalse(session.canRun)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, candidate.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .starting)
         XCTAssertEqual(scanner.boots, [other.id, candidate.id])
         bootDiscovery.release()
         try await eventually { session.canRun }
@@ -593,24 +597,37 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { !session.isRefreshingDevices }
         XCTAssertEqual(session.androidEmulators.map(\.id), ["pixel_xl"])
         XCTAssertEqual(session.selectedDeviceID, neighbor.id)
-        session.startAndroidEmulator("unknown")
+        let offline = try XCTUnwrap(session.deviceChoices.first { $0.name == "Pixel XL" })
+        XCTAssertEqual(offline.availability, .offline)
+        XCTAssertEqual(offline.kind, .androidEmulator)
+        XCTAssertFalse(session.deviceChoices.contains { $0.name == "Other Pixel" })
+        session.selectDevice("unknown")
         XCTAssertTrue(scanner.boots.isEmpty)
-        session.startAndroidEmulator("pixel_xl")
+        session.selectDevice(offline.id)
         try await eventually { session.simulatorIssue != nil && !session.isStartingSimulator }
         XCTAssertEqual(session.selectedDeviceID, neighbor.id)
         XCTAssertTrue(session.canStartSimulator)
         scanner.fails = false
-        session.startAndroidEmulator("pixel_xl")
+        session.selectDevice(offline.id)
         try await eventually { bootDiscovery.continuation != nil }
         XCTAssertTrue(session.isStartingSimulator)
         XCTAssertFalse(session.canRun)
-        session.startAndroidEmulator("pixel_xl")
+        session.selectDevice(offline.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .starting)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, offline.id)
         XCTAssertEqual(scanner.boots, ["pixel_xl"])
         bootDiscovery.release()
         try await eventually { !session.isStartingSimulator }
         XCTAssertEqual(session.selectedDeviceID, target.id)
         XCTAssertTrue(session.androidEmulators.isEmpty)
         XCTAssertTrue(session.canRun)
+        scanner.boots.removeAll()
+        session.refreshDevices()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertFalse(session.deviceChoices.contains { $0.id == target.id })
+        XCTAssertEqual(session.selectedDeviceChoice?.id, offline.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertFalse(session.canRun)
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))

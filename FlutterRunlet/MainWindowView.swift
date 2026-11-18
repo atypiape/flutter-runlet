@@ -237,6 +237,7 @@ struct DeviceSelectionControls: View {
                     Text("Select a debug device").foregroundStyle(palette.secondary)
                 }
                 Spacer(minLength: 4)
+                if let device { availabilityStatus(device.availability) }
                 RunletIcon("DeviceArrow", size: 13).foregroundStyle(palette.secondary)
             }
             .font(RunletType.localized(locale, size: 12))
@@ -266,10 +267,10 @@ struct DeviceSelectionControls: View {
             if session.isBusy {
                 Text("Showing the last device scan.").foregroundStyle(palette.secondary)
             }
-            if session.isRefreshingDevices || session.isStartingSimulator {
+            if session.isRefreshingDevices {
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text(session.isStartingSimulator ? "Starting Simulator" : "Refreshing Devices")
+                    Text("Refreshing Devices")
                 }
             }
             if let issue = session.deviceIssue ?? session.sdkIssue ?? session.simulatorIssue {
@@ -284,17 +285,16 @@ struct DeviceSelectionControls: View {
                     VStack(spacing: 5) {
                         ForEach(session.deviceChoices) { device in
                             Button {
-                                guard session.canSelectNextDevice else { return }
                                 session.selectDevice(device.id)
-                                isShowing = false
+                                if device.launchTarget == nil { isShowing = false }
                             } label: {
                                 deviceRow(device)
                             }
                             .buttonStyle(RunletButtonStyle(surface: .field, radius: 5))
                             .accessibilityLabel(summary(device))
-                            .accessibilityAddTraits(device.id == session.selectedDeviceID ? .isSelected : [])
+                            .accessibilityAddTraits(device.id == session.selectedDeviceChoice?.id ? .isSelected : [])
                             .help(summary(device))
-                            .disabled(!session.canSelectNextDevice)
+                            .disabled(!session.canChooseDevice(device))
                         }
                     }
                 }
@@ -308,23 +308,6 @@ struct DeviceSelectionControls: View {
                     .help("Refresh Devices")
                     .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
                 Spacer()
-                if !session.simulators.isEmpty || !session.androidEmulators.isEmpty {
-                    Menu("Start Simulator", systemImage: "iphone") {
-                        ForEach(session.androidEmulators) { emulator in
-                            Button { session.startAndroidEmulator(emulator.id) } label: {
-                                Text(verbatim: "\(emulator.name) (Android)")
-                            }
-                        }
-                        ForEach(session.simulators) { simulator in
-                            Button {
-                                session.startSimulator(simulator.id)
-                            } label: {
-                                Text(verbatim: simulator.name)
-                            }
-                        }
-                    }
-                    .disabled(!session.canStartSimulator)
-                }
             }
             .padding(.horizontal, 5)
         }
@@ -338,7 +321,7 @@ struct DeviceSelectionControls: View {
                 .font(RunletType.localized(locale, size: 11))
                 .foregroundStyle(palette.secondary)
             Spacer(minLength: 6)
-            availabilityDot(device.availability)
+            availabilityStatus(device.availability)
         }
         .lineLimit(1)
         .padding(.horizontal, 7)
@@ -353,22 +336,26 @@ struct DeviceSelectionControls: View {
 
     private func availabilityTitle(_ availability: DeviceChoice.Availability) -> LocalizedStringResource {
         switch availability {
-        case .online: "Online"
-        case .offline: "Offline"
+        case .online: "online"
+        case .offline: "offline"
+        case .starting: "Starting Simulator"
         case .unknown: "Unknown"
         }
     }
 
-    private func availabilityDot(_ availability: DeviceChoice.Availability) -> some View {
-        let color: Color = switch availability {
-        case .online: palette.success
-        case .offline: palette.error
-        case .unknown: palette.muted
+    @ViewBuilder
+    private func availabilityStatus(_ availability: DeviceChoice.Availability) -> some View {
+        if availability == .starting {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityHidden(true)
+        } else {
+            Text(availabilityTitle(availability))
+                .font(RunletType.localized(locale, size: 11))
+                .foregroundStyle(palette.secondary)
+                .fixedSize()
+                .accessibilityHidden(true)
         }
-        return Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
-            .accessibilityHidden(true)
     }
 }
 

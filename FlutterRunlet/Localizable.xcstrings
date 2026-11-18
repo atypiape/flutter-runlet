@@ -3377,12 +3377,12 @@
         }
       }
     },
-    "Online": {
+    "online": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Online"
+            "value": "online"
           }
         },
         "zh-Hans": {
@@ -3393,12 +3393,12 @@
         }
       }
     },
-    "Offline": {
+    "offline": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline"
+            "value": "offline"
           }
         },
         "zh-Hans": {
@@ -6925,22 +6925,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "简体中文"
-          }
-        }
-      }
-    },
-    "Start Simulator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start Simulator"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "启动模拟器"
           }
         }
       }
