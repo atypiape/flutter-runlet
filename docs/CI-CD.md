@@ -4,7 +4,7 @@
 
 [CI](../.github/workflows/ci.yml) 在 Ubuntu 检查 Git 差异、Shell 语法和 Python 发布脚本测试。PR 按拟合入结果选择验证范围，`main` 推送按更新前后的提交差异选择范围。
 
-- 仅改文档、截图或工作流中列出的通知、分支检查和发布脚本等文件时，只运行 Ubuntu 检查。
+- 仅改文档、截图、Issue 队列脚本、Codex Issue 表单、队列 Skill 或工作流列出的其他轻量路径时，只运行 Ubuntu 检查，包括 Python 脚本测试。
 - 若还改了 XCTest，则在 macOS 校验工程与权限配置文件、构建 Debug 并运行 XCTest。
 - 涉及其他路径时执行完整验证，包括应用、Xcode 工程、随包资源、CI 和打包脚本。完整验证在 XCTest 后通过[打包脚本](../scripts/package-release.sh)构建并校验 Release Universal DMG。DMG 和 SHA-256 可在 Actions 运行详情下载，PR 产物只供检查，与 GitHub Releases 无关。
 
