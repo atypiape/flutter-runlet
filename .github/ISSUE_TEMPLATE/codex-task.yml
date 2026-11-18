@@ -1,12 +1,12 @@
 name: Codex 开发任务
-description: 提交范围明确、可以自动验证的小任务。
+description: 说明希望 Codex 处理的问题和预期结果。
 body:
   - type: markdown
     attributes:
       value: |
         推荐用此表单说明目标、改动范围和验证方法，也可以提交普通 Issue。
-        维护者审阅后手动添加 `task:ready`。批准后如修改标题或正文，请重新贴标。
-        配置解析、进程执行、会话恢复、依赖、已验收 UI、签名发布、CI 与 Git 规则变更请选择「人工处理」。
+        维护者添加 `task:ready` 后，Codex 会领取并开始排查。批准后如修改标题或正文，请重新贴标。
+        需要真实设备或人工验收时，可在验收条件中说明。
   - type: textarea
     id: goal
     attributes:
@@ -38,6 +38,7 @@ body:
         - 文档
         - XCTest 回归测试
         - Swift 纯逻辑修复
+        - 功能或缺陷修复
         - 人工处理
     validations:
       required: true
