@@ -96,16 +96,16 @@ python3 -B scripts/merge-issue-pr.py --record-review "$REVIEW_FILE" \
 
 ### 清理已合入的本地分支
 
-从仓库运行 [分支清理脚本](../scripts/cleanup-merged-branches.py)。它先刷新 `origin/dev`，再核对本地分支。预览后可加 `--apply` 删除通过核验的分支。
+从仓库运行 [分支清理脚本](../scripts/cleanup-merged-branches.py)。它先刷新 `origin/dev`，再预览可清理的本地分支及其 worktree。加 `--apply` 后先移除关联的 worktree，再删除分支。被 Git 忽略的构建产物会随 worktree 移除。Git 拒绝移除有未提交改动、未忽略的未跟踪文件或被锁定的 worktree 时，脚本保留对应分支并报告原因。
 
 ```sh
 python3 -B scripts/cleanup-merged-branches.py
 python3 -B scripts/cleanup-merged-branches.py --apply
 ```
 
-脚本接受两种证据。分支当前提交已在 `origin/dev` 历史中，或同仓库的 `dev` PR 合入了该分支的当前提交，且合并提交已在 `origin/dev` 历史中。后者覆盖 Squash 合并。`checked-out` 表示分支已合入但仍被 worktree 使用。`main`、`dev` 和本地 `codex/*` 是保留分支。
+脚本接受两种证据。分支当前提交已在 `origin/dev` 历史中，或同仓库的 `dev` PR 合入了该分支的当前提交，且合并提交已在 `origin/dev` 历史中。后者覆盖 Squash 合并。脚本保留运行命令时所在的分支、`main`、`dev` 和本地 `codex/*`。
 
-定时任务在关单并移除干净的任务 worktree 后，用 `--apply --branch <任务分支>` 清理该任务的本地分支。
+定时任务关单后用 `--apply --branch <任务分支>` 一并清理任务分支及其 worktree。没有进行中的任务时，定时任务也会扫描并清理其他已合入的本地分支。
 
 ## 打包与发布
 

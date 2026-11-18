@@ -53,22 +53,26 @@ class CleanupMergedBranchesTests(unittest.TestCase):
             ["git", "-C", str(self.repo), *args], text=True, stderr=subprocess.PIPE,
         ).strip()
 
-    def test_preview_and_delete_merged_branches_keep_worktrees_and_protected_refs(self):
+    def test_preview_and_delete_merged_branches_and_their_worktrees(self):
         with patch.object(cleanup, "gh", return_value=[[self.pr]]) as gh:
             items = {item["branch"]: item for item in cleanup.scan(self.dev)}
         self.assertEqual(gh.call_count, 1)
         self.assertEqual(items["docs/ancestor"]["status"], "merged")
         self.assertEqual(items["docs/squashed"]["evidence"]["pr"], 42)
-        self.assertEqual(items["docs/occupied"]["status"], "checked-out")
+        self.assertEqual(items["docs/occupied"]["status"], "merged")
+        self.assertEqual([Path(path).resolve() for path in items["docs/occupied"]["worktrees"]],
+                         [(self.folder / "occupied").resolve()])
+        self.assertTrue((self.folder / "occupied").is_dir())
         self.assertEqual(items["codex/local"]["status"], "protected")
         self.assertEqual(items["main"]["status"], "protected")
         self.assertEqual(items["dev"]["status"], "protected")
         self.assertEqual(self.git("rev-parse", "docs/squashed"), self.head)
         self.assertFalse(cleanup.clean(items.values()))
         self.assertEqual({b for b, item in items.items() if item["status"] == "deleted"},
-                         {"docs/ancestor", "docs/squashed"})
+                         {"docs/ancestor", "docs/squashed", "docs/occupied"})
+        self.assertFalse((self.folder / "occupied").exists())
         self.assertEqual(set(self.git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()),
-                         {"main", "dev", "codex/local", "docs/occupied"})
+                         {"main", "dev", "codex/local"})
         self.assertEqual(cleanup.scan(self.dev, "docs/squashed"), [])
 
     def test_retains_branch_without_matching_merged_pr_on_dev(self):
@@ -82,6 +86,7 @@ class CleanupMergedBranchesTests(unittest.TestCase):
                 self.assertEqual(cleanup.scan(self.dev, "docs/squashed")[0]["status"], "unmerged")
         self.git("switch", "-q", "docs/squashed")
         self.git("commit", "--allow-empty", "-qm", "New local work")
+        self.git("switch", "-q", "dev")
         with patch.object(cleanup, "gh", return_value=[[self.pr]]):
             self.assertEqual(cleanup.scan(self.dev, "docs/squashed")[0]["status"], "unmerged")
 
@@ -96,4 +101,16 @@ class CleanupMergedBranchesTests(unittest.TestCase):
             occupied = cleanup.scan(self.dev, "docs/squashed")
         self.git("switch", "-q", "docs/squashed")
         self.assertFalse(cleanup.clean(occupied))
-        self.assertEqual(occupied[0]["status"], "checked-out")
+        self.assertEqual(occupied[0]["status"], "current")
+        self.assertEqual(cleanup.scan(self.dev, "docs/squashed")[0]["status"], "current")
+
+    def test_retains_worktree_with_uncommitted_files_and_continues_cleanup(self):
+        local_file = self.folder / "occupied" / "local.txt"
+        local_file.write_text("未提交的文件\n", encoding="utf-8")
+        with patch.object(cleanup, "gh", return_value=[[self.pr]]):
+            items = {item["branch"]: item for item in cleanup.scan(self.dev)}
+        self.assertTrue(cleanup.clean(items.values()))
+        self.assertEqual(items["docs/occupied"]["status"], "error")
+        self.assertEqual(local_file.read_text(encoding="utf-8"), "未提交的文件\n")
+        self.assertEqual(self.git("rev-parse", "docs/occupied"), items["docs/occupied"]["head"])
+        self.assertEqual(items["docs/squashed"]["status"], "deleted")

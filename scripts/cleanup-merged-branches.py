@@ -1,4 +1,4 @@
-"""列出已合入远端 dev 的本地分支，显式指定 --apply 时执行清理。"""
+"""预览已合入远端 dev 的本地分支及其 worktree，指定 --apply 时清理。"""
 
 import argparse
 import json
@@ -27,10 +27,19 @@ def git(*args, accepted=(0,)):
     return result
 
 
-def checked_out():
-    return {field.removeprefix("branch ") for field in
-            git("worktree", "list", "--porcelain", "-z").stdout.split("\0")
-            if field.startswith("branch ")}
+def branch_worktrees():
+    worktrees = {}
+    for record in git("worktree", "list", "--porcelain", "-z").stdout.split("\0\0"):
+        fields = record.split("\0")
+        for field in fields[1:]:
+            if field.startswith("branch "):
+                ref = field.removeprefix("branch ")
+                worktrees.setdefault(ref, []).append(fields[0].removeprefix("worktree "))
+    return worktrees
+
+
+def current_branch():
+    return git("symbolic-ref", "--quiet", "HEAD", accepted=(0, 1)).stdout.strip()
 
 
 def is_ancestor(head, dev):
@@ -58,7 +67,8 @@ def merged_pr(branch, head, dev):
 
 
 def scan(dev, selected=None):
-    occupied = checked_out()
+    worktrees = branch_worktrees()
+    current = current_branch()
     branches = []
     refs = git("for-each-ref", "--format=%(refname) %(objectname)", HEADS).stdout
     for line in refs.splitlines():
@@ -70,13 +80,29 @@ def scan(dev, selected=None):
         branches.append(item)
         if branch in {"main", "dev"} or branch.startswith("codex/"):
             continue
+        if ref == current:
+            item["status"] = "current"
+            continue
         evidence = {"type": "ancestor"} if is_ancestor(head, dev) else merged_pr(branch, head, dev)
         if evidence is None:
             item["status"] = "unmerged"
         else:
             item["evidence"] = evidence
-            item["status"] = "checked-out" if ref in occupied else "merged"
+            item["status"] = "merged"
+            if ref in worktrees:
+                item["worktrees"] = worktrees[ref]
     return branches
+
+
+def still_eligible(item, ref):
+    if ref == current_branch():
+        item["status"] = "current"
+        return False
+    current = git("for-each-ref", "--format=%(refname) %(objectname)", ref).stdout.splitlines()
+    if f"{ref} {item['head']}" not in current:
+        item["status"] = "changed"
+        return False
+    return True
 
 
 def clean(branches):
@@ -86,15 +112,16 @@ def clean(branches):
             continue
         branch = item["branch"]
         ref = HEADS + branch
-        if ref in checked_out():
-            item["status"] = "checked-out"
-            continue
-        current = git("for-each-ref", "--format=%(refname) %(objectname)", ref).stdout.splitlines()
-        if f"{ref} {item['head']}" not in current:
-            item["status"] = "changed"
-            continue
         try:
-            # Squash does not preserve the source SHA. Git branch still protects all worktrees.
+            for path in branch_worktrees().get(ref, []):
+                if not still_eligible(item, ref):
+                    break
+                if path in branch_worktrees().get(ref, []):
+                    git("worktree", "remove", "--", path)
+                    item.setdefault("removed_worktrees", []).append(path)
+            if item["status"] != "merged" or not still_eligible(item, ref):
+                continue
+            # Squash does not preserve the source SHA. Git still checks remaining worktrees.
             git("branch", "-D", "--", branch)
             item["status"] = "deleted"
         except RuntimeError as error:
