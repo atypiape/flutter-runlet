@@ -7,6 +7,8 @@ on:
   pull_request_target:
     branches: [dev, main]
     types: [opened, closed]
+  issues:
+    types: [opened, labeled]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -36,7 +38,9 @@ jobs:
        (github.event.workflow_run.path != '.github/workflows/ci.yml' &&
         github.event.workflow_run.path != '.github/workflows/branch-policy.yml')) &&
       (github.event_name != 'pull_request_target' || github.event.action == 'opened' ||
-       github.event.pull_request.merged == true)
+       github.event.pull_request.merged == true) &&
+      (github.event_name != 'issues' || github.event.action == 'opened' ||
+       github.event.label.name == 'task:blocked' || github.event.label.name == 'task:review')
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     environment:
@@ -110,7 +114,7 @@ jobs:
           event_context=''
           event_status=''
           message=''
-          pr_title=''
+          event_title=''
           if [[ -n "$VERSION" ]]; then
             case "$BUILD_RESULT" in
               '') result_text='⏳ 开始打包（可能正在等待 macOS runner）' ;;
@@ -144,15 +148,35 @@ jobs:
                 ;;
               pull_request_target)
                 number=$(jq -er '.pull_request.number' "$GITHUB_EVENT_PATH")
-                pr_title=$(jq -er '.pull_request.title' "$GITHUB_EVENT_PATH")
+                event_title=$(jq -er '.pull_request.title' "$GITHUB_EVENT_PATH")
                 event_context="(PR #$number)"
                 if [[ $(jq -er '.action' "$GITHUB_EVENT_PATH") == opened ]]; then
-                  event_status='➕'
+                  event_status='📥'
                 else
                   base_branch=$(jq -er '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
                   event_status="✅ 已合入 $base_branch"
                 fi
                 url="$repo_url/pull/$number"
+                ;;
+              issues)
+                number=$(jq -er '.issue.number' "$GITHUB_EVENT_PATH")
+                event_title=$(jq -er '.issue.title' "$GITHUB_EVENT_PATH")
+                event_context="(Issue #$number)"
+                url="$repo_url/issues/$number"
+                action=$(jq -er '.action' "$GITHUB_EVENT_PATH")
+                if [[ "$action" == opened ]]; then
+                  event_status='⁉️ 新建 Issue'
+                elif [[ "$action" == labeled ]]; then
+                  label=$(jq -er '.label.name' "$GITHUB_EVENT_PATH")
+                  case "$label" in
+                    task:blocked) icon='🔴' ;;
+                    task:review) icon='🟣' ;;
+                    *) exit 0 ;;
+                  esac
+                  event_status="$icon 添加标签 $label"
+                else
+                  exit 0
+                fi
                 ;;
               workflow_dispatch) message='事件：Slack 通知测试' ;;
               *) fail 'Unsupported Slack notification event.' ;;
@@ -162,7 +186,7 @@ jobs:
           payload=$(jq -cn --arg channel "$SLACK_USER_ID" \
             --arg repo "$GITHUB_REPOSITORY" --arg message "$message" --arg url "$url" \
             --arg event_context "$event_context" --arg event_status "$event_status" \
-            --arg pr_title "$pr_title" --arg event_name "$GITHUB_EVENT_NAME" \
+            --arg event_title "$event_title" --arg event_name "$GITHUB_EVENT_NAME" \
             'def section($label; $value):
                {type: "rich_text_section", elements: [
                  {type: "text", text: $label, style: {bold: true}},
@@ -180,19 +204,19 @@ jobs:
              def event_line:
                [{type: "rich_text_section", elements: ([
                  {type: "text", text: "事件", style: {bold: true}},
-                 {type: "text", text: ("：" + (if $event_name == "pull_request_target"
-                   then $event_status + " " else $event_status | sub(" .*"; " ") end))},
+                 {type: "text", text: ("：" + (if $event_name == "workflow_run"
+                   then $event_status | sub(" .*"; " ") else $event_status + " " end))},
                  {type: "link", text: "[详情]", url: $url},
                  {type: "text", text: (" " + $event_context)}
-               ] + (if $pr_title == "" then [] else
+               ] + (if $event_title == "" then [] else
                  [{type: "text", text: " "},
-                  {type: "text", text: $pr_title, style: {bold: true}}]
+                  {type: "text", text: $event_title, style: {bold: true}}]
                end))}];
              {channel: $channel, unfurl_links: false, unfurl_media: false} +
              (if $event_context != "" then
                 {mrkdwn: false,
                  text: ("事件：" + $event_status + " " + $event_context +
-                        (if $pr_title == "" then "" else " " + $pr_title end) + "\n链接：" + $url),
+                        (if $event_title == "" then "" else " " + $event_title end) + "\n链接：" + $url),
                  blocks: [{type: "rich_text", elements: event_line}]}
               else
                 {text: ("仓库：" + $repo + "\n" + $message + "\n链接：" + $url),
