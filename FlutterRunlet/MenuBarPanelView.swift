@@ -48,6 +48,7 @@ struct MenuBarPanelView: View {
                 }
                 if session?.sdkIssue != nil, let openFlutterSettings {
                     Button("Open Flutter Settings", action: openFlutterSettings)
+                        .interactivePointer()
                 }
             }
             .padding(.horizontal, 15)

@@ -103,6 +103,7 @@ struct MainWindowView: View {
                 if !isRestoring { RecoveryDetails(session: session) }
                 if session.sdkIssue != nil, let openFlutterSettings {
                     Button("Open Flutter Settings", action: openFlutterSettings)
+                        .interactivePointer()
                 }
                 if let issue = session.taskIssue, issue != session.displayMessage {
                     Text(issue).foregroundStyle(palette.secondary)
@@ -270,6 +271,7 @@ struct DeviceSelectionControls: View {
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
                         .help("Refresh Devices")
+                        .interactivePointer()
                         .disabled(!session.canRefreshDevices || session.isStartingSimulator)
                 }
             }
@@ -379,6 +381,7 @@ struct RecoveryDetails: View {
             Button(action: session.performRecoveryAction) {
                 Text(action.title)
             }
+            .interactivePointer()
             .disabled(!session.canPerformRecoveryAction)
         }
     }
@@ -957,6 +960,7 @@ struct SessionFeedbackView: View {
                 Spacer(minLength: 0)
                 Button("Dismiss", action: session.dismissFeedback)
                     .buttonStyle(.bordered)
+                    .interactivePointer()
             }
         }
     }
