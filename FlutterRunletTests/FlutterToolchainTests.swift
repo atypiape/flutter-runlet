@@ -672,6 +672,45 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 
+    func testDeviceRefreshPreservesOnlineStatusUntilDiscoveryCompletes() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let device = FlutterDevice(id: "device", name: "Device", platform: "ios", isSimulator: false)
+        let scanner = DeviceScanner()
+        scanner.devices = [device]
+        let paused = PausedProbe()
+        defer { paused.release() }
+        var shouldPause = false
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _ in sdk },
+            discover: { _, _ in
+                if shouldPause { await paused.wait() }
+                return try scanner.scan()
+            }
+        ))
+        try fixture.select("prod", in: session)
+        try await eventually { session.canRun }
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+
+        shouldPause = true
+        session.refreshDevices()
+        try await eventually { paused.continuation != nil }
+        XCTAssertTrue(session.isRefreshingDevices)
+        XCTAssertEqual(session.deviceChoices.map(\.availability), [.online])
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertFalse(session.canRun)
+        XCTAssertFalse(session.canSelectNextDevice)
+
+        scanner.devices = []
+        paused.release()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.deviceChoices.map(\.availability), [.offline])
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertFalse(session.canRun)
+    }
+
     func testObsoleteDeviceScanCannotReplaceTheNewProjectsSelection() async throws {
         let old = try SessionFixture()
         let new = try SessionFixture()

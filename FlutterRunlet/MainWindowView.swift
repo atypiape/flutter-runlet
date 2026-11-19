@@ -272,6 +272,7 @@ struct DeviceSelectionControls: View {
                         .buttonStyle(.borderless)
                         .help("Refresh Devices")
                         .interactivePointer()
+                        .focusable(false)
                         .disabled(!session.canRefreshDevices || session.isStartingSimulator)
                 }
             }
@@ -298,6 +299,7 @@ struct DeviceSelectionControls: View {
                                 deviceRow(device)
                             }
                             .buttonStyle(RunletButtonStyle(surface: .field, radius: 5))
+                            .focusable(false)
                             .accessibilityLabel(summary(device))
                             .accessibilityAddTraits(device.id == session.selectedDeviceChoice?.id ? .isSelected : [])
                             .help(summary(device))
@@ -677,6 +679,7 @@ struct ProjectControls: View {
                                     .frame(height: 32)
                                 }
                                 .buttonStyle(RunletButtonStyle())
+                                .focusable(false)
                                 .help(project.path)
                                 .disabled(!session.canChangeProject)
                                 Button {
@@ -687,6 +690,7 @@ struct ProjectControls: View {
                                         .frame(width: 22, height: 26)
                                 }
                                 .buttonStyle(RunletButtonStyle())
+                                .focusable(false)
                                 .accessibilityLabel(Text(Self.removeTitle(name)))
                                 .help(Text(Self.removeTitle(name)))
                             }
@@ -883,6 +887,7 @@ struct RunConfigurationControls: View {
                             .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
                         }
                         .buttonStyle(RunletButtonStyle(surface: .field, radius: 5))
+                        .focusable(false)
                         .accessibilityAddTraits(choice.id == session.selectedID ? .isSelected : [])
                     }
                 }
@@ -895,6 +900,7 @@ struct RunConfigurationControls: View {
                         session.select(nil as Int?)
                         isShowing = false
                     }
+                    .focusable(false)
                 }
                 Spacer()
                 Button("Reload Configuration", systemImage: "arrow.clockwise") {
@@ -902,6 +908,7 @@ struct RunConfigurationControls: View {
                     isShowing = false
                 }
                 .labelStyle(.iconOnly)
+                .focusable(false)
                 .help("Reload Configuration")
             }
             .buttonStyle(RunletButtonStyle())
