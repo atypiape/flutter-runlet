@@ -1217,6 +1217,22 @@
         }
       }
     },
+    "Could not open the iOS simulator window": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the iOS simulator window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开 iOS 模拟器窗口"
+          }
+        }
+      }
+    },
     "Could not open the project directory": {
       "localizations": {
         "en": {

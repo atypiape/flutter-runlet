@@ -1602,6 +1602,16 @@ final class SessionController {
             }
         }
 
+        if !stopRequested, let toolchain, let device, device.platform == "ios", device.isSimulator {
+            do {
+                try await toolchain.showSimulator(device.id, FlutterToolchain.probeEnvironment(environment, launch.project))
+            } catch {
+                if !stopRequested {
+                    feedback = SessionFeedback(title: "Could not open the iOS simulator window", detail: nil)
+                }
+            }
+        }
+
         if !stopRequested {
             guard launch.mode == "debug" else {
                 if let record { markRecovery(record, "Execution blocked because the configuration is not in Debug mode") }
