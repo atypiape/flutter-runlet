@@ -232,6 +232,7 @@ struct SettingsView: View {
         .fixedSize()
         .accessibilityLabel(Text(title))
         .accessibilityValue(value)
+        .interactivePointer()
     }
 
     private func menuOption(_ title: Text, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -669,6 +670,7 @@ private struct DartSDKPathDetailsButton: View {
         .buttonStyle(.borderless)
         .controlSize(.small)
         .help("Show Full Path")
+        .interactivePointer()
         .popover(isPresented: $isShowing, arrowEdge: .leading) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Dart SDK Path")
@@ -691,6 +693,7 @@ private struct DartSDKPathDetailsButton: View {
                     clipboard.setString(path, forType: .string)
                 }
                 .controlSize(.small)
+                .interactivePointer()
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(12)
@@ -1021,8 +1024,10 @@ struct UpdatePromptView: View {
                 HStack {
                     Spacer()
                     Button("Later") { updates.perform(.later) }
+                        .interactivePointer()
                         .keyboardShortcut(.cancelAction)
                     Button("Install and Restart") { updates.perform(.install) }
+                        .interactivePointer()
                         .keyboardShortcut(.defaultAction)
                 }
             case .recovery(let path):
@@ -1034,9 +1039,12 @@ struct UpdatePromptView: View {
                     .textSelection(.enabled)
                 HStack {
                     Button("Show in Finder") { updates.perform(.showInFinder) }
+                        .interactivePointer()
                     Button("View Release") { updates.perform(.showRelease) }
+                        .interactivePointer()
                     Spacer()
                     Button("Dismiss") { updates.perform(.dismissRecovery) }
+                        .interactivePointer()
                         .keyboardShortcut(.cancelAction)
                 }
             case nil:
@@ -1217,6 +1225,7 @@ struct AuxiliaryButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? fill.opacity(0.75) : (visuallyEnabled ? fill : palette.disabled), in: shape)
             .overlay { shape.strokeBorder(stroke).allowsHitTesting(false) }
             .opacity(visuallyEnabled ? 1 : 0.7)
+            .interactivePointer()
     }
 }
 

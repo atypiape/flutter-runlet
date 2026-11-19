@@ -1,3 +1,4 @@
+import AppKit
 import CoreText
 import SwiftUI
 
@@ -102,6 +103,28 @@ struct RunletButtonStyle: ButtonStyle {
                 }
             }
             .opacity(enabled ? 1 : disabledOpacity)
+            .interactivePointer()
+    }
+}
+
+extension View {
+    func interactivePointer() -> some View {
+        modifier(InteractivePointer())
+    }
+}
+
+private struct InteractivePointer: ViewModifier {
+    @Environment(\.isEnabled) private var enabled
+
+    private static let unavailable: PointerStyle = {
+        let cursor = NSCursor.operationNotAllowed
+        let size = cursor.image.size
+        let hotSpot = UnitPoint(x: cursor.hotSpot.x / size.width, y: cursor.hotSpot.y / size.height)
+        return .image(Image(nsImage: cursor.image), hotSpot: hotSpot)
+    }()
+
+    func body(content: Content) -> some View {
+        content.pointerStyle(enabled ? .link : Self.unavailable)
     }
 }
 
