@@ -18,7 +18,7 @@
 
 ## 核对队列并启用
 
-在 FlutterRunlet 项目根目录运行只读预检。
+在 FlutterRunlet 项目根目录用 `mkdir -p .private/issue-loop` 准备本地记录目录，再运行只读预检。
 
 ```sh
 python3 -B scripts/verify-issue-queue.py --preflight
