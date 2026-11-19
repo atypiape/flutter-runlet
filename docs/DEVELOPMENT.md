@@ -60,6 +60,8 @@ gh api --method GET --paginate --slurp "repos/$repo/pulls" \
 
 定时任务用 [队列核验脚本](../scripts/verify-issue-queue.py)的 `--preflight` 核对 origin、当前 `gh` 身份和四个 `task:*` 标签，再查询队列。推送前在任务 worktree 运行同一脚本的 `--check-push-hook`。检查通过后再推送。
 
+同一轮可以处理多条 Issue。每次领取符合条件的最小编号，由独立子任务在专属 worktree 开发、验证并开 PR。独立审查和当前拟合入提交的必需 CI 通过后，定时任务自动 Squash 合入 `dev`，关单并清理任务标签。本地 `dev` 快进到最新 `origin/dev` 后，重新查询并领取下一条。当前任务未完成合并和收尾时，保留记录以便恢复，暂缓领取。
+
 误删标签时，先暂停定时任务，运行 [补建脚本](../scripts/create-github-labels.sh)，再核对并恢复受影响的 Issue 标签。需要重新添加 `task:ready` 时，由维护者复核后贴标。确认任务状态后恢复定时任务。
 
 ```sh
@@ -82,7 +84,7 @@ python3 -B "$RUNLET_ROOT/scripts/ensure-issue-pr.py" \
 
 ### 保存独立审查
 
-另起一轮复查 Issue 验收项和 PR 差异。从可信的控制检出目录调用[合并脚本](../scripts/merge-issue-pr.py)，把通过的审查存到 `.private/issue-loop/reviews/<Issue 编号>.json`。
+开发子任务交付 PR 后，单独复查 Issue 验收项和 PR 差异。从可信的控制检出目录调用[合并脚本](../scripts/merge-issue-pr.py)，把通过的审查存到 `.private/issue-loop/reviews/<Issue 编号>.json`。
 
 ```sh
 python3 -B scripts/merge-issue-pr.py --record-review "$REVIEW_FILE" \

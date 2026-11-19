@@ -279,11 +279,7 @@ def check_queue(number=None):
     result = {"candidate": None, "active": active, "checked": []}
     if active and number is None:
         return result
-    numbers = [number] if number is not None else [
-        item["number"] for item in sorted(
-            open_with_label(READY), key=lambda item: (timestamp(item["created_at"]), item["number"]),
-        )
-    ]
+    numbers = [number] if number is not None else sorted(item["number"] for item in open_with_label(READY))
     for issue_number in numbers:
         checked = check_issue(get(f"issues/{issue_number}"))
         result["checked"].append(checked)

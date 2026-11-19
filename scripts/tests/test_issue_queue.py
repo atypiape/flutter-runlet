@@ -266,13 +266,15 @@ print(json.dumps(response))
         self.assertFalse(result["checked"][0]["eligible"])
         self.assertIn(reason, result["checked"][0]["reason"])
 
-    def test_selects_oldest_eligible_and_ignores_pull_requests_across_pages(self):
+    def test_selects_lowest_eligible_number_and_ignores_pull_requests_across_pages(self):
         bad = issue(5, body="没有有效批准")
-        ready = issue(7, labels=("task:ready", "bug"))
+        ready = issue(7, labels=("task:ready", "bug"), created_at=APPROVED)
+        earlier = issue(9)
         self.add_issue(bad, events=[[]])
         self.add_issue(ready, events=[[event(at=BEFORE)], [event(2)]], edited=BEFORE)
+        self.add_issue(earlier)
         self.responses[self.list_path("task:ready")] = [
-            [issue(9), issue(3, pull_request={})], [ready, bad],
+            [earlier, issue(3, pull_request={})], [ready, bad],
         ]
         result = self.inspect()
         self.assertEqual(result["candidate"], 7)
@@ -280,6 +282,23 @@ print(json.dumps(response))
         self.assertEqual(result["checked"][1]["approved_at"], APPROVED)
         self.assertEqual(result["checked"][1]["approval_event_id"], 2)
         self.assertRegex(result["checked"][1]["spec_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_reselects_after_each_issue_is_merged_and_closed(self):
+        first, second, third = (issue(number) for number in (1, 2, 3))
+        for ready in (first, second, third):
+            self.add_issue(ready)
+        pending = [third, second, first]
+        for claimed in (first, second, third):
+            with self.subTest(number=claimed["number"]):
+                self.responses[self.list_path("task:ready")] = [pending]
+                self.assertEqual(self.inspect()["candidate"], claimed["number"])
+                pending.remove(claimed)
+                self.responses[self.list_path("task:review")] = [[
+                    issue(claimed["number"], labels=("task:review",)),
+                ]]
+                self.assertIsNone(self.inspect()["candidate"])
+                self.responses[self.list_path("task:review")] = [[]]
+        self.assertIsNone(self.inspect()["candidate"])
 
     def test_approved_issues_can_be_claimed_regardless_of_format_or_type(self):
         for body in ("Android 模拟器在 VS Code 中可见，在 FlutterRunlet 中不可见。", None,
