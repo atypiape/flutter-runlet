@@ -3153,6 +3153,22 @@
         }
       }
     },
+    "macOS Desktop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS Desktop"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 桌面"
+          }
+        }
+      }
+    },
     "Main Window": {
       "localizations": {
         "en": {

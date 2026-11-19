@@ -70,7 +70,7 @@ struct ActiveLaunch {
 
 struct DeviceChoice: Identifiable {
     enum Kind: Equatable {
-        case iOSSimulator, iOSDevice, androidEmulator, androidDevice
+        case iOSSimulator, iOSDevice, androidEmulator, androidDevice, macOSDesktop
 
         var title: LocalizedStringResource {
             switch self {
@@ -78,6 +78,7 @@ struct DeviceChoice: Identifiable {
             case .iOSDevice: "iOS Device"
             case .androidEmulator: "Android Emulator"
             case .androidDevice: "Android Device"
+            case .macOSDesktop: "macOS Desktop"
             }
         }
     }
@@ -96,6 +97,7 @@ struct DeviceChoice: Identifiable {
     var id: String { device.id }
     var name: String { device.name }
     var kind: Kind {
+        if device.isMacOSDesktop { return .macOSDesktop }
         if device.platform == "ios" {
             return device.isSimulator ? .iOSSimulator : .iOSDevice
         }
@@ -945,7 +947,8 @@ final class SessionController {
         if let target = selection?.launch?.deviceID {
             device = devices.first { $0.id == target }
         } else {
-            device = devices.only
+            // The desktop option should not displace the default when only one mobile device is connected.
+            device = devices.filter { !$0.isMacOSDesktop }.only ?? devices.only
         }
         if let device { storeDevice(DevicePreference(device: device), for: project) }
     }

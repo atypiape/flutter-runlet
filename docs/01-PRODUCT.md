@@ -16,7 +16,7 @@ FlutterRunlet 是一个无需启动 VS Code / Android Studio 的轻量 Flutter �
 | P-02 | macOS 原生 Swift | SwiftUI 优先，AppKit 按需补充。参考 Flutter GUI Runner 的共享场景设计，独立实现 |
 | P-03 | 从 `.vscode/launch.json` 加载配置 | 按 `name` 原样显示，来源单一 |
 | P-04 | 从 `.vscode/tasks.json` 执行任务 | 服从 `preLaunchTask`、`postDebugTask`，特别是 Firebase 任务 |
-| P-05 | 选择 Flutter 设备 | iOS Simulator / Android Emulator / 真机在可用时显示 |
+| P-05 | 选择 Flutter 设备 | iOS 和 Android 模拟器及真机、macOS 桌面在可用时显示 |
 | P-06 | 仅支持 Debug 运行会话 | Run / Stop / Hot Reload / Hot Restart、状态、日志。不可用的非 Debug 配置显示原因 |
 | P-07 | 浏览器 DevTools & Inspector | 两个按钮；不嵌入 DevTools，不复刻其他 DevTools 子页 |
 | P-08 | 独立主窗口 + macOS 菜单栏快捷面板 | 图标点击展开；快捷面板可以控制同一会话 |
