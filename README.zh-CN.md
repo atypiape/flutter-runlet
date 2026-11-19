@@ -36,7 +36,7 @@ DevTools、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截
 
 ## 开始调试
 
-1. 安装项目所需的 Flutter SDK，准备好模拟器或真机。在「设置 → Flutter」确认 SDK 来源和版本，可以使用系统 PATH 中的 SDK、手动指定，或优先使用项目的 FVM 配置。
+1. 安装项目所需的 Flutter SDK。可使用 iOS 或 Android 模拟器及真机。项目支持 macOS 时，也可以在本机运行。在「设置 → Flutter」确认 SDK 来源和版本，可以使用系统 PATH 中的 SDK、手动指定，或优先使用项目的 FVM 配置。
 2. 打开含 `.vscode/launch.json` 的 Flutter 项目。若启动配置引用了任务，也要准备好 `.vscode/tasks.json`。选一个 **Debug** 配置和设备，点击「运行」。
 3. 调试连接建立后，可以热重载、热重启，或在浏览器中打开当前会话的 DevTools 和 Inspector。再次点击运行并确认，可重启当前会话。主窗口可以查看、复制和清空日志。
 4. 点击「停止」，等待后置任务结束。如果环境恢复失败，打开受影响的项目，点击「重试恢复」再次执行原任务。

@@ -37,6 +37,7 @@ final class FlutterToolchainTests: XCTestCase {
             "Showing the last device scan.": "显示上次设备扫描结果。",
             "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
             "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
+            "macOS Desktop": "macOS 桌面",
             "Starting Simulator": "正在启动模拟器",
             "online": "在线", "offline": "离线", "Unknown": "未知"
         ]
@@ -433,7 +434,8 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { !session.isRefreshingDevices }
         XCTAssertNil(session.selectedDeviceID)
         XCTAssertFalse(session.canRun)
-        scanner.devices = [first]
+        let desktop = FlutterDevice(id: "macos", name: "macOS", platform: "darwin", isSimulator: false)
+        scanner.devices = [first, desktop]
         session.refreshDevices()
         try await eventually { !session.isRefreshingDevices }
         XCTAssertEqual(session.selectedDeviceID, first.id)
@@ -672,6 +674,23 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 
+    func testMacOSDesktopCanBeTheOnlyDevice() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let desktop = FlutterDevice(id: "macos", name: "macOS", platform: "darwin-x64", isSimulator: false)
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _ in sdk },
+            discover: { _, _ in [desktop] }
+        ))
+        try fixture.select("prod", in: session)
+        try await eventually { session.canRun }
+        XCTAssertTrue(desktop.isUsableDebugDevice)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, desktop.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.kind, .macOSDesktop)
+    }
+
     func testDeviceRefreshPreservesOnlineStatusUntilDiscoveryCompletes() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -752,15 +771,17 @@ final class FlutterToolchainTests: XCTestCase {
         [{"id":"emulator-5560","name":"Android 名称","targetPlatform":"android-arm64","emulator":true,"isSupported":true},
          {"id":"physical-ios","name":"iPhone 真机","targetPlatform":"ios","emulator":false,"isSupported":true},
          {"id":"unsupported","name":"离线","targetPlatform":"ios","emulator":false,"isSupported":false},
-         {"id":"macos","name":"macOS","targetPlatform":"darwin","emulator":false,"isSupported":true}]
+         {"id":"macos","name":"macOS","targetPlatform":"darwin","emulator":false,"isSupported":true},
+         {"id":"mac-designed-for-ipad","name":"Mac Designed for iPad","targetPlatform":"darwin","emulator":false,"isSupported":true},
+         {"id":"chrome","name":"Chrome","targetPlatform":"web-javascript","emulator":false,"isSupported":true}]
         """
         _ = try makeSDK(fixture.base.appending(path: "System SDK"), version: "3.41.0", devices: devices)
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = SessionController(store: store, runner: .bundled, environment: environment, toolchain: .production)
         try fixture.select("physical", in: session)
         try await eventually { !session.isRefreshingDevices }
-        XCTAssertEqual(session.devices.map(\.id), ["emulator-5560", "physical-ios"])
-        XCTAssertEqual(session.devices.map(\.name), ["Android 名称", "iPhone 真机"])
+        XCTAssertEqual(session.devices.map(\.id), ["emulator-5560", "physical-ios", "macos"])
+        XCTAssertEqual(session.devices.map(\.name), ["Android 名称", "iPhone 真机", "macOS"])
         XCTAssertNil(session.selectedDeviceID)
         session.selectDevice("emulator-5560")
         XCTAssertTrue(session.canRun)
@@ -772,6 +793,17 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(args.filter { $0.hasPrefix("--dart-define=") },
                        session.selection?.launch?.toolArguments.filter { $0.hasPrefix("--dart-define=") })
         XCTAssertEqual(try fixture.marker(), "dev\n")
+        XCTAssertEqual(try fixture.configurationBytes(), originalBytes)
+
+        session.selectDevice("macos")
+        XCTAssertEqual(session.selectedDeviceChoice?.kind, .macOSDesktop)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertNil(session.selectedDeviceChoice?.launchTarget)
+        XCTAssertTrue(session.canRun)
+        session.run()
+        await session.waitUntilIdle()
+        let macOSArgs = try String(contentsOf: fixture.state("sdk-args"), encoding: .utf8).split(separator: "\n")
+        XCTAssertEqual(Array(macOSArgs.prefix(5)), ["run", "--machine", "--debug", "-d", "macos"])
         XCTAssertEqual(try fixture.configurationBytes(), originalBytes)
 
         try FileManager.default.removeItem(at: fixture.state("sdk-used"))

@@ -133,8 +133,12 @@ struct FlutterDevice: Decodable, Equatable, Identifiable, Sendable {
         self.isSupported = isSupported
     }
 
-    var isUsableMobileDevice: Bool {
-        (platform == "ios" || platform == "android" || platform.hasPrefix("android-")) &&
+    var isMacOSDesktop: Bool {
+        id == "macos" && (platform == "darwin" || platform.hasPrefix("darwin-"))
+    }
+
+    var isUsableDebugDevice: Bool {
+        (platform == "ios" || platform == "android" || platform.hasPrefix("android-") || isMacOSDesktop) &&
             isSupported != false && !name.isEmpty && !id.isEmpty && !id.hasPrefix("-")
     }
 }
@@ -205,7 +209,7 @@ struct FlutterToolchain {
                 throw SessionIssue(localized: "Could not read the Flutter device list")
             }
             var ids = Set<String>()
-            return devices.filter { $0.isUsableMobileDevice && ids.insert($0.id).inserted }
+            return devices.filter { $0.isUsableDebugDevice && ids.insert($0.id).inserted }
         }, simulators: { environment in
             let data = try await query(xcrun, ["simctl", "list", "devices", "available", "--json"],
                                        environment: environment)
