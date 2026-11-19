@@ -619,20 +619,24 @@ private final class WindowKeys {
         if let monitor { NSEvent.removeMonitor(monitor) }
     }
 
+    private func blocksTabNavigation(in window: NSWindow) -> Bool {
+        guard window.isVisible, !window.isSheet, window.attachedSheet == nil, !(window is NSSavePanel) else { return false }
+        if mainWindows.contains(window) || menuPanels.contains(window) || settingsWindows.contains(window) { return true }
+        // A SwiftUI popover can deliver keys through its own window or the registered parent.
+        return window.parent.map { blocksTabNavigation(in: $0) } ?? false
+    }
+
     private func handleKey(_ event: NSEvent) -> Bool {
         guard NSApp.modalWindow == nil, let window = NSApp.keyWindow,
-              event.window == nil || event.window === window,
-              window.isVisible, window.attachedSheet == nil else {
-            return false
+              window.isVisible, window.attachedSheet == nil else { return false }
+        let eventWindow = event.window ?? window
+        if event.keyCode == kVK_Tab,
+           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            return blocksTabNavigation(in: window) && blocksTabNavigation(in: eventWindow)
         }
         let inMainWindow = mainWindows.contains(window)
         let inMenuPanel = menuPanels.contains(window)
-        guard inMainWindow || inMenuPanel || settingsWindows.contains(window) else { return false }
-        if event.keyCode == kVK_Tab,
-           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
-            return true
-        }
-        guard inMainWindow || inMenuPanel, let session,
+        guard eventWindow === window, inMainWindow || inMenuPanel, let session,
               let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
                                                     isRepeat: event.isARepeat) else {
             return false

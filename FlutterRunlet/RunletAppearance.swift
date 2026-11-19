@@ -177,5 +177,6 @@ struct RunletPopupCancelButton: View {
     var body: some View {
         Button("Cancel", action: close)
             .buttonStyle(RunletButtonStyle())
+            .focusable(false)
     }
 }

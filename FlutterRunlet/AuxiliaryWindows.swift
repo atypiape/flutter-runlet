@@ -694,6 +694,7 @@ private struct DartSDKPathDetailsButton: View {
                 }
                 .controlSize(.small)
                 .interactivePointer()
+                .focusable(false)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(12)

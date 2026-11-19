@@ -139,7 +139,7 @@ final class SessionController {
     private(set) var manualSDKPath: String?
     private(set) var devices: [FlutterDevice] = []
     private var knownDevices: [FlutterDevice] = []
-    private var hasDeviceSnapshot = false
+    private var deviceSnapshotSDK: FlutterSDK?
     private var devicePreference: DevicePreference?
     private(set) var activeLaunch: ActiveLaunch?
     private(set) var simulators: [FlutterSimulator] = []
@@ -194,7 +194,7 @@ final class SessionController {
     var selectedDeviceName: String? { selectedDeviceChoice?.name }
     var deviceIsOffline: Bool { selectedDeviceChoice?.availability == .offline }
     var deviceChoices: [DeviceChoice] {
-        let snapshotIsValid = hasDeviceSnapshot && sdk != nil && deviceIssue == nil && !isRefreshingDevices
+        let snapshotIsValid = deviceSnapshotSDK != nil && deviceSnapshotSDK == sdk && deviceIssue == nil
         let onlineIDs = Set(devices.map(\.id))
         var listedIDs = Set<String>()
         let onlineSimulators = Set(devices.filter { $0.platform == "ios" && $0.isSimulator }
@@ -717,7 +717,7 @@ final class SessionController {
             isCheckingSDKSelection = false
             devices = []
             knownDevices = []
-            hasDeviceSnapshot = false
+            deviceSnapshotSDK = nil
             devicePreference = projectDevices[canonical.path]
             simulators = []
             androidEmulators = []
@@ -1111,7 +1111,7 @@ final class SessionController {
         let discoveredIDs = Set(devices.map(\.id))
         knownDevices.removeAll { discoveredIDs.contains($0.id) }
         knownDevices.append(contentsOf: devices)
-        hasDeviceSnapshot = true
+        deviceSnapshotSDK = sdk
         updateDeviceIssue(nil)
         if let device = selectedDevice {
             storeDevice(DevicePreference(device: device), for: project)
