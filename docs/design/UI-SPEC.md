@@ -11,7 +11,7 @@
 | 标题栏 | App 名、打开项目、设置齿轮、关于 `ⓘ` | 打开设置/关于原生窗口；不要复制顶层导航 |
 | 项目 | 当前项目路径/名称，选择、打开项目 | 只显示 Flutter 工程，校验 `pubspec.yaml` |
 | 配置与设备 | 双列，刷新在设备列 | 配置读取 `.vscode/launch.json`，设备由 CLI 检测。不可用配置显示原因，禁止执行；执行层复验有效性 |
-| 运行控制 | Run / Stop / Hot Reload / Hot Restart 同一行 | Run 使用系统强调色。运行中 Run 禁用；根据会话决定其他操作的可用性 |
+| 运行控制 | Run / Stop / Hot Reload / Hot Restart 同一行 | Run 使用系统强调色。运行中 Run 可确认重启当前会话；根据会话决定其他操作的可用性 |
 | 调试会话 | 运行状态、配置、设备、VM 连接状态 | 放置「打开 DevTools」「打开 Inspector」，无服务时禁用/解释原因 |
 | 运行日志 | 默认展开，支持折叠、清空、复制 | 保留 CLI 原文。横纵滚动，随窗口高度扩展。清空后折叠、展开时旧日志保持清空 |
 | 底部 | 简短项目状态 | Flutter/Dart 版本仅在 Flutter 设置展示 |
@@ -21,8 +21,8 @@
 - **Empty**：尚未打开项目；明确的「打开项目」动作，其他控件合适禁用。
 - **Ready**：项目/配置/设备有效；Run 可用，Stop/Reload/Restart/DevTools 不可用。
 - **Starting**：执行前置任务或 Flutter 启动；显示阶段与进度，防止重复 Run。
-- **Waiting for VM Service**：仍可停止；Hot Reload、Hot Restart、DevTools 和 Inspector 暂不可用。
-- **Running**：Run 不可用，Stop/Reload/Restart 可用（仅有效 Debug 会话）；DevTools/Inspector 连接到本次会话。
+- **Waiting for VM Service**：可停止或确认重启当前会话；Hot Reload、Hot Restart、DevTools 和 Inspector 暂不可用。
+- **Running**：Run 显示含配置名与设备名的重启确认，Stop/Reload/Restart 可用（仅有效 Debug 会话）；DevTools/Inspector 连接到本次会话。
 - **Stopping / Restoring**：Stop 受控；标注正在执行后置任务，避免将进程结束误认为任务完成。
 - **Error / Recovery Needed**：覆盖前置任务失败、配置无效、无设备、prod 恢复失败、重试及恢复成功。prod 恢复失败时提示和重试入口固定在日志之外，折叠日志后仍可见。
 
