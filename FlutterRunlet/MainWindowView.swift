@@ -260,20 +260,23 @@ struct DeviceSelectionControls: View {
 
     private func choices(for session: SessionController) -> some View {
         RunletPopup(title: "Select Device") {
-            Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .help("Refresh Devices")
-                .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
+            Group {
+                if session.isRefreshingDevices {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Refreshing Devices")
+                } else {
+                    Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .help("Refresh Devices")
+                        .disabled(!session.canRefreshDevices || session.isStartingSimulator)
+                }
+            }
+            .frame(width: 20, height: 20)
         } content: {
             if session.isBusy {
                 Text("Showing the last device scan.").foregroundStyle(palette.secondary)
-            }
-            if session.isRefreshingDevices {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Refreshing Devices")
-                }
             }
             if let issue = session.deviceIssue ?? session.sdkIssue ?? session.simulatorIssue {
                 Text(issue).foregroundStyle(palette.secondary)
