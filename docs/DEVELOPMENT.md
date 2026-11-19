@@ -58,6 +58,8 @@ gh api --method GET --paginate --slurp "repos/$repo/pulls" \
 
 ## 定时处理 Issue
 
+误删任务或更换电脑时，按[定时任务恢复指南](ISSUE-QUEUE-AUTOMATION.md)重建。指南包含完整提示词和重建参数。
+
 定时任务用 [队列核验脚本](../scripts/verify-issue-queue.py)的 `--preflight` 核对 origin、当前 `gh` 身份和四个 `task:*` 标签，再查询队列。推送前在任务 worktree 运行同一脚本的 `--check-push-hook`。检查通过后再推送。
 
 同一轮可以处理多条 Issue。队列默认按编号升序，领取前检查明确的前置依赖。依赖未完成时，优先领取符合条件的前置 Issue，支持多级依赖。前置 Issue 尚未获准领取时，被阻塞的 Issue 保留 `task:ready`，队列继续检查其他可领取项。
