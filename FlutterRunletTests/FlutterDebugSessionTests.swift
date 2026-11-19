@@ -223,6 +223,8 @@ final class FlutterDebugSessionTests: XCTestCase {
             let store = try ProjectRecoveryStore(directory: fixture.storage)
             let executable = try makeFlutter(in: fixture, script: #"""
                 printf '%s\n' "$5" > .runlet-fixture/debug-device
+                while [ ! -f .runlet-fixture/finish-debug ]; do /bin/sleep .02; done
+                exit 42
                 """#)
             let selected = FlutterDevice(id: "selected", name: "Selected iPhone", platform: "ios", isSimulator: isSimulator)
             let sdk = FlutterSDK(executable: executable, flutterVersion: "test", dartVersion: "test")
@@ -241,8 +243,21 @@ final class FlutterDebugSessionTests: XCTestCase {
             session.selectDevice(selected.id)
             XCTAssertTrue(opened.isEmpty)
             session.run()
+            do {
+                try await eventually {
+                    FileManager.default.fileExists(atPath: fixture.state("debug-device").path)
+                }
+                XCTAssertEqual(session.feedback?.title.key,
+                               isSimulator ? "Could not open the iOS simulator window" : nil)
+                try Data().write(to: fixture.state("finish-debug"))
+            } catch {
+                session.stop()
+                await session.waitUntilIdle()
+                throw error
+            }
             await session.waitUntilIdle()
 
+            XCTAssertTrue(session.displayMessage.map { chinese.appString($0).contains("42") } ?? false)
             XCTAssertEqual(opened, isSimulator ? [selected.id] : [])
             XCTAssertEqual(try String(contentsOf: fixture.state("debug-device"), encoding: .utf8), "selected\n")
             XCTAssertEqual(try fixture.marker(), "test\n")

@@ -1606,7 +1606,9 @@ final class SessionController {
             do {
                 try await toolchain.showSimulator(device.id, FlutterToolchain.probeEnvironment(environment, launch.project))
             } catch {
-                if !stopRequested { message = "Could not open the iOS simulator window" }
+                if !stopRequested {
+                    feedback = SessionFeedback(title: "Could not open the iOS simulator window", detail: nil)
+                }
             }
         }
 
