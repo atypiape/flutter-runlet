@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (%@) is already running. Restart this session?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@) is already running. Restart this session?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$@）已在运行。是否重启当前会话？"
+          }
+        }
+      }
+    },
     "%@ in %@ must be an array of objects": {
       "localizations": {
         "en": {

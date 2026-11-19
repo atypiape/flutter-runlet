@@ -806,7 +806,9 @@ struct RunConfigurationControls: View {
         HStack(spacing: 0) {
             Button {
                 if let session {
-                    session.performDebugAction(.run, source: source)
+                    session.performDebugAction(.run, source: source) { launch in
+                        confirmSessionRestart(launch, locale: locale)
+                    }
                 } else {
                     runDemo()
                 }

@@ -250,7 +250,7 @@ struct FlutterRunletApp: App {
         _loginItem = State(initialValue: loginItem)
         let panelWindow = PanelWindowReference()
         _panelWindow = State(initialValue: panelWindow)
-        _windowKeys = State(initialValue: WindowKeys(session: presentation.selection == nil ? controller : nil))
+        _windowKeys = State(initialValue: WindowKeys(session: presentation.selection == nil ? controller : nil, language: language))
         termination.session = presentation.selection == nil ? controller : nil
         termination.language = language
         termination.loginItem = loginItem
@@ -583,12 +583,16 @@ struct FlutterRunletApp: App {
 @MainActor
 private final class WindowKeys {
     private weak var session: SessionController?
+    private let language: AppLanguageSettings
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private let menuPanels = NSHashTable<NSWindow>.weakObjects()
     private let settingsWindows = NSHashTable<NSWindow>.weakObjects()
     private var monitor: Any?
 
-    init(session: SessionController?) { self.session = session }
+    init(session: SessionController?, language: AppLanguageSettings) {
+        self.session = session
+        self.language = language
+    }
 
     func register(_ window: NSWindow, source: DebugActionSource) {
         switch source {
@@ -633,8 +637,19 @@ private final class WindowKeys {
                                                     isRepeat: event.isARepeat) else {
             return false
         }
-        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar)
+        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar) { launch in
+            confirmSessionRestart(launch, locale: language.locale)
+        }
     }
+}
+
+@MainActor
+func confirmSessionRestart(_ launch: ActiveLaunch, locale: Locale) -> Bool {
+    let alert = NSAlert()
+    alert.messageText = locale.appString("\(launch.configurationName) (\(launch.device.name)) is already running. Restart this session?")
+    alert.addButton(withTitle: locale.appString("Restart"))
+    alert.addButton(withTitle: locale.appString("Cancel")).keyEquivalent = "\u{1B}"
+    return alert.runModal() == .alertFirstButtonReturn
 }
 
 @MainActor

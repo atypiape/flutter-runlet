@@ -268,6 +268,17 @@ final class SessionController {
     @ObservationIgnored private var logFlush: Task<Void, Never>?
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool { recovery == nil && canStartSelectedConfiguration }
+    private var isConfirmingRestart = false
+    @ObservationIgnored private var restartDeviceID: String?
+
+    private var restartableLaunch: ActiveLaunch? {
+        guard canStop, !isConfirmingRestart, !isFinishingTermination, !updateReserved,
+              !executionIsUnconfirmed, active != nil else { return nil }
+        switch status {
+        case .waitingForVM, .waitingLonger, .running, .connectionInterrupted: return activeLaunch
+        default: return nil
+        }
+    }
 
     var canRunAfterRecovery: Bool {
         status == .recoveryFailed && recoveryProjectIsOpen && canStartSelectedConfiguration
@@ -297,19 +308,31 @@ final class SessionController {
     }
     func canPerformDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
         switch action {
-        case .run: canRun || (source == .mainWindow && canRunAfterRecovery)
+        case .run: restartableLaunch != nil || canRun || (source == .mainWindow && canRunAfterRecovery)
         case .stop: canStop
         case .reload, .restart: canHotOperate
         }
     }
 
     @discardableResult
-    func performDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
+    func performDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar,
+                            confirmRestart: (ActiveLaunch) -> Bool = { _ in false }) -> Bool {
         guard canPerformDebugAction(action, source: source) else { return false }
         switch action {
         case .run:
-            if source == .mainWindow && canRunAfterRecovery { runAfterRecovery() }
-            else { run() }
+            if let launch = restartableLaunch, let process = active {
+                isConfirmingRestart = true
+                let confirmed = confirmRestart(launch)
+                isConfirmingRestart = false
+                if confirmed, active === process, restartableLaunch != nil {
+                    restartDeviceID = launch.device.id
+                    stop()
+                }
+            } else if source == .mainWindow && canRunAfterRecovery {
+                runAfterRecovery()
+            } else {
+                run()
+            }
         case .stop: stop()
         case .reload: hotOperation(.reload)
         case .restart: hotOperation(.restart)
@@ -1310,6 +1333,13 @@ final class SessionController {
         isBusy = false
         operation = nil
         if status == .checkingToolchain || status == .stopping { status = .ready }
+
+        let deviceID = restartDeviceID
+        restartDeviceID = nil
+        guard let deviceID, status == .ready, recovery == nil, recoveryStoreIssue == nil,
+              !isFinishingTermination, !updateReserved, !executionIsUnconfirmed,
+              !configurationIsStale, let project, let selection, let store, let toolchain else { return }
+        beginFlutterRun(project, selection: selection, deviceID: deviceID, store: store, toolchain: toolchain)
     }
 
     func stop() {
