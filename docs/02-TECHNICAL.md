@@ -134,6 +134,7 @@ SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FV
 ## 6. `flutter run` / DevTools
 
 - 内嵌 worker 启动并管理 `flutter run --machine --debug` 进程。热重载和热重启通过当前 Flutter 进程的 machine 协议发送 `app.restart`，由 `fullRestart` 区分。停止时在取得当前 `appId` 后通过同一通道请求 `app.stop`。
+- 启动 iOS 模拟器调试时，前置任务通过后请求打开所选设备的窗口。窗口打开失败时显示提示，继续启动调试。
 - Run/Stop/Reload/Restart 的启用条件与同一会话状态一致，重复点击不得产生两个运行进程。
 - 从已启动实例的输出中提取 VM Service / DevTools URL，浏览器打开的 URL 连接**当前会话**；新会话必须重新绑定。
 - Inspector 直达链接需要在目标 Flutter/DevTools 版本实测；若不可靠，打开已连接的 DevTools 并提示用户进入 Inspector，不能伪造一个固定路由。

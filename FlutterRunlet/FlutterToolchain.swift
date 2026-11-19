@@ -168,6 +168,7 @@ struct FlutterToolchain {
     let validateManual: @MainActor (URL, URL?, [String: String]) async throws -> FlutterSDK
     let simulators: SimulatorDiscovery
     let bootSimulator: SimulatorBoot
+    var showSimulator: SimulatorBoot = { _, _ in }
     var androidEmulators: @MainActor (FlutterSDK, [String: String]) async throws -> [AndroidEmulator] = { _, _ in [] }
     var bootAndroidEmulator: @MainActor (String, FlutterSDK, [String: String]) async throws -> Void = { _, _, _ in
         throw SessionIssue(localized: "Android emulator launch is unavailable")
@@ -225,6 +226,7 @@ struct FlutterToolchain {
                 throw SessionIssue(localized: "The system could not start the selected simulator")
             }
         })
+        toolchain.showSimulator = showIOSSimulator
         toolchain.androidEmulators = discoverAndroidEmulators
         toolchain.bootAndroidEmulator = { id, sdk, environment in
             guard validAVDIdentifier(id),
@@ -234,6 +236,29 @@ struct FlutterToolchain {
             _ = try await query(sdk.executable, ["emulators", "--launch", id], environment: environment)
         }
         return toolchain
+    }
+
+    @MainActor
+    private static func showIOSSimulator(_ id: String, _ environment: [String: String]) async throws {
+        guard let uuid = UUID(uuidString: id) else {
+            throw SessionIssue(localized: "The simulator identifier is invalid")
+        }
+        let data = try await query(URL(fileURLWithPath: "/usr/bin/xcode-select"), ["--print-path"],
+                                   environment: environment)
+        let path = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard path.hasPrefix("/") else {
+            throw SessionIssue(localized: "Could not open the iOS simulator window")
+        }
+        let developer = URL(fileURLWithPath: path, isDirectory: true)
+        let deviceHub = developer.deletingLastPathComponent().appending(path: "Applications/DeviceHub.app")
+        let arguments: [String]
+        if FileManager.default.fileExists(atPath: deviceHub.path) {
+            arguments = ["-a", deviceHub.path, "devices://device/open?id=\(uuid.uuidString)"]
+        } else {
+            let simulator = developer.appending(path: "Applications/Simulator.app")
+            arguments = ["-a", simulator.path, "--args", "-CurrentDeviceUDID", uuid.uuidString]
+        }
+        _ = try await query(URL(fileURLWithPath: "/usr/bin/open"), arguments, environment: environment)
     }
 
     @MainActor

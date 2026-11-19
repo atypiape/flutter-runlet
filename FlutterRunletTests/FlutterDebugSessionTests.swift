@@ -216,6 +216,39 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testRunOpensOnlyTheSelectedIOSSimulatorAndContinuesIfOpeningFails() async throws {
+        for isSimulator in [true, false] {
+            let fixture = try SessionFixture()
+            defer { fixture.remove() }
+            let store = try ProjectRecoveryStore(directory: fixture.storage)
+            let executable = try makeFlutter(in: fixture, script: #"""
+                printf '%s\n' "$5" > .runlet-fixture/debug-device
+                """#)
+            let selected = FlutterDevice(id: "selected", name: "Selected iPhone", platform: "ios", isSimulator: isSimulator)
+            let sdk = FlutterSDK(executable: executable, flutterVersion: "test", dartVersion: "test")
+            var toolchain = FlutterToolchain(resolve: { _, _ in sdk }, discover: { [device] _, _ in [device, selected] })
+            var opened: [String] = []
+            toolchain.showSimulator = { id, _ in
+                opened.append(id)
+                XCTAssertEqual(try fixture.marker(), "prod\n")
+                XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-device").path))
+                throw SessionIssue("窗口打开失败")
+            }
+            let session = SessionController(store: store, runner: .bundled, environment: fixture.environment,
+                                            toolchain: toolchain)
+            try fixture.select("prod", in: session)
+            try await eventually { !session.isRefreshingDevices && session.devices.contains(selected) }
+            session.selectDevice(selected.id)
+            XCTAssertTrue(opened.isEmpty)
+            session.run()
+            await session.waitUntilIdle()
+
+            XCTAssertEqual(opened, isSimulator ? [selected.id] : [])
+            XCTAssertEqual(try String(contentsOf: fixture.state("debug-device"), encoding: .utf8), "selected\n")
+            XCTAssertEqual(try fixture.marker(), "test\n")
+        }
+    }
+
     func testInvalidPreflightLeavesEnvironmentAndRiskUntouched() async throws {
         for change in ["missing-sdk", "offline", "discovery-error", "conflict", "non-debug", "edited",
                        "application-args", "duplicate-machine"] {
