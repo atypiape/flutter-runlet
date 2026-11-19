@@ -37,11 +37,11 @@ xcodebuild -project FlutterRunlet.xcodeproj -scheme FlutterRunlet \
 
 ## 手动处理 Issue
 
-「任务或问题」表单只要求填写标题和「问题与预期」。「补充信息」可填写复现步骤、截图、验证方法或改动边界。有前置任务时，可用 GitHub 的阻塞关系标记。[任务或问题表单](../.github/ISSUE_TEMPLATE/codex-task.yml)
+「任务或问题」表单只要求填写标题和「问题与预期」。「补充信息」可填写复现步骤、截图、验证方法或改动边界。有前置任务时，用 GitHub 的阻塞关系标记，或在正文 `### 前置 Issue` 标题下列出本仓库 Issue 编号，例如 `- #123`。[任务或问题表单](../.github/ISSUE_TEMPLATE/codex-task.yml)
 
-1. 普通 Issue 和表单提交的 Issue 都由维护者添加 `task:ready` 批准领取。贴标后若修改标题或正文，请移除后重新添加该标签。队列空闲时，Agent 复核批准、规格和标签，将候选 Issue 切换为 `task:working`。
+1. 普通 Issue 和表单提交的 Issue 都由维护者添加 `task:ready` 批准领取。贴标后若修改标题或正文，请移除后重新添加该标签。队列空闲时，Agent 复核批准、规格、标签及前置依赖，将候选 Issue 切换为 `task:working`。
 2. 从最新 `origin/dev` 创建独立 worktree。用包含 Issue 编号的合规分支名，例如 `docs/issue-123-pr-resume`。重跑时先用 `git worktree list` 找到原目录，继续使用原分支。
-3. 领取后核对前置依赖，在该 worktree 排查问题、实现改动并做可用的验证。缺少复现信息或设备时，先完成可独立推进的工作，再记录实际阻塞和需要协助的事项。按 Git 工作流检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。[Git 工作流](GIT-WORKFLOW.md)
+3. 在该 worktree 排查问题、实现改动并做可用的验证。缺少复现信息或设备时，先完成可独立推进的工作，再记录实际阻塞和需要协助的事项。按 Git 工作流检查差异、提交和推送。PR 写明验收结果，并在正文单独一行引用 Issue，例如 `Refs #123`。[Git 工作流](GIT-WORKFLOW.md)
 
 创建 PR 前按来源仓库和分支查找历史 PR。将下例的分支名换成任务分支。查询包含已关闭的 PR，也能发现被改投其他分支的 PR。
 
@@ -60,7 +60,9 @@ gh api --method GET --paginate --slurp "repos/$repo/pulls" \
 
 定时任务用 [队列核验脚本](../scripts/verify-issue-queue.py)的 `--preflight` 核对 origin、当前 `gh` 身份和四个 `task:*` 标签，再查询队列。推送前在任务 worktree 运行同一脚本的 `--check-push-hook`。检查通过后再推送。
 
-同一轮可以处理多条 Issue。每次领取符合条件的最小编号，由独立子任务在专属 worktree 开发、验证并开 PR。独立审查和当前拟合入提交的必需 CI 通过后，定时任务自动 Squash 合入 `dev`，关单并清理任务标签。本地 `dev` 快进到最新 `origin/dev` 后，重新查询并领取下一条。当前任务未完成合并和收尾时，保留记录以便恢复，暂缓领取。
+同一轮可以处理多条 Issue。队列默认按编号升序，领取前检查明确的前置依赖。依赖未完成时，优先领取符合条件的前置 Issue，支持多级依赖。前置 Issue 尚未获准领取时，被阻塞的 Issue 保留 `task:ready`，队列继续检查其他可领取项。
+
+独立子任务在专属 worktree 开发、验证并开 PR。独立审查和当前拟合入提交的必需 CI 通过后，定时任务自动 Squash 合入 `dev`，关单并清理任务标签。本地 `dev` 快进到最新 `origin/dev` 后，重新查询并领取下一条。当前任务未完成合并和收尾时，保留记录以便恢复，暂缓领取。
 
 误删标签时，先暂停定时任务，运行 [补建脚本](../scripts/create-github-labels.sh)，再核对并恢复受影响的 Issue 标签。需要重新添加 `task:ready` 时，由维护者复核后贴标。确认任务状态后恢复定时任务。
 
