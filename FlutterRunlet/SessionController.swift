@@ -286,11 +286,14 @@ final class SessionController {
     @ObservationIgnored private var restartDeviceID: String?
 
     private var restartableLaunch: ActiveLaunch? {
-        guard canStop, !isConfirmingRestart, !isFinishingTermination, !updateReserved,
-              !executionIsUnconfirmed, active != nil else { return nil }
+        // Observe the launch phase even before there is an active process.
         switch status {
-        case .waitingForVM, .waitingLonger, .running, .connectionInterrupted: return activeLaunch
-        default: return nil
+        case .waitingForVM, .waitingLonger, .running, .connectionInterrupted:
+            guard canStop, !isConfirmingRestart, !isFinishingTermination, !updateReserved,
+                  !executionIsUnconfirmed, active != nil else { return nil }
+            return activeLaunch
+        default:
+            return nil
         }
     }
 
