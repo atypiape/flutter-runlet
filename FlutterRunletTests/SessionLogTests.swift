@@ -309,6 +309,70 @@ final class SessionLogTests: XCTestCase {
         XCTAssertTrue(text.string.utf8.elementsEqual(next.utf8))
     }
 
+    func testLogViewWrapsLongLinesAtViewportWidthAndCopiesOriginalText() throws {
+        let scroll = SessionLogScrollView()
+        scroll.scrollerStyle = .legacy
+        scroll.setFrameSize(NSSize(width: 500, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        let sample = "Flutter output with spaces 路径😀 " + String(repeating: "abcdef", count: 60)
+        let contents = String(repeating: sample + "\n", count: 12)
+        scroll.show(contents, trimmedUTF16: 0)
+        let text = try XCTUnwrap(scroll.documentView as? NSTextView)
+        let layout = try XCTUnwrap(text.layoutManager)
+        let container = try XCTUnwrap(text.textContainer)
+        func assertViewportWidth(file: StaticString = #filePath, line: UInt = #line) {
+            let viewport = scroll.contentView.bounds.width
+            XCTAssertEqual(text.frame.width, viewport, accuracy: 1, file: file, line: line)
+            XCTAssertEqual(container.containerSize.width, viewport - 2 * text.textContainerInset.width,
+                           accuracy: 1, file: file, line: line)
+            XCTAssertLessThanOrEqual(layout.usedRect(for: container).maxX, container.containerSize.width,
+                                     file: file, line: line)
+        }
+        func lineTop(at index: Int) -> CGFloat {
+            let glyph = layout.glyphIndexForCharacter(at: index)
+            return layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
+                + text.textContainerOrigin.y
+        }
+        let lastCharacter = sample.utf16.count - 1
+        let wideLineTop = lineTop(at: lastCharacter)
+        let wideHeight = text.frame.height
+        assertViewportWidth()
+        XCTAssertGreaterThan(wideLineTop, lineTop(at: 0))
+        XCTAssertEqual(scroll.documentVisibleRect.maxY, wideHeight, accuracy: 1)
+
+        scroll.setFrameSize(NSSize(width: 260, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        XCTAssertFalse(scroll.hasHorizontalScroller)
+        XCTAssertTrue(scroll.hasVerticalScroller)
+        assertViewportWidth()
+        XCTAssertGreaterThan(lineTop(at: lastCharacter), wideLineTop)
+        XCTAssertGreaterThan(text.frame.height, wideHeight)
+        XCTAssertEqual(scroll.documentVisibleRect.maxY, text.frame.height, accuracy: 1)
+
+        let selection = NSRange(location: (sample.utf16.count + 1) * 3, length: sample.utf16.count)
+        text.setSelectedRange(selection)
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: lineTop(at: selection.location) + 3))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        scroll.setFrameSize(NSSize(width: 500, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        assertViewportWidth()
+        XCTAssertEqual(lineTop(at: lastCharacter), wideLineTop, accuracy: 1)
+        XCTAssertEqual(scroll.documentVisibleRect.minY, lineTop(at: selection.location) + 3, accuracy: 1)
+        XCTAssertEqual(scroll.documentVisibleRect.minX, 0, accuracy: 1)
+        XCTAssertEqual(text.selectedRange(), selection)
+        XCTAssertEqual(text.string, contents)
+
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        XCTAssertTrue(text.writeSelection(to: pasteboard, types: text.writablePasteboardTypes))
+        XCTAssertEqual(pasteboard.string(forType: .string), sample)
+
+        scroll.show("short", trimmedUTF16: 0)
+        assertViewportWidth()
+        XCTAssertEqual(scroll.documentVisibleRect.minY, 0, accuracy: 1)
+        XCTAssertEqual(text.frame.height, scroll.contentView.bounds.height, accuracy: 1)
+    }
+
     func testLogViewRendersLaunchAndDiagnosticTonesWithoutChangingText() throws {
         let scroll = SessionLogScrollView()
         let contents = "Launching sample\nWarning details\nPlain output\n"

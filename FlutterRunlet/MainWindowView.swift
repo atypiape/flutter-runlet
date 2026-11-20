@@ -443,7 +443,7 @@ private struct SessionLogView: NSViewRepresentable {
 final class SessionLogScrollView: NSScrollView {
     private struct ReadingAnchor {
         let character: Int
-        let offset: CGPoint
+        let offset: CGFloat
     }
 
     private static let logColor = NSColor(name: nil) { appearance in
@@ -469,6 +469,7 @@ final class SessionLogScrollView: NSScrollView {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = 18
         style.maximumLineHeight = 18
+        style.lineBreakMode = .byWordWrapping
         return style.copy() as? NSParagraphStyle ?? .default
     }()
     private var trimmedUTF16 = 0
@@ -480,19 +481,17 @@ final class SessionLogScrollView: NSScrollView {
     init() {
         super.init(frame: .zero)
         drawsBackground = false
-        hasHorizontalScroller = true
         hasVerticalScroller = true
         autohidesScrollers = true
         logText.drawsBackground = false
         logText.isEditable = false
         logText.isSelectable = true
         logText.isRichText = false
+        logText.isVerticallyResizable = false
         logText.font = logFont
         logText.textColor = Self.logColor
         logText.defaultParagraphStyle = logParagraph
         logText.textContainerInset = NSSize(width: 7, height: 8)
-        logText.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        logText.textContainer?.containerSize = logText.maxSize
         logText.textContainer?.widthTracksTextView = false
         documentView = logText
     }
@@ -508,7 +507,10 @@ final class SessionLogScrollView: NSScrollView {
         let visible = documentVisibleRect
         let follow = followsBottom(visible)
         super.layout()
-        sizeDocument(origin: visible.origin, follow: follow)
+        let width = textContainerWidth
+        let reflow = logText.textContainer?.containerSize.width != width
+        let anchor = reflow && !follow ? readingAnchor(in: visible) : nil
+        sizeDocument(origin: visible.minY, follow: follow, anchor: anchor)
     }
 
     func scheduleUpdate(_ contents: String, trimmedUTF16: Int, spans: [SessionLogSpan]) {
@@ -575,7 +577,7 @@ final class SessionLogScrollView: NSScrollView {
         } else {
             anchor = nil
         }
-        let origin = removed > 0 && !follow ? .zero : visible.origin
+        let origin = removed > 0 && !follow ? 0 : visible.minY
         sizeDocument(origin: origin, follow: follow, anchor: anchor)
     }
 
@@ -604,33 +606,44 @@ final class SessionLogScrollView: NSScrollView {
         let origin = logText.textContainerOrigin
         let glyphs = layout.glyphRange(forBoundingRect: visible.offsetBy(dx: -origin.x, dy: -origin.y), in: container)
         guard glyphs.length > 0 else { return nil }
-        let first = glyphOrigin(glyphs.location, in: layout)
+        let first = lineTop(forGlyph: glyphs.location, in: layout)
         return ReadingAnchor(character: layout.characterIndexForGlyph(at: glyphs.location),
-                             offset: CGPoint(x: visible.minX - first.x, y: visible.minY - first.y))
+                             offset: visible.minY - first)
     }
 
-    private func glyphOrigin(_ glyph: Int, in layout: NSLayoutManager) -> CGPoint {
-        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-        let origin = logText.textContainerOrigin
-        return CGPoint(x: origin.x + line.minX + layout.location(forGlyphAt: glyph).x, y: origin.y + line.minY)
+    private func lineTop(forGlyph glyph: Int, in layout: NSLayoutManager) -> CGFloat {
+        layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY + logText.textContainerOrigin.y
     }
 
-    private func sizeDocument(origin: CGPoint, follow: Bool, anchor: ReadingAnchor? = nil) {
-        guard let layout = logText.layoutManager, let container = logText.textContainer else { return }
+    private var textContainerWidth: CGFloat {
+        max(0, contentView.bounds.width - logText.textContainerInset.width * 2)
+    }
+
+    private func fitDocument(_ container: NSTextContainer, in layout: NSLayoutManager) {
+        let width = textContainerWidth
+        if container.containerSize.width != width {
+            container.containerSize = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+        }
         layout.ensureLayout(for: container)
         let used = layout.usedRect(for: container).integral
         let viewport = contentView.bounds.size
-        let size = NSSize(width: max(viewport.width, used.maxX + logText.textContainerInset.width * 2),
+        let size = NSSize(width: viewport.width,
                           height: max(viewport.height, used.maxY + logText.textContainerInset.height * 2))
         if logText.frame.size != size { logText.setFrameSize(size) }
-        let maxY = max(0, size.height - viewport.height)
+    }
+
+    private func sizeDocument(origin: CGFloat, follow: Bool, anchor: ReadingAnchor? = nil) {
+        guard let layout = logText.layoutManager, let container = logText.textContainer else { return }
+        fitDocument(container, in: layout)
+        // A legacy vertical scroller changes the clip width when it appears or disappears.
+        if container.containerSize.width != textContainerWidth { fitDocument(container, in: layout) }
+        let maxY = max(0, logText.frame.height - contentView.bounds.height)
         var target = origin
         if let anchor, anchor.character < (logText.textStorage?.length ?? 0) {
-            let glyph = glyphOrigin(layout.glyphIndexForCharacter(at: anchor.character), in: layout)
-            target = CGPoint(x: glyph.x + anchor.offset.x, y: glyph.y + anchor.offset.y)
+            let glyph = layout.glyphIndexForCharacter(at: anchor.character)
+            target = lineTop(forGlyph: glyph, in: layout) + anchor.offset
         }
-        contentView.scroll(to: CGPoint(x: min(max(0, target.x), max(0, size.width - viewport.width)),
-                                       y: follow ? maxY : min(max(0, target.y), maxY)))
+        contentView.scroll(to: CGPoint(x: 0, y: follow ? maxY : min(max(0, target), maxY)))
         reflectScrolledClipView(contentView)
     }
 }
