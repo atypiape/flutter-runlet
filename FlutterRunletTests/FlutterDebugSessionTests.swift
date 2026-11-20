@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Network
+import Observation
 import os
 import XCTest
 @testable import FlutterRunlet
@@ -379,9 +380,17 @@ final class FlutterDebugSessionTests: XCTestCase {
         session.selectDevice(device.id)
         XCTAssertTrue(session.canRun)
         session.run()
+        XCTAssertEqual(session.status, .checkingToolchain)
+        let runAvailabilityChanged = OSAllocatedUnfairLock(initialState: false)
+        XCTAssertFalse(withObservationTracking {
+            session.canPerformDebugAction(.run, source: .menuBar)
+        } onChange: {
+            runAvailabilityChanged.withLock { $0 = true }
+        })
 
         do {
             try await eventually { session.status == .running }
+            XCTAssertTrue(runAvailabilityChanged.withLock { $0 }, "启动期间已打开的菜单须重新读取 Run 的启用状态")
             session.selectDevice(secondDevice.id)
             XCTAssertEqual(session.selectedDeviceID, secondDevice.id)
             XCTAssertTrue(session.performDebugAction(.run, source: .mainWindow) { launch in
