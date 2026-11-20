@@ -103,8 +103,7 @@ struct MainWindowView: View {
         let message = statusMessage
         let latest = locale.appString(message)
         return Text(verbatim: latest)
-            .font(RunletType.localized(locale, size: 13, medium: true))
-            .foregroundStyle(statusIsError ? palette.error : (message == Self.projectPrompt ? palette.accent : palette.primary))
+            .foregroundStyle(statusIsError ? palette.error : (message == Self.projectPrompt ? palette.accent : palette.secondary))
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
             .help(statusHelp(latest))
