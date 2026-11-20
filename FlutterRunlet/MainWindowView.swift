@@ -110,13 +110,17 @@ struct MainWindowView: View {
             .help(statusHelp(latest))
     }
 
-    private var statusMessage: LocalizedStringResource {
+    var statusMessage: LocalizedStringResource {
         guard let session else {
             return presentation.selection == nil ? Self.projectPrompt : SessionStatus.ready.title
         }
         if session.status == .restoringEnvironment {
             if let task = session.activeRecoveryTaskLabel { return "Running post-debug task \(task)." }
             return session.status.title
+        }
+        if session.status.showsLaunchProgress || session.status == .running ||
+            session.status == .connectionInterrupted || session.status == .stopping {
+            return session.debugStatusMessage ?? session.status.title
         }
         if let failure = session.recoveryFailure { return failure.message }
         if let issue = session.displayMessage, issue != LocalizedStringResource("Select a debug device") {

@@ -262,6 +262,16 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(opened, isSimulator ? [selected.id] : [])
             XCTAssertEqual(try String(contentsOf: fixture.state("debug-device"), encoding: .utf8), "selected\n")
             XCTAssertEqual(try fixture.marker(), "test\n")
+
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            XCTAssertTrue(chinese.appString(mainWindow.statusMessage).contains("42"))
+            session.run()
+            XCTAssertEqual(session.status, .checkingToolchain)
+            XCTAssertTrue(session.displayMessage.map { chinese.appString($0).contains("42") } ?? false)
+            XCTAssertEqual(mainWindow.statusMessage, SessionStatus.checkingToolchain.title)
+            session.stop()
+            XCTAssertEqual(mainWindow.statusMessage, SessionStatus.stopping.title)
+            await session.waitUntilIdle()
         }
     }
 
@@ -620,6 +630,9 @@ final class FlutterDebugSessionTests: XCTestCase {
             discovery.fails = true
             try await scan()
             try await eventually { session.status == .connectionInterrupted }
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            XCTAssertEqual(mainWindow.statusMessage,
+                           "The VM Service connection was interrupted. Reconnecting. You can stop the current session.")
             XCTAssertFalse(session.canHotOperate)
             try assertStillRunning()
             vm.devices = [device]
