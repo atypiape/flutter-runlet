@@ -1,5 +1,13 @@
 # FlutterRunlet 版本说明
 
+## v0.4.0 · 桌面调试与模拟器
+
+- 支持 macOS 桌面调试。选择离线 iOS 模拟器或 Android AVD 时可自动启动设备，在 iOS 模拟器上开始调试时会显示模拟器窗口。
+- 首次打开时提供项目入口提示，打开项目后默认选中启动配置和设备。
+- 运行中可确认重启当前会话。主窗口显示调试状态和启动进度，日志区分启动与诊断消息，并自动换行。
+
+Universal DMG 支持 Apple Silicon 和 Intel，最低部署目标为 macOS 15.0。安装包使用临时签名，未经 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.4.0)
+
 ## v0.3.0 · DevTools 与设置
 
 - Inspector 可按需启动独立 DevTools 并连接当前调试会话。同一会话重复打开会复用浏览器标签，选中 Widget 后可从 Inspector 跳到源码，按需打开 VS Code、Cursor 或 Zed。
