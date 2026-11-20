@@ -29,7 +29,7 @@ struct MainWindowView: View {
             .background(palette.toolbar)
             palette.divider.frame(height: 1)
             VStack(alignment: .leading, spacing: 13) {
-                ProjectControls(session: session, demoName: presentation.selection?.project)
+                ProjectControls(session: session, demoName: presentation.selection?.project, offersFirstProjectGuide: true)
                 HStack(spacing: 12) {
                     RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration,
                                              runDemo: run, source: .mainWindow)
@@ -59,104 +59,96 @@ struct MainWindowView: View {
     }
 
     private var sessionDetails: some View {
-        Group {
-            if let session, session.status == .recoveryFailed {
-                recoveryFailureDetails(session)
-            } else {
-                regularSessionDetails
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                statusLine
+                if let session {
+                    if session.status != .restoringEnvironment, let action = session.recoveryAction {
+                        if session.status == .recoveryFailed, action == .retry {
+                            RecoveryRetryButton(session: session)
+                        } else {
+                            Button(action: session.performRecoveryAction) { Text(action.title) }
+                                .interactivePointer()
+                                .disabled(!session.canPerformRecoveryAction)
+                        }
+                    }
+                    if session.sdkIssue != nil, let openFlutterSettings {
+                        Button("Open Flutter Settings", action: openFlutterSettings)
+                            .interactivePointer()
+                    }
+                }
             }
-        }
-    }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(statusIsError ? palette.errorSurface : palette.toolbar, in: .rect(cornerRadius: 7))
+            .overlay(alignment: .bottom) {
+                if session?.status.showsLaunchProgress == true { LaunchProgressBar() }
+            }
+            .clipShape(.rect(cornerRadius: 7))
 
-    private var isRestoring: Bool { session?.status == .restoringEnvironment }
-
-    private var regularSessionDetails: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let selection = presentation.selection {
-                Text("Debug Session").font(RunletType.localized(locale, size: 13, medium: true))
-                sessionCaption(verbatim: "\(selection.configuration) · \(selection.device)")
-            } else if let session, isRestoring {
-                Text("Flutter Has Exited").font(RunletType.localized(locale, size: 13, medium: true))
-                if let task = session.activeRecoveryTaskLabel {
-                    Text("Running post-debug task \(task).")
-                        .font(RunletType.localized(locale, size: 11)).foregroundStyle(palette.secondary)
-                } else {
-                    Text(session.status.title).font(RunletType.localized(locale, size: 11)).foregroundStyle(palette.secondary)
-                }
-            } else if let session, let launch = session.activeLaunch {
-                Text("Debug Session").font(RunletType.localized(locale, size: 13, medium: true))
-                sessionCaption(verbatim: "\(launch.configurationName) · \(launch.device.name) (\(locale.appString(DeviceChoice(device: launch.device, availability: .online).kind.title)))")
-                    .accessibilityValue(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
-                    .help(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
-            } else if let session, session.status.showsLaunchProgress {
-                Text(session.status.title).font(RunletType.localized(locale, size: 13, medium: true))
-            } else {
-                Text("Debug Not Started").font(RunletType.localized(locale, size: 13, medium: true))
-                Text("Choose a launch configuration and device to run.")
-                    .font(RunletType.localized(locale, size: 11))
-                    .foregroundStyle(palette.secondary)
-            }
-            if let session {
-                if !isRestoring, let issue = session.displayMessage, session.recoveryMessage == nil,
-                   locale.appString(issue) != locale.appString("Select a debug device") {
-                    Text(session.configurationIsStale && !session.choices.isEmpty ? "Configuration Out of Date · \(issue)" : issue)
-                        .foregroundStyle(palette.secondary)
-                }
-                if !isRestoring { RecoveryDetails(session: session) }
-                if session.sdkIssue != nil, let openFlutterSettings {
-                    Button("Open Flutter Settings", action: openFlutterSettings)
-                        .interactivePointer()
-                }
-                if let issue = session.taskIssue, issue != session.displayMessage {
-                    Text(issue).foregroundStyle(palette.secondary)
-                }
-            }
             SessionFeedbackView(session: session)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
-        .background(palette.toolbar, in: .rect(cornerRadius: 7))
-        .overlay(alignment: .bottom) {
-            if session?.status.showsLaunchProgress == true { LaunchProgressBar() }
+    }
+
+    private var statusIsError: Bool {
+        switch session?.status {
+        case .recoveryFailed, .recoveryUnavailable, .preTaskFailed, .launchBlocked, .processUnconfirmed: true
+        default: false
         }
-        .clipShape(.rect(cornerRadius: 7))
     }
 
-    private func sessionCaption(verbatim caption: String) -> some View {
-        Text(verbatim: caption)
-            .font(RunletType.localized(locale, size: 11))
-            .foregroundStyle(palette.secondary)
-            .lineLimit(2)
-            .help(caption)
-    }
+    private static let projectPrompt: LocalizedStringResource = "Click the folder button above to open a Flutter project."
 
-    private func recoveryFailureDetails(_ session: SessionController) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.recoveryFailure?.message ?? session.recoveryMessage ?? session.status.title)
-                    .font(RunletType.localized(locale, size: 12, medium: true))
-                    .frame(minHeight: 19, alignment: .leading)
-                    .foregroundStyle(palette.error)
-                if session.canRunAfterRecovery {
-                    Text(RecoveryRetryButton.runHint)
-                } else if let blocker = session.recoveryRunBlocker {
-                    Text(blocker)
-                }
-                if session.recoveryAction == .openProject {
-                    RecoveryDetails(session: session, showMessage: false)
-                }
-            }
-            .font(RunletType.localized(locale, size: 11))
-            .foregroundStyle(palette.secondary)
+    private var statusLine: some View {
+        let message = statusMessage
+        let latest = locale.appString(message)
+        return Text(verbatim: latest)
+            .font(RunletType.localized(locale, size: 13, medium: true))
+            .foregroundStyle(statusIsError ? palette.error : (message == Self.projectPrompt ? palette.accent : palette.primary))
+            .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            RecoveryRetryButton(session: session)
+            .help(statusHelp(latest))
+    }
+
+    var statusMessage: LocalizedStringResource {
+        guard let session else {
+            return presentation.selection == nil ? Self.projectPrompt : SessionStatus.ready.title
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(minHeight: 59)
-        .background(palette.errorSurface, in: .rect(cornerRadius: 7))
+        if session.status == .restoringEnvironment {
+            if let task = session.activeRecoveryTaskLabel { return "Running post-debug task \(task)." }
+            return session.status.title
+        }
+        if session.status.showsLaunchProgress || session.status == .running ||
+            session.status == .connectionInterrupted || session.status == .stopping {
+            return session.debugStatusMessage ?? session.status.title
+        }
+        if let failure = session.recoveryFailure { return failure.message }
+        if let issue = session.displayMessage, issue != LocalizedStringResource("Select a debug device") {
+            return session.configurationIsStale && !session.choices.isEmpty ? "Configuration Out of Date · \(issue)" : issue
+        }
+        if session.project == nil, session.canChangeProject { return Self.projectPrompt }
+        if let issue = session.taskIssue, session.status == .idle || session.status == .ready { return issue }
+        return session.status == .idle ? "Idle" : session.status.title
+    }
+
+    private func statusHelp(_ latest: String) -> String {
+        guard let session else { return latest }
+        var messages = [latest]
+        if let record = session.recovery, session.status != .restoringEnvironment {
+            messages.append("\(record.projectPath) · \(record.taskLabel)")
+        }
+        if session.status == .recoveryFailed {
+            if session.canRunAfterRecovery {
+                messages.append(locale.appString(RecoveryRetryButton.runHint))
+            } else if let blocker = session.recoveryRunBlocker {
+                messages.append(locale.appString(blocker))
+            }
+        }
+        if let issue = session.taskIssue {
+            let localized = locale.appString(issue)
+            if localized != latest { messages.append(localized) }
+        }
+        return messages.joined(separator: "\n")
     }
 
     private var logs: some View {
@@ -651,20 +643,33 @@ final class SessionLogScrollView: NSScrollView {
 struct ProjectControls: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(Self.firstProjectGuideKey) private var didShowFirstProjectGuide = false
     @State private var isShowingHistory = false
+    @State private var guideStart: Date?
 
+    static let firstProjectGuideKey = "didShowFirstProjectGuide"
     static let historyTitle: LocalizedStringResource = "Recent Projects"
     static let folderTitle: LocalizedStringResource = "Open Project"
     static func removeTitle(_ name: String) -> LocalizedStringResource { "Remove \(name) from Recent Projects" }
 
     let session: SessionController?
     let demoName: String?
+    var offersFirstProjectGuide = false
     var prepareForPicker: (() -> (() -> Void)?)? = nil
 
     private var palette: RunletAppearance { RunletAppearance(scheme) }
 
+    private var canOpenProject: Bool { session?.canChangeProject == true || demoName != nil }
+
+    private var canShowGuide: Bool {
+        offersFirstProjectGuide && demoName == nil && session?.project == nil &&
+            session?.canChangeProject == true && session?.recoveryStoreIssue == nil
+    }
+
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
+            openProjectButton
             let name = session?.project?.lastPathComponent ?? demoName
             Group {
                 if let name {
@@ -683,10 +688,41 @@ struct ProjectControls: View {
                 .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
                     if let session { history(session).environment(\.locale, locale) }
                 }
-
-            projectButton(Self.folderTitle, icon: "Folder", action: openProject)
         }
         .frame(height: 26)
+        .task(id: canShowGuide) {
+            guard canShowGuide, !didShowFirstProjectGuide else { return }
+            didShowFirstProjectGuide = true
+            guard !reduceMotion else { return }
+            guideStart = .now
+            defer { guideStart = nil }
+            try? await Task.sleep(for: .seconds(1.6))
+        }
+    }
+
+    private var openProjectButton: some View {
+        Button(action: openProject) {
+            RunletIcon("Folder", size: 16)
+                .frame(width: 28, height: 26)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: .accent, radius: 6))
+        .accessibilityLabel(Text(Self.folderTitle))
+        .help(Text(Self.folderTitle))
+        .disabled(!canOpenProject)
+        .overlay {
+            if let guideStart, canShowGuide, !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    let progress = min(max(context.date.timeIntervalSince(guideStart) / 0.8, 0), 2)
+                    let phase = progress.truncatingRemainder(dividingBy: 1)
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(palette.accent, lineWidth: 2)
+                        .padding(-2 - phase * 3)
+                        .opacity(1 - phase)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
     }
 
     private func projectButton(_ title: LocalizedStringResource, icon: String,
@@ -699,7 +735,7 @@ struct ProjectControls: View {
         .buttonStyle(RunletButtonStyle(surface: .outlinedField))
         .accessibilityLabel(Text(title))
         .help(Text(title))
-        .disabled(session?.canChangeProject != true && demoName == nil)
+        .disabled(!canOpenProject)
     }
 
     private func history(_ session: SessionController) -> some View {

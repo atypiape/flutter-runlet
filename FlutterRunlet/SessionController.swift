@@ -363,7 +363,7 @@ final class SessionController {
     var displayMessage: LocalizedStringResource? {
         recoveryMessage ?? message ?? debugStatusMessage ?? debugEndReason ?? selection?.issue ?? sdkStatusIssue ?? deviceSelectionIssue
     }
-    private var debugStatusMessage: LocalizedStringResource?
+    private(set) var debugStatusMessage: LocalizedStringResource?
     private var debugEndReason: LocalizedStringResource?
     private var sdkStatusIssue: LocalizedStringResource? { isCheckingSDK ? "Checking Flutter SDK" : sdkIssue }
     private var deviceSelectionIssue: LocalizedStringResource? {
