@@ -142,7 +142,7 @@ final class SessionController {
     private(set) var devices: [FlutterDevice] = []
     private var knownDevices: [FlutterDevice] = []
     private var deviceSnapshotSDK: FlutterSDK?
-    private var devicePreference: DevicePreference?
+    private var devicePreference: FlutterDevice?
     private(set) var activeLaunch: ActiveLaunch?
     private(set) var simulators: [FlutterSimulator] = []
     private(set) var androidEmulators: [AndroidEmulator] = []
@@ -184,12 +184,16 @@ final class SessionController {
             recovery == nil && recoveryStoreIssue == nil && !isStartingSimulator && !isRefreshingDevices &&
             (!isBusy || status == .running || status == .connectionInterrupted)
     }
-    var selectedDeviceID: String? { devicePreference?.device?.id }
+    var selectedDeviceID: String? { devicePreference?.id }
     var selectedDevice: FlutterDevice? { devices.first { $0.id == selectedDeviceID } }
     var selectedDeviceChoice: DeviceChoice? {
         let choices = deviceChoices
         let id = startingDeviceID ?? selectedDeviceID
         if let choice = choices.first(where: { $0.id == id }) { return choice }
+        if id == nil {
+            let target = selection?.launch?.deviceID
+            return choices.first { $0.id == target } ?? choices.first
+        }
         guard let id, let avd = androidAVDByDeviceID[id] else { return nil }
         return choices.first { $0.id == Self.androidChoiceID(avd) }
     }
@@ -206,7 +210,8 @@ final class SessionController {
         }.map {
             FlutterDevice(id: $0.id, name: $0.name, platform: "ios", isSimulator: true)
         }
-        let candidates = devices + shutdown + knownDevices + [devicePreference?.device].compactMap { $0 }
+        let online = devices.filter { !$0.isMacOSDesktop } + devices.filter(\.isMacOSDesktop)
+        let candidates = online + shutdown + knownDevices + [devicePreference].compactMap { $0 }
         let availableIOS = Set(shutdown.map(\.id))
         let offlineAVDs = Set(androidEmulators.map(\.id))
         let choices: [DeviceChoice] = candidates.compactMap { device in
@@ -376,13 +381,8 @@ final class SessionController {
     private static let recentProjectsKey = "recentProjects"
     private static let preferFVMKey = "preferProjectFVM"
     private static let manualSDKKey = "manualFlutterSDKPath"
-    private struct DevicePreference {
-        let device: FlutterDevice?
-    }
-
-    @ObservationIgnored private var projectDevices: [String: DevicePreference] = [:]
+    @ObservationIgnored private var projectDevices: [String: FlutterDevice] = [:]
     @ObservationIgnored private var preferences: UserDefaults?
-    @ObservationIgnored private var hasLoadedConfiguration = false
     @ObservationIgnored private var store: ProjectRecoveryStore?
     @ObservationIgnored private let runner: SessionProcessRunner
     @ObservationIgnored private let allowedRoot: URL?
@@ -727,7 +727,6 @@ final class SessionController {
             deviceIssue = nil
             choices = []
             selectedID = nil
-            hasLoadedConfiguration = false
             apply(configuration(canonical), preserving: nil)
             status = .ready
             if remember {
@@ -891,20 +890,18 @@ final class SessionController {
         configurationIsStale = config.launchIssue != nil
         if configurationIsStale { return }
         choices = config.choices
+        let defaultChoice = choices.first { $0.launch != nil } ?? choices.first
         if let name {
             let matches = choices.filter { $0.name == name }
-            selectedID = matches.only?.id
+            selectedID = (matches.only ?? defaultChoice)?.id
             if matches.isEmpty {
-                message = "The previous configuration no longer exists. Select another one"
+                message = "The previous launch configuration is no longer available"
             } else if matches.count > 1 {
                 message = "Multiple configurations have the previous name. Rename them in launch.json"
             }
-        } else if !hasLoadedConfiguration {
-            selectedID = choices.filter { $0.launch != nil }.only?.id
         } else {
-            selectedID = nil
+            selectedID = defaultChoice?.id
         }
-        hasLoadedConfiguration = true
         chooseInitialDevice()
     }
 
@@ -913,17 +910,15 @@ final class SessionController {
     }
 
     func select(_ id: Int?) {
-        guard !isBusy, !configurationIsStale else { return }
+        guard !isBusy, !configurationIsStale, let id, choices.contains(where: { $0.id == id }) else { return }
         selectedID = id
         chooseInitialDevice()
         if !choices.isEmpty { message = nil }
     }
 
-    func selectDevice(_ id: String?) {
-        guard canSelectNextDevice, let project else { return }
-        let choice = deviceChoices.first { $0.id == id }
-        guard id == nil || choice != nil else { return }
-        switch choice?.launchTarget {
+    func selectDevice(_ id: String) {
+        guard canSelectNextDevice, let project, let choice = deviceChoices.first(where: { $0.id == id }) else { return }
+        switch choice.launchTarget {
         case .iOS(let id):
             startSimulator(id)
             return
@@ -931,26 +926,24 @@ final class SessionController {
             startAndroidEmulator(id)
             return
         case nil:
-            storeDevice(DevicePreference(device: choice?.device), for: project)
+            storeDevice(choice.device, for: project)
         }
         if !isBusy { message = nil }
     }
 
-    private func storeDevice(_ preference: DevicePreference, for project: URL) {
-        devicePreference = preference
-        projectDevices[project.path] = preference
+    private func storeDevice(_ device: FlutterDevice, for project: URL) {
+        devicePreference = device
+        projectDevices[project.path] = device
     }
 
     private func chooseInitialDevice() {
         guard devicePreference == nil, let project else { return }
-        let device: FlutterDevice?
-        if let target = selection?.launch?.deviceID {
-            device = devices.first { $0.id == target }
-        } else {
-            // The desktop option should not displace the default when only one mobile device is connected.
-            device = devices.filter { !$0.isMacOSDesktop }.only ?? devices.only
+        let online = deviceChoices.filter { $0.availability == .online }
+        let target = selection?.launch?.deviceID
+        let choice = target == nil ? online.first : online.first { $0.id == target }
+        if let choice {
+            storeDevice(choice.device, for: project)
         }
-        if let device { storeDevice(DevicePreference(device: device), for: project) }
     }
 
     private var sdkOptions: FlutterSDKOptions {
@@ -1117,7 +1110,7 @@ final class SessionController {
         deviceSnapshotSDK = sdk
         updateDeviceIssue(nil)
         if let device = selectedDevice {
-            storeDevice(DevicePreference(device: device), for: project)
+            storeDevice(device, for: project)
         } else {
             chooseInitialDevice()
         }
@@ -1155,7 +1148,7 @@ final class SessionController {
                     }) {
                         self.applyDeviceSnapshot(discovered, project: project)
                         self.simulators.removeAll { $0.id == id }
-                        self.storeDevice(DevicePreference(device: device), for: project)
+                        self.storeDevice(device, for: project)
                         return
                     }
                     try await Task.sleep(for: .seconds(2))
@@ -1195,7 +1188,7 @@ final class SessionController {
                        discovered.contains(where: { $0.id == deviceID && $0.isSimulator && $0.platform.hasPrefix("android") }) {
                         self.applyDeviceSnapshot(discovered, project: project)
                         if let device = discovered.first(where: { $0.id == deviceID }) {
-                            self.storeDevice(DevicePreference(device: device), for: project)
+                            self.storeDevice(device, for: project)
                         }
                         self.applyAndroidEmulatorSnapshot(emulators)
                         return

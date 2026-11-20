@@ -235,7 +235,7 @@ struct DeviceSelectionControls: View {
                 } else if let demoDevice {
                     Text(verbatim: demoDevice)
                 } else {
-                    Text("Select a debug device").foregroundStyle(palette.secondary)
+                    Text("Select a debug device").foregroundStyle(palette.primary)
                 }
                 Spacer(minLength: 4)
                 if let device { availabilityStatus(device.availability) }
@@ -246,7 +246,7 @@ struct DeviceSelectionControls: View {
             .padding(.horizontal, 9)
             .frame(height: 32)
         }
-        .buttonStyle(RunletButtonStyle(surface: .outlinedField))
+        .buttonStyle(RunletButtonStyle(surface: .outlinedField, disabledOpacity: device == nil && demoDevice == nil ? 1 : 0.44))
         .accessibilityLabel("Device for Next Run")
         .accessibilityValue(summary(device))
         .help(summary(device))
@@ -838,7 +838,7 @@ struct RunConfigurationControls: View {
                 .padding(.horizontal, 9)
                 .frame(height: 32)
             }
-            .buttonStyle(RunletButtonStyle(disabledOpacity: 0.48))
+            .buttonStyle(RunletButtonStyle(disabledOpacity: selected == nil ? 1 : 0.48))
             .accessibilityLabel("Configuration")
             .accessibilityValue(Text(verbatim: prompt))
             .help(prompt)
@@ -895,13 +895,6 @@ struct RunConfigurationControls: View {
             .frame(idealHeight: min(CGFloat(session.choices.count) * 35 - 5, 224), maxHeight: 224)
             .fixedSize(horizontal: false, vertical: true)
             HStack {
-                if session.selection != nil {
-                    Button("Clear Configuration Selection") {
-                        session.select(nil as Int?)
-                        isShowing = false
-                    }
-                    .focusable(false)
-                }
                 Spacer()
                 Button("Reload Configuration", systemImage: "arrow.clockwise") {
                     session.reload()

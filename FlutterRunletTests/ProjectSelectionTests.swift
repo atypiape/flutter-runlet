@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class ProjectSelectionTests: XCTestCase {
-    func testBrokenReloadRetainsStaleSelectionAndDeletingOrDuplicatingNameClearsIt() throws {
+    func testBrokenReloadRetainsStaleSelectionAndMissingOrDuplicateNameFallsBack() throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
         let session = fixture.session(store: try ProjectRecoveryStore(directory: fixture.storage))
@@ -22,13 +22,14 @@ final class ProjectSelectionTests: XCTestCase {
         try fixture.writeLaunch(names: ["other"])
         session.reload()
         XCTAssertFalse(session.configurationIsStale)
-        XCTAssertNil(session.selection)
-        XCTAssertTrue(session.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("不存在") == true)
+        XCTAssertEqual(session.selection?.name, "other")
+        XCTAssertTrue(session.message.map { Locale(identifier: "zh-Hans").appString($0) }?.contains("不可用") == true)
         session.select("other")
         try fixture.writeLaunch(names: ["other", "other"])
         session.reload()
-        XCTAssertNil(session.selection)
+        XCTAssertEqual(session.selectedID, session.choices.first?.id)
         XCTAssertEqual(session.choices.map(\.name), ["other", "other"])
+        XCTAssertFalse(session.canRun)
         XCTAssertTrue(session.choices.allSatisfy { $0.launch == nil })
     }
 
@@ -37,7 +38,9 @@ final class ProjectSelectionTests: XCTestCase {
         defer { fixture.remove() }
         let session = fixture.session(store: try ProjectRecoveryStore(directory: fixture.storage))
         XCTAssertTrue(session.open(fixture.project))
-        XCTAssertNil(session.selection)
+        XCTAssertEqual(session.selection?.name, "sample-flutter-app(dev)")
+        session.select(nil as Int?)
+        XCTAssertEqual(session.selection?.name, "sample-flutter-app(dev)")
         try FileManager.default.removeItem(at: fixture.config("launch"))
         XCTAssertTrue(session.open(fixture.project))
         XCTAssertNotNil(session.project)
@@ -49,6 +52,22 @@ final class ProjectSelectionTests: XCTestCase {
         try fixture.writeLaunch(names: [])
         XCTAssertTrue(session.open(fixture.project))
         XCTAssertNil(session.selection)
+    }
+
+    func testRunDoesNotExecuteFallbackAfterSelectedConfigurationDisappears() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        try fixture.select("prod", in: session)
+        try fixture.writeLaunch(names: ["replacement"])
+
+        session.run()
+        await session.waitUntilIdle()
+
+        XCTAssertEqual(session.selection?.name, "replacement")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-started").path))
+        XCTAssertNil(try store.read(project: fixture.project))
     }
 
     func testRunRequiresSecondClickAfterEffectiveChangeButIgnoresCommentAndUnrelatedTask() async throws {
