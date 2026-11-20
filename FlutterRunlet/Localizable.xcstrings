@@ -785,6 +785,22 @@
         }
       }
     },
+    "Click the folder button above to open a Flutter project.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click the folder button above to open a Flutter project."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击上方的文件夹按钮，选择 Flutter 项目。"
+          }
+        }
+      }
+    },
     "Click Run to try recovery and start debugging": {
       "localizations": {
         "en": {
