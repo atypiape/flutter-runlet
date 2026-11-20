@@ -1,5 +1,11 @@
 # FlutterRunlet 版本说明
 
+## v0.4.1 · 手动更新提示
+
+- 检测到新版发布尚未锁定时，引导用户手动下载安装，并高亮「查看发布页」。
+
+Universal DMG 支持 Apple Silicon 和 Intel，最低部署目标为 macOS 15.0。安装包使用临时签名，未经 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.4.1)
+
 ## v0.4.0 · 桌面调试与模拟器
 
 - 支持 macOS 桌面调试。选择离线 iOS 模拟器或 Android AVD 时可自动启动设备，在 iOS 模拟器上开始调试时会显示模拟器窗口。
