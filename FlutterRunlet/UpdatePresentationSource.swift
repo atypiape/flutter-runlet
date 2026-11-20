@@ -145,7 +145,7 @@ final class UpdatePresentationSource {
 private extension UpdatePackageIssue {
     var installExplanation: LocalizedStringResource {
         switch self {
-        case .mutableRelease: "The release has not been locked."
+        case .mutableRelease: "Please download and install manually:"
         case .publisherNotConfigured: "The publisher’s signing identity is not configured."
         case .missingAsset: "A universal macOS package is missing."
         case .ambiguousAsset: "The release has conflicting macOS packages."

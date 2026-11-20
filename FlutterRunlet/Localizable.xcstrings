@@ -3761,6 +3761,22 @@
         }
       }
     },
+    "Please download and install manually:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please download and install manually:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请手动下载安装："
+          }
+        }
+      }
+    },
     "Pre-launch Failed": {
       "localizations": {
         "en": {
@@ -5501,22 +5517,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "发布中存在冲突的 macOS 安装包。"
-          }
-        }
-      }
-    },
-    "The release has not been locked.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The release has not been locked."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此发布尚未锁定。"
           }
         }
       }

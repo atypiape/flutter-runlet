@@ -990,10 +990,14 @@ private struct UpdateFeedback: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("update-feedback")
             if presentation.showsReleaseAction {
-                Button("View Release") { updates.perform(.showRelease) }
-                    .buttonStyle(AuxiliaryButtonStyle(surface: .clear))
-                    .foregroundStyle(palette.accent)
-                    .fixedSize()
+                Button {
+                    updates.perform(.showRelease)
+                } label: {
+                    Text("View Release")
+                        .foregroundStyle(palette.accent)
+                }
+                .buttonStyle(AuxiliaryButtonStyle(surface: .clear))
+                .fixedSize()
             }
         }
         .font(RunletType.localized(locale, size: inSettings ? 12 : 11))
