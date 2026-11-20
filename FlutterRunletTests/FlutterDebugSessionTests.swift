@@ -827,9 +827,9 @@ final class FlutterDebugSessionTests: XCTestCase {
                                         })
         defer { debug.finish() }
         debug.receive(#"[{"event":"app.start","params":{"appId":"current","deviceId":"ios-fixture","mode":"debug"}}]"#,
-                      isError: false, output: { _ in })
+                      isError: false, output: { _, _ in })
         debug.receive(#"[{"event":"app.debugPort","params":{"appId":"current","wsUri":"ws://127.0.0.1:\#(server.port)/ws"}}]"#,
-                      isError: false, output: { _ in })
+                      isError: false, output: { _, _ in })
         try await eventually { locations.count == 1 }
         XCTAssertEqual(connections, [true])
         XCTAssertEqual(locations[0].file, file.resolvingSymlinksInPath())

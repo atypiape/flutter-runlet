@@ -176,7 +176,7 @@ struct MainWindowView: View {
             .background(palette.toolbar)
             if isLogExpanded {
                 if let session, !session.logs.isEmpty {
-                    SessionLogView(contents: session.logs, trimmedUTF16: session.logTrimmedUTF16)
+                    SessionLogView(contents: session.logs, trimmedUTF16: session.logTrimmedUTF16, spans: session.logSpans)
                         .id(session.logGeneration)
                         .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity)
                 } else {
@@ -428,6 +428,7 @@ struct SessionBrand: View {
 private struct SessionLogView: NSViewRepresentable {
     let contents: String
     let trimmedUTF16: Int
+    let spans: [SessionLogSpan]
 
     func makeNSView(context: Context) -> SessionLogScrollView {
         SessionLogScrollView()
@@ -435,7 +436,7 @@ private struct SessionLogView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: SessionLogScrollView, context: Context) {
         scrollView.setLogAccessibilityLabel(context.environment.locale.appString("Run Logs"))
-        scrollView.scheduleUpdate(contents, trimmedUTF16: trimmedUTF16)
+        scrollView.scheduleUpdate(contents, trimmedUTF16: trimmedUTF16, spans: spans)
     }
 }
 
@@ -452,6 +453,16 @@ final class SessionLogScrollView: NSScrollView {
         return NSColor(srgbRed: 25 / 255, green: 38 / 255, blue: 56 / 255, alpha: 1)
     }
 
+    private static let launchColor = NSColor(name: nil) { appearance in
+        let palette = RunletAppearance(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light)
+        return NSColor(palette.warning)
+    }
+
+    private static let diagnosticColor = NSColor(name: nil) { appearance in
+        let palette = RunletAppearance(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light)
+        return NSColor(palette.error)
+    }
+
     private let logText = NSTextView(frame: .zero)
     private let logFont = RunletType.logFont()
     private let logParagraph: NSParagraphStyle = {
@@ -461,8 +472,9 @@ final class SessionLogScrollView: NSScrollView {
         return style.copy() as? NSParagraphStyle ?? .default
     }()
     private var trimmedUTF16 = 0
+    private var spans: [SessionLogSpan] = []
     private var lastUpdate: ContinuousClock.Instant?
-    private var pendingUpdate: (contents: String, trimmedUTF16: Int)?
+    private var pendingUpdate: (contents: String, trimmedUTF16: Int, spans: [SessionLogSpan])?
     private var updateTask: Task<Void, Never>?
 
     init() {
@@ -499,8 +511,8 @@ final class SessionLogScrollView: NSScrollView {
         sizeDocument(origin: visible.origin, follow: follow)
     }
 
-    func scheduleUpdate(_ contents: String, trimmedUTF16: Int) {
-        pendingUpdate = (contents, trimmedUTF16)
+    func scheduleUpdate(_ contents: String, trimmedUTF16: Int, spans: [SessionLogSpan]) {
+        pendingUpdate = (contents, trimmedUTF16, spans)
         guard updateTask == nil else { return }
         let now = ContinuousClock.now
         guard let deadline = lastUpdate?.advanced(by: .milliseconds(100)), now < deadline else {
@@ -518,17 +530,19 @@ final class SessionLogScrollView: NSScrollView {
         guard let update = pendingUpdate else { return }
         pendingUpdate = nil
         lastUpdate = .now
-        show(update.contents, trimmedUTF16: update.trimmedUTF16)
+        show(update.contents, trimmedUTF16: update.trimmedUTF16, spans: update.spans)
     }
 
-    func show(_ contents: String, trimmedUTF16: Int) {
+    func show(_ contents: String, trimmedUTF16: Int, spans: [SessionLogSpan] = []) {
         let old = logText.string as NSString
         let textChanged = !old.isEqual(to: contents)
-        guard textChanged || self.trimmedUTF16 != trimmedUTF16 else { return }
+        let trimChanged = self.trimmedUTF16 != trimmedUTF16
+        guard textChanged || trimChanged || self.spans != spans else { return }
         let visible = documentVisibleRect
         let follow = followsBottom(visible)
         let removed = max(0, trimmedUTF16 - self.trimmedUTF16)
         self.trimmedUTF16 = trimmedUTF16
+        self.spans = spans
         let retained = removed <= old.length ? old.substring(from: removed) : nil
         let retainsText = retained.map { contents.utf16.starts(with: $0.utf16) } ?? false
         let oldAnchor = !follow && removed > 0 ? readingAnchor(in: visible) : nil
@@ -538,18 +552,16 @@ final class SessionLogScrollView: NSScrollView {
             let start = max(range.location, removed)
             return NSValue(range: NSRange(location: start - removed, length: NSMaxRange(range) - start))
         } : []
-        if textChanged, let storage = logText.textStorage {
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: logFont, .foregroundColor: Self.logColor, .paragraphStyle: logParagraph,
-            ]
-            if retainsText, let retained {
-                let suffix = (contents as NSString).substring(from: retained.utf16.count)
+        if let storage = logText.textStorage {
+            if (textChanged || trimChanged), retainsText, let retained {
+                let retainedLength = retained.utf16.count
+                let suffix = (contents as NSString).substring(from: retainedLength)
                 storage.beginEditing()
                 if removed > 0 { storage.deleteCharacters(in: NSRange(location: 0, length: removed)) }
-                storage.append(NSAttributedString(string: suffix, attributes: attributes))
+                storage.append(attributedLog(suffix, start: trimmedUTF16 + retainedLength, spans: spans))
                 storage.endEditing()
             } else {
-                storage.setAttributedString(NSAttributedString(string: contents, attributes: attributes))
+                storage.setAttributedString(attributedLog(contents, start: trimmedUTF16, spans: spans))
             }
         }
         if selection.isEmpty {
@@ -565,6 +577,22 @@ final class SessionLogScrollView: NSScrollView {
         }
         let origin = removed > 0 && !follow ? .zero : visible.origin
         sizeDocument(origin: origin, follow: follow, anchor: anchor)
+    }
+
+    private func attributedLog(_ contents: String, start: Int, spans: [SessionLogSpan]) -> NSAttributedString {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: logFont, .foregroundColor: Self.logColor, .paragraphStyle: logParagraph,
+        ]
+        let text = NSMutableAttributedString(string: contents, attributes: attributes)
+        let bounds = start..<(start + text.length)
+        for span in spans {
+            let range = span.range.clamped(to: bounds)
+            guard !range.isEmpty else { continue }
+            let color = span.tone == .launch ? Self.launchColor : Self.diagnosticColor
+            text.addAttribute(.foregroundColor, value: color,
+                              range: NSRange(location: range.lowerBound - start, length: range.count))
+        }
+        return text
     }
 
     private func followsBottom(_ visible: NSRect) -> Bool {

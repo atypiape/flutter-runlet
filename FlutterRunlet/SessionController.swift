@@ -278,7 +278,10 @@ final class SessionController {
     private(set) var didClearLogs = false
     private(set) var logGeneration: UInt64 = 0
     private(set) var logTrimmedUTF16 = 0
+    private(set) var logSpans: [SessionLogSpan] = []
     @ObservationIgnored private var pendingLogs = ""
+    @ObservationIgnored private var pendingLogSpans: [SessionLogSpan] = []
+    @ObservationIgnored private var logEndUTF16 = 0
     @ObservationIgnored private var logFlush: Task<Void, Never>?
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool { recovery == nil && canStartSelectedConfiguration }
@@ -1428,11 +1431,14 @@ final class SessionController {
         logFlush?.cancel()
         logFlush = nil
         pendingLogs = ""
+        pendingLogSpans = []
+        logEndUTF16 = 0
         logGeneration = logBoundary.withLock { value in
             value &+= 1
             return value
         }
         logs = ""
+        logSpans = []
         logTrimmedUTF16 = 0
         didClearLogs = clearedByUser
     }
@@ -1754,14 +1760,14 @@ final class SessionController {
                          device: FlutterDevice? = nil, startsRun: Bool = false) async -> SessionExit {
         let lines = SessionLineStream { [weak self, weak flutter] line, isError, generation in
             guard let self else { return }
-            let publish: (String) -> Void = { text in
+            let publish: (String, SessionLogTone?) -> Void = { text, tone in
                 guard generation == self.logGeneration else { return }
-                self.appendLog(FlutterLogRedaction.clean(text))
+                self.appendLog(FlutterLogRedaction.clean(text), tone: tone)
             }
             if let flutter {
                 flutter.receive(line, isError: isError, output: publish)
             } else {
-                publish(line)
+                publish(line, isError ? .diagnostic : nil)
             }
         }
         defer {
@@ -1864,8 +1870,11 @@ final class SessionController {
         }
     }
 
-    private func appendLog(_ output: String) {
+    private func appendLog(_ output: String, tone: SessionLogTone?) {
         guard !output.isEmpty else { return }
+        let end = logEndUTF16 + output.utf16.count
+        if let tone { pendingLogSpans.append(SessionLogSpan(range: logEndUTF16..<end, tone: tone)) }
+        logEndUTF16 = end
         pendingLogs += output
         guard logFlush == nil else { return }
         logFlush = Task { [weak self] in
@@ -1881,14 +1890,18 @@ final class SessionController {
         guard !pendingLogs.isEmpty else { return }
         let combined = logs + pendingLogs
         pendingLogs = ""
+        let spans = logSpans + pendingLogSpans
+        pendingLogSpans = []
         let bytes = combined.utf8
         guard bytes.count > 64 * 1024 else {
+            logSpans = spans
             logs = combined
             return
         }
         var start = bytes.index(bytes.endIndex, offsetBy: -64 * 1024)
         while bytes[start] & 0xc0 == 0x80 { bytes.formIndex(after: &start) }
         logTrimmedUTF16 += String(decoding: bytes[..<start], as: UTF8.self).utf16.count
+        logSpans = Array(spans.drop { $0.range.upperBound <= logTrimmedUTF16 })
         logs = String(decoding: bytes[start...], as: UTF8.self)
     }
 
