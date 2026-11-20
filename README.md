@@ -22,15 +22,17 @@ I built FlutterRunlet so I could keep my existing Flutter configurations, leave 
 
 | Main window | Menu bar |
 | :---: | :---: |
-| [![FlutterRunlet main window with app, configuration, device, and logs](docs/screenshots/main-window.jpg)](docs/screenshots/main-window.jpg) | [![macOS menu bar with the FlutterRunlet panel open](docs/screenshots/menu-bar.jpg)](docs/screenshots/menu-bar.jpg) |
+| [![FlutterRunlet main window with app, configuration, device, and logs](docs/screenshots/main-window.jpg)](docs/screenshots/main-window.jpg) | [![FlutterRunlet menu bar panel with project, configuration, and device](docs/screenshots/menu-bar.jpg)](docs/screenshots/menu-bar.jpg) |
 | **DevTools settings** | **About** |
-| [![FlutterRunlet DevTools settings with a standalone SDK and a shortened path](docs/screenshots/devtools.jpg)](docs/screenshots/devtools.jpg) | [![About FlutterRunlet with Check for Updates and four links](docs/screenshots/about.jpg)](docs/screenshots/about.jpg) |
+| [![FlutterRunlet DevTools source and source editor settings](docs/screenshots/devtools.jpg)](docs/screenshots/devtools.jpg) | [![About FlutterRunlet with Check for Updates and four links](docs/screenshots/about.jpg)](docs/screenshots/about.jpg) |
 
-The DevTools, [General settings](docs/screenshots/settings.jpg), and About screenshots show the v0.3.0 build 223 interface with sample data. The main window and menu bar were captured on v0.2.0 with sample data.
+Screenshots show v0.4.1 (build 311) with sample data. [General settings](docs/screenshots/settings.jpg)
 
 ## Install
 
 Download the Universal macOS DMG from [GitHub Releases](https://github.com/atypiape/flutter-runlet/releases). Follow the release page's checksum instructions, open the DMG, and drag FlutterRunlet to **Applications**.
+
+Open FlutterRunlet from **Applications**. If macOS blocks it because it cannot verify the developer or check the app for malicious software, confirm that the DMG came from the GitHub release and passed the checksum check. Go to **System Settings → Privacy & Security → Security**, click **Open Anyway** for FlutterRunlet, then confirm in the dialog. [Apple Support](https://support.apple.com/en-us/102445)
 
 The deployment target is macOS 15.0. Universal builds include Apple Silicon and Intel. Runtime testing was done on Apple Silicon with macOS 26.7.1; running on Intel or macOS 15 has not yet been verified. See the [release notes](docs/RELEASE-NOTES.md) (Simplified Chinese).
 
