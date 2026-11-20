@@ -14,6 +14,13 @@ enum SessionStatus {
     case running, connectionInterrupted, stopping, restoringEnvironment, recoveryPending, recoveryFailed
     case recoveryUnavailable, launchBlocked, preTaskFailed, processUnconfirmed
 
+    var showsLaunchProgress: Bool {
+        switch self {
+        case .checkingToolchain, .runningPreTask, .startingFlutter, .waitingForVM, .waitingLonger: true
+        default: false
+        }
+    }
+
     var title: LocalizedStringResource {
         switch self {
         case .idle: "No Debug Session"

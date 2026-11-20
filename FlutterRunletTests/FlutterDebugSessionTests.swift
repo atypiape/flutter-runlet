@@ -534,21 +534,26 @@ final class FlutterDebugSessionTests: XCTestCase {
         try fixture.select("prod", in: session)
         try await eventually { session.canRun }
         session.run()
+        XCTAssertTrue(session.status.showsLaunchProgress)
         do {
             try await fixture.waitFor("pre-started")
             clock.advance(by: .seconds(80))
             XCTAssertEqual(session.status, .runningPreTask)
+            XCTAssertTrue(session.status.showsLaunchProgress)
             XCTAssertFalse(session.canHotOperate)
             try Data().write(to: fixture.state("pre-finish"))
             try await fixture.waitFor("debug-started")
             try await eventually { session.status == .waitingForVM && clock.hasSleeper(.seconds(60)) }
             clock.advance(by: .seconds(59))
             XCTAssertEqual(session.status, .waitingForVM)
+            XCTAssertTrue(session.status.showsLaunchProgress)
             clock.advance(by: .seconds(1))
             try await eventually { session.status == .waitingLonger }
+            XCTAssertTrue(session.status.showsLaunchProgress)
             XCTAssertTrue(session.canStop)
             XCTAssertFalse(session.canHotOperate)
             session.stop()
+            XCTAssertFalse(session.status.showsLaunchProgress)
             await session.waitUntilIdle()
             clock.advance(by: .seconds(60))
             XCTAssertEqual(session.status, .ready)
@@ -666,6 +671,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         session.run()
         do {
             try await eventually { session.canHotOperate && clock.hasSleeper(.seconds(2)) }
+            XCTAssertFalse(session.status.showsLaunchProgress)
             clock.advance(by: .seconds(2))
             try await eventually { lateProbe != nil }
             try Data().write(to: fixture.state("natural-exit"))
@@ -673,6 +679,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             lateProbe?.resume(returning: true)
             lateProbe = nil
             XCTAssertEqual(session.status, .recoveryFailed)
+            XCTAssertFalse(session.status.showsLaunchProgress)
             XCTAssertFalse(session.canHotOperate)
             XCTAssertFalse(session.canStop)
             XCTAssertEqual(try store.read(project: fixture.project)?.taskLabel, "sample:select-test")

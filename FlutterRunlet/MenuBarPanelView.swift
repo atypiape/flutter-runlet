@@ -41,7 +41,17 @@ struct MenuBarPanelView: View {
                     let showsQuickRetry = session.status == .recoveryFailed && session.recoveryAction == .retry
                     RecoveryDetails(session: session, showMessage: !showsQuickRetry, showRetry: !showsQuickRetry)
                 }
-                if let session, session.recoveryMessage == nil, let reason = session.displayMessage {
+                if let session, session.status.showsLaunchProgress {
+                    Text(session.displayMessage ?? session.status.title)
+                        .lineLimit(2)
+                        .foregroundStyle(palette.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(palette.toolbar, in: .rect(cornerRadius: 7))
+                        .overlay(alignment: .bottom) { LaunchProgressBar() }
+                        .clipShape(.rect(cornerRadius: 7))
+                } else if let session, session.recoveryMessage == nil, let reason = session.displayMessage {
                     Text(reason)
                         .lineLimit(2)
                         .foregroundStyle(palette.secondary)
