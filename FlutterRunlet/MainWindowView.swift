@@ -82,7 +82,7 @@ struct MainWindowView: View {
             .frame(minHeight: 32)
             .background(statusIsError ? palette.errorSurface : palette.toolbar, in: .rect(cornerRadius: 7))
             .overlay(alignment: .bottom) {
-                if session?.status.showsLaunchProgress == true { LaunchProgressBar() }
+                if let session, session.status.showsLaunchProgress || session.isRefreshingWithoutDevice { LaunchProgressBar() }
             }
             .clipShape(.rect(cornerRadius: 7))
 
@@ -221,6 +221,9 @@ struct DeviceSelectionControls: View {
 
     var body: some View {
         let device = session?.selectedDeviceChoice
+        let isRefreshing = session?.isRefreshingWithoutDevice == true
+        let placeholder: LocalizedStringResource = isRefreshing ? "Refreshing Devices" : "Select a debug device"
+        let deviceSummary = device.map(summary) ?? locale.appString(placeholder)
         let canInspect = session?.usesFlutterToolchain == true && session?.project != nil
         Button {
             isShowing.toggle()
@@ -232,11 +235,17 @@ struct DeviceSelectionControls: View {
                 } else if let demoDevice {
                     Text(verbatim: demoDevice)
                 } else {
-                    Text("Select a debug device").foregroundStyle(palette.primary)
+                    Text(placeholder).foregroundStyle(palette.primary)
                 }
                 Spacer(minLength: 4)
-                if let device { availabilityStatus(device.availability) }
-                RunletIcon("DeviceArrow", size: 13).foregroundStyle(palette.secondary)
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityHidden(true)
+                } else {
+                    if let device { availabilityStatus(device.availability) }
+                    RunletIcon("DeviceArrow", size: 13).foregroundStyle(palette.secondary)
+                }
             }
             .font(RunletType.localized(locale, size: 12))
             .lineLimit(1)
@@ -245,8 +254,8 @@ struct DeviceSelectionControls: View {
         }
         .buttonStyle(RunletButtonStyle(surface: .outlinedField, disabledOpacity: device == nil && demoDevice == nil ? 1 : 0.44))
         .accessibilityLabel("Device for Next Run")
-        .accessibilityValue(summary(device))
-        .help(summary(device))
+        .accessibilityValue(deviceSummary)
+        .help(deviceSummary)
         .disabled(!canInspect && demoDevice == nil)
         .contextMenu {
             if let device { Text(verbatim: summary(device)) }
@@ -325,9 +334,8 @@ struct DeviceSelectionControls: View {
         .frame(height: 32)
     }
 
-    private func summary(_ device: DeviceChoice?) -> String {
-        guard let device else { return locale.appString("Select a debug device") }
-        return [device.name, locale.appString(device.kind.title), locale.appString(availabilityTitle(device.availability))]
+    private func summary(_ device: DeviceChoice) -> String {
+        [device.name, locale.appString(device.kind.title), locale.appString(availabilityTitle(device.availability))]
             .joined(separator: " · ")
     }
 
