@@ -88,6 +88,8 @@ struct MainWindowView: View {
                 sessionCaption(verbatim: "\(launch.configurationName) · \(launch.device.name) (\(locale.appString(DeviceChoice(device: launch.device, availability: .online).kind.title)))")
                     .accessibilityValue(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
                     .help(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
+            } else if let session, session.status.showsLaunchProgress {
+                Text(session.status.title).font(RunletType.localized(locale, size: 13, medium: true))
             } else {
                 Text("Debug Not Started").font(RunletType.localized(locale, size: 13, medium: true))
                 Text("Choose a launch configuration and device to run.")
@@ -115,6 +117,10 @@ struct MainWindowView: View {
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
         .background(palette.toolbar, in: .rect(cornerRadius: 7))
+        .overlay(alignment: .bottom) {
+            if session?.status.showsLaunchProgress == true { LaunchProgressBar() }
+        }
+        .clipShape(.rect(cornerRadius: 7))
     }
 
     private func sessionCaption(verbatim caption: String) -> some View {
@@ -716,6 +722,37 @@ struct ProjectControls: View {
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url { session.open(url) }
         restorePickerWindow?()
+    }
+}
+
+struct LaunchProgressBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        GeometryReader { geometry in
+            if reduceMotion {
+                segment(in: geometry.size.width, phase: 0.5)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    let duration = 1.5
+                    let elapsed = context.date.timeIntervalSinceReferenceDate
+                    segment(in: geometry.size.width, phase: elapsed.truncatingRemainder(dividingBy: duration) / duration)
+                }
+            }
+        }
+        .frame(height: 3)
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func segment(in width: CGFloat, phase: Double) -> some View {
+        let segmentWidth = width * 0.28
+        return Rectangle()
+            .fill(RunletAppearance(scheme).accent)
+            .frame(width: segmentWidth)
+            .offset(x: (width + segmentWidth) * phase - segmentWidth)
     }
 }
 
