@@ -22,15 +22,17 @@ FlutterRunlet 是一款原生 macOS 应用，直接读取 Flutter 项目已有�
 
 | 主窗口 | 菜单栏 |
 | :---: | :---: |
-| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.jpg)](docs/screenshots/zh-CN/main-window.jpg) | [![macOS 菜单栏及展开的 FlutterRunlet 面板](docs/screenshots/zh-CN/menu-bar.jpg)](docs/screenshots/zh-CN/menu-bar.jpg) |
+| [![FlutterRunlet 主窗口，显示项目、配置、设备及日志区](docs/screenshots/zh-CN/main-window.jpg)](docs/screenshots/zh-CN/main-window.jpg) | [![FlutterRunlet 菜单栏面板，显示项目、配置及设备](docs/screenshots/zh-CN/menu-bar.jpg)](docs/screenshots/zh-CN/menu-bar.jpg) |
 | **DevTools 设置** | **关于** |
-| [![FlutterRunlet DevTools 设置，显示独立 Dart SDK 和省略后的路径](docs/screenshots/zh-CN/devtools.jpg)](docs/screenshots/zh-CN/devtools.jpg) | [![关于 FlutterRunlet 窗口、检查更新和四个链接](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
+| [![FlutterRunlet 的 DevTools 来源和源码编辑器设置](docs/screenshots/zh-CN/devtools.jpg)](docs/screenshots/zh-CN/devtools.jpg) | [![关于 FlutterRunlet 窗口、检查更新和四个链接](docs/screenshots/zh-CN/about.jpg)](docs/screenshots/zh-CN/about.jpg) |
 
-DevTools、[通用设置](docs/screenshots/zh-CN/settings.jpg)和「关于」截图展示 v0.3.0 build 223 界面，使用示例数据。主窗口和菜单栏截图拍摄于 v0.2.0，也使用示例数据。
+截图展示 v0.4.1（构建 311），使用示例数据。[通用设置截图](docs/screenshots/zh-CN/settings.jpg)
 
 ## 安装
 
 在 [GitHub 发布列表](https://github.com/atypiape/flutter-runlet/releases)下载通用 macOS DMG。按发布页说明核对校验值，打开 DMG，将 FlutterRunlet 拖入「应用程序」。
+
+从「应用程序」打开 FlutterRunlet。若 macOS 提示无法验证开发者或无法检查 App 是否包含恶意软件，请确认 DMG 来自 GitHub 发布页且校验值匹配。打开「系统设置 → 隐私与安全性」，向下滚动到「安全性」，点击 FlutterRunlet 对应的「仍要打开」，再在弹窗中确认。[Apple 支持](https://support.apple.com/zh-cn/102445)
 
 最低部署目标为 macOS 15.0。安装包包含 Apple Silicon 和 Intel 架构。已在 Apple Silicon（macOS 26.7.1）上验证运行，Intel 和 macOS 15 实机运行尚未验证。详见[版本说明](docs/RELEASE-NOTES.md)。
 
