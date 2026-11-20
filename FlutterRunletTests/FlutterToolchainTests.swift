@@ -734,6 +734,44 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(session.selectedDeviceChoice?.kind, .macOSDesktop)
     }
 
+    func testInitialDeviceRefreshAllowsConfigurationChangesButBlocksRun() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let device = FlutterDevice(id: "device", name: "Device", platform: "ios", isSimulator: false)
+        let paused = PausedProbe()
+        defer { paused.release() }
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _, _ in sdk },
+            discover: { _, _ in
+                await paused.wait()
+                return [device]
+            }
+        ))
+
+        XCTAssertTrue(session.open(fixture.project))
+        XCTAssertTrue(session.isRefreshingWithoutDevice)
+        try await eventually { paused.continuation != nil }
+        XCTAssertTrue(session.isRefreshingWithoutDevice)
+        XCTAssertNil(session.selectedDeviceChoice)
+        XCTAssertTrue(session.canChangeConfiguration(source: .mainWindow))
+        XCTAssertTrue(session.canChangeConfiguration(source: .menuBar))
+        XCTAssertFalse(session.canPerformDebugAction(.run, source: .mainWindow))
+        XCTAssertFalse(session.canPerformDebugAction(.run, source: .menuBar))
+
+        let configuration = "sample-flutter-app(prod)"
+        session.select(configuration)
+        XCTAssertEqual(session.selection?.launch?.name, configuration)
+        XCTAssertFalse(session.canRun)
+
+        paused.release()
+        try await eventually { session.canRun }
+        XCTAssertFalse(session.isRefreshingWithoutDevice)
+        XCTAssertEqual(session.selection?.launch?.name, configuration)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, device.id)
+    }
+
     func testDeviceRefreshPreservesOnlineStatusUntilDiscoveryCompletes() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -760,6 +798,7 @@ final class FlutterToolchainTests: XCTestCase {
         session.refreshDevices()
         try await eventually { paused.continuation != nil }
         XCTAssertTrue(session.isRefreshingDevices)
+        XCTAssertFalse(session.isRefreshingWithoutDevice)
         XCTAssertEqual(session.deviceChoices.map(\.availability), [.online])
         XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
         XCTAssertFalse(session.canRun)

@@ -158,6 +158,7 @@ final class SessionController {
     var isStartingSimulator: Bool { startingDeviceID != nil }
     private(set) var simulatorIssue: LocalizedStringResource?
     private(set) var isRefreshingDevices = false
+    var isRefreshingWithoutDevice: Bool { isRefreshingDevices && selectedDeviceChoice == nil }
     private(set) var deviceIssue: LocalizedStringResource?
     private(set) var vmConnected = false
     private var hasCurrentDevToolsAddress = false
