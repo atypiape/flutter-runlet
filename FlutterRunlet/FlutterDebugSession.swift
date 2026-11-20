@@ -298,7 +298,7 @@ final class FlutterDebugSession {
         browserAvailabilityChanged(browserDestination(.devTools) != nil)
     }
 
-    func receive(_ line: String, isError: Bool, output: (String) -> Void) {
+    func receive(_ line: String, isError: Bool, output: (String, SessionLogTone?) -> Void) {
         if !isError, line.hasPrefix("["),
            let messages = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [[String: Any]],
            !messages.isEmpty,
@@ -306,10 +306,10 @@ final class FlutterDebugSession {
             for message in messages { handle(message, output: output) }
             return
         }
-        output(line)
+        output(line, isError ? .diagnostic : SessionLogTone.flutterStatus(line))
     }
 
-    private func handle(_ message: [String: Any], output: (String) -> Void) {
+    private func handle(_ message: [String: Any], output: (String, SessionLogTone?) -> Void) {
         guard let event = message["event"] as? String else {
             handleResponse(message)
             return
@@ -347,12 +347,15 @@ final class FlutterDebugSession {
             browserAvailabilityChanged(browserDestination(.devTools) != nil)
         case "app.log":
             guard matches(params), let log = params["log"] as? String else { return }
-            output(log + "\n")
+            output(log + "\n", params["error"] as? Bool == true ? .diagnostic : nil)
         case "app.stop":
             if matches(params) { invalidateConnection() }
         case "daemon.logMessage", "daemon.log":
             if let log = params["message"] as? String ?? params["log"] as? String {
-                output(log + "\n")
+                switch params["level"] as? String {
+                case "error", "warning": output(log + "\n", .diagnostic)
+                default: output(log + "\n", SessionLogTone.flutterStatus(log))
+                }
             }
         default:
             break
@@ -552,6 +555,21 @@ private final class VMRedirectGuard: NSObject, URLSessionTaskDelegate {
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         completionHandler(nil)
     }
+}
+
+enum SessionLogTone {
+    case launch, diagnostic
+
+    static func flutterStatus(_ text: String) -> Self? {
+        let line = text.last?.isNewline == true ? text.dropLast() : text[...]
+        return line.hasPrefix("Launching ") && line.hasSuffix(" in debug mode...") ? .launch : nil
+    }
+}
+
+struct SessionLogSpan: Equatable {
+    // UTF-16 offsets from the beginning of this log generation, before trimming.
+    let range: Range<Int>
+    let tone: SessionLogTone
 }
 
 @MainActor
