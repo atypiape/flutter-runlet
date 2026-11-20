@@ -737,22 +737,6 @@
         }
       }
     },
-    "Clear Configuration Selection": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear Configuration Selection"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清除配置选择"
-          }
-        }
-      }
-    },
     "Clear Logs": {
       "localizations": {
         "en": {
@@ -6029,22 +6013,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "路径不是绝对目录"
-          }
-        }
-      }
-    },
-    "The previous configuration no longer exists. Select another one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The previous configuration no longer exists. Select another one"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "原配置已不存在，请重新选择"
           }
         }
       }

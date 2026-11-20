@@ -486,8 +486,7 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .online)
         XCTAssertTrue(session.open(other.project))
         try await eventually { !session.isRefreshingDevices }
-        XCTAssertNil(session.selectedDeviceID)
-        session.selectDevice(first.id)
+        XCTAssertEqual(session.selectedDeviceID, first.id)
         let alias = fixture.base.appending(path: "Project Alias")
         try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: fixture.project)
         XCTAssertTrue(session.open(alias))
@@ -498,9 +497,53 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
 
         let reopened = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        scanner.devices = [first]
+        try original.replacingOccurrences(of: #""name": "sample-flutter-app(dev)","#,
+            with: #""name": "sample-flutter-app(dev)", "deviceId": "emulator-5560","#)
+            .write(to: path, atomically: true, encoding: .utf8)
         XCTAssertTrue(reopened.open(alias))
         try await eventually { !reopened.isRefreshingDevices }
-        XCTAssertNil(reopened.selectedDeviceID)
+        XCTAssertEqual(reopened.selectedDeviceChoice?.id, first.id)
+        XCTAssertFalse(reopened.canRun, "配置显式指定的设备离线时禁止使用临时显示项运行")
+        scanner.devices = [first, second]
+        reopened.refreshDevices()
+        try await eventually { !reopened.isRefreshingDevices }
+        XCTAssertEqual(reopened.selectedDeviceID, second.id, "配置显式指定的设备就绪后成为默认项")
+        XCTAssertTrue(reopened.canRun)
+    }
+
+    func testOfflineDefaultDoesNotBootAndRefreshPromotesAvailableDevice() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let scanner = DeviceScanner()
+        let id = "pixel"
+        let connected = FlutterDevice(id: "emulator-5554", name: "Pixel", platform: "android", isSimulator: true)
+        var toolchain = FlutterToolchain(
+            resolve: { _, _ in FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"),
+                                          flutterVersion: "3", dartVersion: "3") },
+            discover: { _, _ in try scanner.scan() }
+        )
+        toolchain.androidEmulators = { _, _ in
+            [AndroidEmulator(id: id, name: "Pixel", deviceID: scanner.devices.first?.id)]
+        }
+        toolchain.bootAndroidEmulator = { id, _, _ in scanner.boots.append(id) }
+        let session = SessionController(store: try ProjectRecoveryStore(directory: fixture.storage),
+                                        runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        XCTAssertTrue(session.open(fixture.project))
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.selectedDeviceChoice?.id, "avd:pixel")
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertTrue(scanner.boots.isEmpty)
+        XCTAssertFalse(session.canRun)
+
+        scanner.devices = [connected]
+        session.refreshDevices()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.selectedDeviceChoice?.id, connected.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertEqual(session.deviceChoices.count, 1)
+        XCTAssertTrue(scanner.boots.isEmpty)
+        XCTAssertTrue(session.canRun)
     }
 
     func testSimulatorStartWaitsForFlutterAndNeverLaunchesDebug() async throws {
@@ -782,8 +825,7 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { !session.isRefreshingDevices }
         XCTAssertEqual(session.devices.map(\.id), ["emulator-5560", "physical-ios", "macos"])
         XCTAssertEqual(session.devices.map(\.name), ["Android 名称", "iPhone 真机", "macOS"])
-        XCTAssertNil(session.selectedDeviceID)
-        session.selectDevice("emulator-5560")
+        XCTAssertEqual(session.selectedDeviceID, "emulator-5560")
         XCTAssertTrue(session.canRun)
         let originalBytes = try fixture.configurationBytes()
         session.run()
