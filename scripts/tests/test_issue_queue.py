@@ -44,6 +44,7 @@ docs/DEVELOPMENT.md
 def issue(number, labels=("task:ready",), **overrides):
     return {
         "number": number, "node_id": f"issue-{number}", "title": "窗口说明",
+        "repository_url": "https://api.github.com/repos/atypiape/flutter-runlet",
         "created_at": BEFORE, "state": "open", "body": CONTRACT,
         "labels": [{"name": label} for label in labels],
         **overrides,
@@ -266,13 +267,15 @@ print(json.dumps(response))
         self.assertFalse(result["checked"][0]["eligible"])
         self.assertIn(reason, result["checked"][0]["reason"])
 
-    def test_selects_oldest_eligible_and_ignores_pull_requests_across_pages(self):
+    def test_selects_lowest_eligible_number_and_ignores_pull_requests_across_pages(self):
         bad = issue(5, body="没有有效批准")
-        ready = issue(7, labels=("task:ready", "bug"))
+        ready = issue(7, labels=("task:ready", "bug"), created_at=APPROVED)
+        earlier = issue(9)
         self.add_issue(bad, events=[[]])
         self.add_issue(ready, events=[[event(at=BEFORE)], [event(2)]], edited=BEFORE)
+        self.add_issue(earlier)
         self.responses[self.list_path("task:ready")] = [
-            [issue(9), issue(3, pull_request={})], [ready, bad],
+            [earlier, issue(3, pull_request={})], [ready, bad],
         ]
         result = self.inspect()
         self.assertEqual(result["candidate"], 7)
@@ -281,8 +284,26 @@ print(json.dumps(response))
         self.assertEqual(result["checked"][1]["approval_event_id"], 2)
         self.assertRegex(result["checked"][1]["spec_sha256"], r"^[0-9a-f]{64}$")
 
-    def test_approved_issues_enter_scope_review_in_either_format(self):
-        for body in ("补充窗口启动说明。验证开发者指南中的启动步骤。", None,
+    def test_reselects_after_each_issue_is_merged_and_closed(self):
+        first, second, third = (issue(number) for number in (1, 2, 3))
+        for ready in (first, second, third):
+            self.add_issue(ready)
+        pending = [third, second, first]
+        for claimed in (first, second, third):
+            with self.subTest(number=claimed["number"]):
+                self.responses[self.list_path("task:ready")] = [pending]
+                self.assertEqual(self.inspect()["candidate"], claimed["number"])
+                pending.remove(claimed)
+                self.responses[self.list_path("task:review")] = [[
+                    issue(claimed["number"], labels=("task:review",)),
+                ]]
+                self.assertIsNone(self.inspect()["candidate"])
+                self.responses[self.list_path("task:review")] = [[]]
+        self.assertIsNone(self.inspect()["candidate"])
+
+    def test_approved_issues_can_be_claimed_regardless_of_format_or_type(self):
+        for body in ("Android 模拟器在 VS Code 中可见，在 FlutterRunlet 中不可见。", None,
+                     CONTRACT.replace("文档", "人工处理"),
                      CONTRACT.replace(" | 核对指南", ""),
                      CONTRACT + "\n### 目标\n\n补充说明"):
             with self.subTest(body=body):
@@ -291,17 +312,6 @@ print(json.dumps(response))
                 self.assertEqual(result["candidate"], 7)
                 self.assertEqual(result["checked"][0]["approval_event_id"], 1)
                 self.assertRegex(result["checked"][0]["spec_sha256"], r"^[0-9a-f]{64}$")
-
-    def test_skips_scope_reviewed_issues_for_this_search(self):
-        issues = [issue(number, body="补充窗口说明") for number in (5, 7, 9)]
-        for item in issues:
-            self.add_issue(item)
-        self.responses[self.list_path("task:ready")] = [issues]
-        self.assertEqual(self.inspect()["candidate"], 5)
-        result = self.inspect("--skip", 5, "--skip", 7)
-        self.assertEqual(result["candidate"], 9)
-        self.assertEqual([item["number"] for item in result["checked"]], [9])
-        self.assertEqual(self.inspect("--issue", 5)["candidate"], 5)
 
     def test_empty_or_existing_active_tasks_have_no_candidate(self):
         self.assertEqual(self.inspect(), {"candidate": None, "active": [], "checked": []})
@@ -312,15 +322,13 @@ print(json.dumps(response))
                 self.assertEqual(self.inspect(), {"candidate": None, "active": [9], "checked": []})
                 self.responses[self.list_path(label)] = [[]]
 
-    def test_rejects_closed_conflicting_or_manual_tasks(self):
+    def test_rejects_closed_or_conflicting_tasks(self):
         for item, reason in (
             (issue(7, pull_request={}), "PR"),
             (issue(7, state="closed"), "已关闭"),
             (issue(7, labels=()), "只能有 task:ready"),
             (issue(7, labels=("task:ready", "task:blocked")), "只能有 task:ready"),
             (issue(7, labels=("task:ready", "task:working")), "只能有 task:ready"),
-            (issue(7, body=CONTRACT.replace("文档", "人工处理")), "需要人工处理"),
-            (issue(7, body="定位窗口问题。\n\n## 任务类型\n\n人工处理"), "需要人工处理"),
         ):
             with self.subTest(reason=reason):
                 self.add_issue(item)
@@ -345,10 +353,15 @@ print(json.dumps(response))
                        edited=APPROVED)
         self.assertEqual(self.inspect("--issue", 7)["candidate"], 7)
 
-    def test_checks_written_and_github_dependencies(self):
+    def test_checks_written_and_github_dependencies_before_claim(self):
         dependent = issue(7, body="补充窗口说明。\n\n### 前置 Issue\n\n- #8\n")
         done = issue(8, state="closed", state_reason="completed")
         self.add_issue(dependent)
+
+        def assert_blocker(reason):
+            self.assert_ineligible(reason)
+            self.assertIn(reason, self.inspect("--check-dependencies", "--issue", 7)["blocker"])
+
         for prereq, reason in (
             (issue(8), "#8 尚未完成"),
             (issue(8, state="closed", state_reason="not_planned"), "#8 尚未完成"),
@@ -357,16 +370,73 @@ print(json.dumps(response))
         ):
             with self.subTest(prereq=prereq):
                 self.responses["issues/8"] = prereq
-                self.assert_ineligible(reason)
+                assert_blocker(reason)
         self.responses["issues/8"] = done
         self.add_issue(issue(7, body="补充窗口说明"), native=[issue(9)])
-        self.assert_ineligible("GitHub 标记的阻塞")
+        assert_blocker("GitHub 标记的阻塞")
         self.add_issue(dependent, native=[done])
         self.assertEqual(self.inspect("--issue", 7)["candidate"], 7)
+        self.assertIsNone(self.inspect("--check-dependencies", "--issue", 7)["blocker"])
         self.add_issue(issue(7, body=dependent["body"].replace("#8", "#7")))
-        self.assert_ineligible("不能依赖自身")
+        assert_blocker("不能依赖自身")
         self.add_issue(issue(7, body=dependent["body"].replace("#8", "另一个仓库的修复")))
-        self.assert_ineligible("无法核实正文声明的前置 Issue")
+        assert_blocker("无法核实正文声明的前置 Issue")
+
+    def test_ready_dependency_chain_takes_priority_then_returns_to_number_order(self):
+        first = issue(1, body="### 前置 Issue\n\n- #3\n")
+        second, third, fourth = (issue(number) for number in (2, 3, 4))
+        self.add_issue(first)
+        self.add_issue(second)
+        self.add_issue(third, native=[fourth])
+        self.add_issue(fourth)
+        ready = self.list_path("task:ready")
+        self.responses[ready] = [[fourth, second], [third, first]]
+
+        result = self.inspect()
+        self.assertEqual(result["candidate"], 4)
+        self.assertEqual([item["number"] for item in result["checked"]], [1, 3, 4])
+        self.assertEqual(result["checked"][0]["pending_dependencies"], [3])
+        self.assertIsNone(self.inspect("--issue", 1)["candidate"])
+
+        completed_fourth = issue(4, state="closed", state_reason="completed")
+        self.add_issue(third, native=[completed_fourth])
+        self.responses[ready] = [[second, third, first]]
+        self.assertEqual(self.inspect()["candidate"], 3)
+
+        self.add_issue(issue(3, state="closed", state_reason="completed"))
+        self.responses[ready] = [[second, first]]
+        self.assertEqual(self.inspect()["candidate"], 1)
+
+    def test_unavailable_dependencies_and_cycles_leave_independent_issues_eligible(self):
+        first = issue(1, body="### 前置 Issue\n\n#3\n")
+        second, third = (issue(number) for number in (2, 3))
+        self.add_issue(first)
+        self.add_issue(second)
+        ready = self.list_path("task:ready")
+
+        for pending, events, native in (
+            (issue(3, labels=()), None, []),
+            (third, [[]], []),
+            (third, None, [first]),
+        ):
+            with self.subTest(pending=pending, events=events, native=native):
+                self.add_issue(pending, events=events, native=native)
+                self.responses[ready] = [[first, second, third]] if pending["labels"] else [[first, second]]
+                self.assertEqual(self.inspect()["candidate"], 2)
+
+        self.responses[ready] = [[first, third]]
+        self.assertIsNone(self.inspect()["candidate"])
+
+    def test_does_not_schedule_local_issue_matching_a_cross_repo_dependency_number(self):
+        first, second, third = (issue(number) for number in (1, 2, 3))
+        upstream = issue(3, repository_url="https://api.github.com/repos/example/upstream")
+        self.add_issue(first, native=[upstream])
+        self.add_issue(second)
+        self.add_issue(third)
+        self.responses[self.list_path("task:ready")] = [[first, second, third]]
+        result = self.inspect()
+        self.assertEqual(result["candidate"], 2)
+        self.assertIn("跨仓库", result["checked"][0]["reason"])
 
     def test_api_failure_returns_error_instead_of_empty_queue(self):
         self.responses[self.list_path("task:ready")] = {"_http_error": 403}

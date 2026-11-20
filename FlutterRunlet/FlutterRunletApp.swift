@@ -250,7 +250,7 @@ struct FlutterRunletApp: App {
         _loginItem = State(initialValue: loginItem)
         let panelWindow = PanelWindowReference()
         _panelWindow = State(initialValue: panelWindow)
-        _windowKeys = State(initialValue: WindowKeys(session: presentation.selection == nil ? controller : nil))
+        _windowKeys = State(initialValue: WindowKeys(session: presentation.selection == nil ? controller : nil, language: language))
         termination.session = presentation.selection == nil ? controller : nil
         termination.language = language
         termination.loginItem = loginItem
@@ -583,12 +583,16 @@ struct FlutterRunletApp: App {
 @MainActor
 private final class WindowKeys {
     private weak var session: SessionController?
+    private let language: AppLanguageSettings
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private let menuPanels = NSHashTable<NSWindow>.weakObjects()
     private let settingsWindows = NSHashTable<NSWindow>.weakObjects()
     private var monitor: Any?
 
-    init(session: SessionController?) { self.session = session }
+    init(session: SessionController?, language: AppLanguageSettings) {
+        self.session = session
+        self.language = language
+    }
 
     func register(_ window: NSWindow, source: DebugActionSource) {
         switch source {
@@ -615,26 +619,41 @@ private final class WindowKeys {
         if let monitor { NSEvent.removeMonitor(monitor) }
     }
 
+    private func blocksTabNavigation(in window: NSWindow) -> Bool {
+        guard window.isVisible, !window.isSheet, window.attachedSheet == nil, !(window is NSSavePanel) else { return false }
+        if mainWindows.contains(window) || menuPanels.contains(window) || settingsWindows.contains(window) { return true }
+        // A SwiftUI popover can deliver keys through its own window or the registered parent.
+        return window.parent.map { blocksTabNavigation(in: $0) } ?? false
+    }
+
     private func handleKey(_ event: NSEvent) -> Bool {
         guard NSApp.modalWindow == nil, let window = NSApp.keyWindow,
-              event.window == nil || event.window === window,
-              window.isVisible, window.attachedSheet == nil else {
-            return false
+              window.isVisible, window.attachedSheet == nil else { return false }
+        let eventWindow = event.window ?? window
+        if event.keyCode == kVK_Tab,
+           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            return blocksTabNavigation(in: window) && blocksTabNavigation(in: eventWindow)
         }
         let inMainWindow = mainWindows.contains(window)
         let inMenuPanel = menuPanels.contains(window)
-        guard inMainWindow || inMenuPanel || settingsWindows.contains(window) else { return false }
-        if event.keyCode == kVK_Tab,
-           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
-            return true
-        }
-        guard inMainWindow || inMenuPanel, let session,
+        guard eventWindow === window, inMainWindow || inMenuPanel, let session,
               let action = DebugAction(keyCode: event.keyCode, modifiers: event.modifierFlags,
                                                     isRepeat: event.isARepeat) else {
             return false
         }
-        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar)
+        return session.performDebugAction(action, source: inMainWindow ? .mainWindow : .menuBar) { launch in
+            confirmSessionRestart(launch, locale: language.locale)
+        }
     }
+}
+
+@MainActor
+func confirmSessionRestart(_ launch: ActiveLaunch, locale: Locale) -> Bool {
+    let alert = NSAlert()
+    alert.messageText = locale.appString("\(launch.configurationName) (\(launch.device.name)) is already running. Restart this session?")
+    alert.addButton(withTitle: locale.appString("Restart"))
+    alert.addButton(withTitle: locale.appString("Cancel")).keyEquivalent = "\u{1B}"
+    return alert.runModal() == .alertFirstButtonReturn
 }
 
 @MainActor

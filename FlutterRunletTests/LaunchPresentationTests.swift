@@ -70,6 +70,52 @@ final class LaunchPresentationTests: XCTestCase {
                        ["检查更新", "安装并重启", "在访达中显示", "继续安装"])
     }
 
+    #if DEBUG
+    @MainActor
+    func testProjectGuideIsOnlyConsumedByTheMainWindowWithNoProject() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let suite = "FlutterRunletTests.FirstProjectGuide.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = fixture.session(store: store)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 520),
+                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+
+        func host(_ view: some View) {
+            window.contentView = NSHostingView(rootView: view.defaultAppStorage(defaults))
+            window.contentView?.layoutSubtreeIfNeeded()
+        }
+
+        let unselected = SessionController(store: nil, runner: .bundled)
+        XCTAssertTrue(session.open(fixture.project))
+        for controls in [
+            ProjectControls(session: unselected, demoName: nil),
+            ProjectControls(session: nil, demoName: "Preview", offersFirstProjectGuide: true),
+            ProjectControls(session: session, demoName: nil, offersFirstProjectGuide: true)
+        ] {
+            host(controls)
+            await Task.yield()
+            XCTAssertFalse(defaults.bool(forKey: ProjectControls.firstProjectGuideKey))
+        }
+
+        host(MainWindowView(presentation: .empty, session: unselected, run: {}, openSettings: nil))
+        try await eventually { defaults.bool(forKey: ProjectControls.firstProjectGuideKey) }
+
+        for (language, expected) in [("en", "Click the folder button above to open a Flutter project."),
+                                     ("zh-Hans", "点击上方的文件夹按钮，选择 Flutter 项目。")] {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(url: url))
+            XCTAssertEqual(bundle.localizedString(forKey: "Click the folder button above to open a Flutter project.",
+                                                  value: "<missing>", table: nil), expected)
+        }
+    }
+
+    #endif
+
     func testMainWindowLaunchPreferenceHasBothBundleTranslations() throws {
         for (language, expected) in [
             ("en", "Show Main Window on Launch"), ("zh-Hans", "启动后显示主窗口")

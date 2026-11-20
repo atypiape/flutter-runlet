@@ -1,3 +1,4 @@
+import AppKit
 import CoreText
 import SwiftUI
 
@@ -102,16 +103,38 @@ struct RunletButtonStyle: ButtonStyle {
                 }
             }
             .opacity(enabled ? 1 : disabledOpacity)
+            .interactivePointer()
     }
 }
 
-struct RunletPopup<Content: View>: View {
+extension View {
+    func interactivePointer() -> some View {
+        modifier(InteractivePointer())
+    }
+}
+
+private struct InteractivePointer: ViewModifier {
+    @Environment(\.isEnabled) private var enabled
+
+    private static let unavailable: PointerStyle = {
+        let cursor = NSCursor.operationNotAllowed
+        let size = cursor.image.size
+        let hotSpot = UnitPoint(x: cursor.hotSpot.x / size.width, y: cursor.hotSpot.y / size.height)
+        return .image(Image(nsImage: cursor.image), hotSpot: hotSpot)
+    }()
+
+    func body(content: Content) -> some View {
+        content.pointerStyle(enabled ? .link : Self.unavailable)
+    }
+}
+
+struct RunletPopup<HeaderAction: View, Content: View>: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
 
     let title: LocalizedStringResource
-    let close: () -> Void
     var compactHeader = false
+    @ViewBuilder let headerAction: () -> HeaderAction
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -120,10 +143,9 @@ struct RunletPopup<Content: View>: View {
             HStack {
                 Text(title).font(RunletType.localized(locale, size: compactHeader ? 12 : 13, medium: true))
                 Spacer()
-                Button("Cancel", action: close)
+                headerAction()
                     .font(RunletType.localized(locale, size: compactHeader ? 12 : 11))
                     .foregroundStyle(palette.secondary)
-                    .buttonStyle(RunletButtonStyle())
             }
             .padding(.horizontal, compactHeader ? 0 : 5)
             .frame(minHeight: compactHeader ? 18 : 25)
@@ -137,5 +159,24 @@ struct RunletPopup<Content: View>: View {
         .overlay { RoundedRectangle(cornerRadius: compactHeader ? 9 : 10).strokeBorder(palette.border).allowsHitTesting(false) }
         .clipShape(.rect(cornerRadius: compactHeader ? 9 : 10))
         .focusEffectDisabled()
+    }
+}
+
+extension RunletPopup where HeaderAction == RunletPopupCancelButton {
+    init(title: LocalizedStringResource, close: @escaping () -> Void, compactHeader: Bool = false,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.init(title: title, compactHeader: compactHeader, headerAction: {
+            RunletPopupCancelButton(close: close)
+        }, content: content)
+    }
+}
+
+struct RunletPopupCancelButton: View {
+    let close: () -> Void
+
+    var body: some View {
+        Button("Cancel", action: close)
+            .buttonStyle(RunletButtonStyle())
+            .focusable(false)
     }
 }

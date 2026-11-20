@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FlutterRunlet: Build Debug",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build-debug.sh",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FlutterRunlet: Run",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build-debug.sh",
+      "args": ["--open"],
+      "problemMatcher": []
+    },
+    {
+      "label": "FlutterRunlet: Stop",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build-debug.sh",
+      "args": ["--stop"],
+      "problemMatcher": []
+    }
+  ]
+}

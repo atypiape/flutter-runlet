@@ -41,9 +41,9 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 - 最低部署目标为 macOS 15.0，实测宿主为 Apple Silicon macOS 26.7.1。Intel 实机、最低系统实机与 VoiceOver 实际朗读仍待覆盖。[验收边界](milestones/v0.2-MILESTONE-AUDIT.md#nyquist-与验收边界)
 - 公开发布、Developer ID 签名、公证和公开可用性复核继续暂缓。[公开发布检查](../docs/PUBLIC-RELEASE-AUDIT.md)
 
-## Current Milestone: v0.3 Inspector 与设置
+## Current Milestone
 
-在不更改项目 Flutter 与 Dart SDK 的情况下，完善独立 DevTools 和 Inspector 工作流，并使 DevTools 与外观偏好更容易找到。[需求](REQUIREMENTS.md) · [路线图](ROADMAP.md)
+v0.3 已归档。独立 DevTools、Inspector 源码跳转与外观设置已交付，项目沿用原有 Flutter 和 Dart SDK。下一里程碑的范围待确认。 [v0.3 审计](milestones/v0.3-MILESTONE-AUDIT.md) · [路线图](ROADMAP.md)
 
 ## Context
 
@@ -85,4 +85,4 @@ FlutterRunlet 是面向使用终端或其他编辑器的 Flutter 开发者的 ma
 2. 每次里程碑结束后复核产品定义、核心价值、范围和当前上下文。
 
 ---
-*最后更新于 2026-11-16，开始 v0.3。*
+*最后更新于 2026-11-18，归档 v0.3。*

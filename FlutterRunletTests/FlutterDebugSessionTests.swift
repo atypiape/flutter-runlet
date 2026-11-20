@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Network
+import Observation
 import os
 import XCTest
 @testable import FlutterRunlet
@@ -216,6 +217,64 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testRunOpensOnlyTheSelectedIOSSimulatorAndContinuesIfOpeningFails() async throws {
+        for isSimulator in [true, false] {
+            let fixture = try SessionFixture()
+            defer { fixture.remove() }
+            let store = try ProjectRecoveryStore(directory: fixture.storage)
+            let executable = try makeFlutter(in: fixture, script: #"""
+                printf '%s\n' "$5" > .runlet-fixture/debug-device
+                while [ ! -f .runlet-fixture/finish-debug ]; do /bin/sleep .02; done
+                exit 42
+                """#)
+            let selected = FlutterDevice(id: "selected", name: "Selected iPhone", platform: "ios", isSimulator: isSimulator)
+            let sdk = FlutterSDK(executable: executable, flutterVersion: "test", dartVersion: "test")
+            var toolchain = FlutterToolchain(resolve: { _, _ in sdk }, discover: { [device] _, _ in [device, selected] })
+            var opened: [String] = []
+            toolchain.showSimulator = { id, _ in
+                opened.append(id)
+                XCTAssertEqual(try fixture.marker(), "prod\n")
+                XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("debug-device").path))
+                throw SessionIssue("窗口打开失败")
+            }
+            let session = SessionController(store: store, runner: .bundled, environment: fixture.environment,
+                                            toolchain: toolchain)
+            try fixture.select("prod", in: session)
+            try await eventually { !session.isRefreshingDevices && session.devices.contains(selected) }
+            session.selectDevice(selected.id)
+            XCTAssertTrue(opened.isEmpty)
+            session.run()
+            do {
+                try await eventually {
+                    FileManager.default.fileExists(atPath: fixture.state("debug-device").path)
+                }
+                XCTAssertEqual(session.feedback?.title.key,
+                               isSimulator ? "Could not open the iOS simulator window" : nil)
+                try Data().write(to: fixture.state("finish-debug"))
+            } catch {
+                session.stop()
+                await session.waitUntilIdle()
+                throw error
+            }
+            await session.waitUntilIdle()
+
+            XCTAssertTrue(session.displayMessage.map { chinese.appString($0).contains("42") } ?? false)
+            XCTAssertEqual(opened, isSimulator ? [selected.id] : [])
+            XCTAssertEqual(try String(contentsOf: fixture.state("debug-device"), encoding: .utf8), "selected\n")
+            XCTAssertEqual(try fixture.marker(), "test\n")
+
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            XCTAssertTrue(chinese.appString(mainWindow.statusMessage).contains("42"))
+            session.run()
+            XCTAssertEqual(session.status, .checkingToolchain)
+            XCTAssertTrue(session.displayMessage.map { chinese.appString($0).contains("42") } ?? false)
+            XCTAssertEqual(mainWindow.statusMessage, SessionStatus.checkingToolchain.title)
+            session.stop()
+            XCTAssertEqual(mainWindow.statusMessage, SessionStatus.stopping.title)
+            await session.waitUntilIdle()
+        }
+    }
+
     func testInvalidPreflightLeavesEnvironmentAndRiskUntouched() async throws {
         for change in ["missing-sdk", "offline", "discovery-error", "conflict", "non-debug", "edited",
                        "application-args", "duplicate-machine"] {
@@ -309,6 +368,74 @@ final class FlutterDebugSessionTests: XCTestCase {
         }
     }
 
+    func testRunAgainRestartsOriginalDeviceOnlyAfterSuccessfulRecovery() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let files = FileManager.default
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let pause = fixture.state("pause-after-test")
+        let launches = fixture.state("launches")
+        let secondDevice = FlutterDevice(id: "other", name: "Other", platform: "ios", isSimulator: false)
+        let discovery = DeviceDiscovery([device, secondDevice])
+        let executable = try makeFlutter(in: fixture, script: #"""
+            printf '%s\n' "$5" >> .runlet-fixture/launches
+            """# + "\n" + Self.machineReady + "\n" + #"""
+            while IFS= read -r command; do
+                case "$command" in *app.stop*) exit 0 ;; esac
+            done
+            """#)
+        let session = controller(fixture, store: store, executable: executable, discovery: discovery) { _ in true }
+        try fixture.select("prod", in: session)
+        try await eventually { session.devices.count == 2 && !session.isRefreshingDevices }
+        session.selectDevice(device.id)
+        XCTAssertTrue(session.canRun)
+        session.run()
+        XCTAssertEqual(session.status, .checkingToolchain)
+        let runAvailabilityChanged = OSAllocatedUnfairLock(initialState: false)
+        XCTAssertFalse(withObservationTracking {
+            session.canPerformDebugAction(.run, source: .menuBar)
+        } onChange: {
+            runAvailabilityChanged.withLock { $0 = true }
+        })
+
+        do {
+            try await eventually { session.status == .running }
+            XCTAssertTrue(runAvailabilityChanged.withLock { $0 }, "启动期间已打开的菜单须重新读取 Run 的启用状态")
+            session.selectDevice(secondDevice.id)
+            XCTAssertEqual(session.selectedDeviceID, secondDevice.id)
+            XCTAssertTrue(session.performDebugAction(.run, source: .mainWindow) { launch in
+                XCTAssertEqual(launch.configurationName, "sample-flutter-app(prod)")
+                XCTAssertEqual(launch.device.id, self.device.id)
+                return false
+            })
+            XCTAssertEqual(session.status, .running)
+            XCTAssertEqual(try String(contentsOf: launches, encoding: .utf8), "\(device.id)\n")
+
+            try Data().write(to: pause)
+            XCTAssertTrue(session.performDebugAction(.run, source: .menuBar) { _ in true })
+            try await fixture.waitFor("paused-after-test")
+            XCTAssertEqual(session.status, .restoringEnvironment)
+            XCTAssertFalse(session.canPerformDebugAction(.run))
+            XCTAssertEqual(try String(contentsOf: launches, encoding: .utf8), "\(device.id)\n")
+            try files.removeItem(at: pause)
+
+            try await eventually { session.status == .running }
+            XCTAssertEqual(try String(contentsOf: launches, encoding: .utf8), "\(device.id)\n\(device.id)\n")
+            XCTAssertEqual(session.selectedDeviceID, secondDevice.id)
+
+            try Data().write(to: fixture.state("fail-before-test"))
+            XCTAssertTrue(session.performDebugAction(.run, source: .mainWindow) { _ in true })
+            await session.waitUntilIdle()
+            XCTAssertEqual(session.status, .recoveryFailed)
+            XCTAssertNotNil(try store.read(project: fixture.project))
+            XCTAssertEqual(try String(contentsOf: launches, encoding: .utf8), "\(device.id)\n\(device.id)\n")
+        } catch {
+            try? files.removeItem(at: pause)
+            _ = await session.finishForTermination()
+            throw error
+        }
+    }
+
     func testHotOperationsWaitForCurrentFlutterResultAndKeepStopAvailable() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -337,7 +464,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         XCTAssertFalse(session.performDebugAction(.run))
         do {
             try await eventually { session.canHotOperate }
-            XCTAssertFalse(session.performDebugAction(.run))
+            XCTAssertTrue(session.canPerformDebugAction(.run))
             XCTAssertTrue(session.performDebugAction(.reload))
             XCTAssertFalse(session.performDebugAction(.restart))
             try await fixture.waitFor("command-1")
@@ -426,21 +553,26 @@ final class FlutterDebugSessionTests: XCTestCase {
         try fixture.select("prod", in: session)
         try await eventually { session.canRun }
         session.run()
+        XCTAssertTrue(session.status.showsLaunchProgress)
         do {
             try await fixture.waitFor("pre-started")
             clock.advance(by: .seconds(80))
             XCTAssertEqual(session.status, .runningPreTask)
+            XCTAssertTrue(session.status.showsLaunchProgress)
             XCTAssertFalse(session.canHotOperate)
             try Data().write(to: fixture.state("pre-finish"))
             try await fixture.waitFor("debug-started")
             try await eventually { session.status == .waitingForVM && clock.hasSleeper(.seconds(60)) }
             clock.advance(by: .seconds(59))
             XCTAssertEqual(session.status, .waitingForVM)
+            XCTAssertTrue(session.status.showsLaunchProgress)
             clock.advance(by: .seconds(1))
             try await eventually { session.status == .waitingLonger }
+            XCTAssertTrue(session.status.showsLaunchProgress)
             XCTAssertTrue(session.canStop)
             XCTAssertFalse(session.canHotOperate)
             session.stop()
+            XCTAssertFalse(session.status.showsLaunchProgress)
             await session.waitUntilIdle()
             clock.advance(by: .seconds(60))
             XCTAssertEqual(session.status, .ready)
@@ -498,6 +630,9 @@ final class FlutterDebugSessionTests: XCTestCase {
             discovery.fails = true
             try await scan()
             try await eventually { session.status == .connectionInterrupted }
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            XCTAssertEqual(mainWindow.statusMessage,
+                           "The VM Service connection was interrupted. Reconnecting. You can stop the current session.")
             XCTAssertFalse(session.canHotOperate)
             try assertStillRunning()
             vm.devices = [device]
@@ -558,6 +693,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         session.run()
         do {
             try await eventually { session.canHotOperate && clock.hasSleeper(.seconds(2)) }
+            XCTAssertFalse(session.status.showsLaunchProgress)
             clock.advance(by: .seconds(2))
             try await eventually { lateProbe != nil }
             try Data().write(to: fixture.state("natural-exit"))
@@ -565,6 +701,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             lateProbe?.resume(returning: true)
             lateProbe = nil
             XCTAssertEqual(session.status, .recoveryFailed)
+            XCTAssertFalse(session.status.showsLaunchProgress)
             XCTAssertFalse(session.canHotOperate)
             XCTAssertFalse(session.canStop)
             XCTAssertEqual(try store.read(project: fixture.project)?.taskLabel, "sample:select-test")
@@ -703,9 +840,9 @@ final class FlutterDebugSessionTests: XCTestCase {
                                         })
         defer { debug.finish() }
         debug.receive(#"[{"event":"app.start","params":{"appId":"current","deviceId":"ios-fixture","mode":"debug"}}]"#,
-                      isError: false, output: { _ in })
+                      isError: false, output: { _, _ in })
         debug.receive(#"[{"event":"app.debugPort","params":{"appId":"current","wsUri":"ws://127.0.0.1:\#(server.port)/ws"}}]"#,
-                      isError: false, output: { _ in })
+                      isError: false, output: { _, _ in })
         try await eventually { locations.count == 1 }
         XCTAssertEqual(connections, [true])
         XCTAssertEqual(locations[0].file, file.resolvingSymlinksInPath())

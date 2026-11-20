@@ -14,6 +14,13 @@ enum SessionStatus {
     case running, connectionInterrupted, stopping, restoringEnvironment, recoveryPending, recoveryFailed
     case recoveryUnavailable, launchBlocked, preTaskFailed, processUnconfirmed
 
+    var showsLaunchProgress: Bool {
+        switch self {
+        case .checkingToolchain, .runningPreTask, .startingFlutter, .waitingForVM, .waitingLonger: true
+        default: false
+        }
+    }
+
     var title: LocalizedStringResource {
         switch self {
         case .idle: "No Debug Session"
@@ -70,7 +77,7 @@ struct ActiveLaunch {
 
 struct DeviceChoice: Identifiable {
     enum Kind: Equatable {
-        case iOSSimulator, iOSDevice, androidEmulator, androidDevice
+        case iOSSimulator, iOSDevice, androidEmulator, androidDevice, macOSDesktop
 
         var title: LocalizedStringResource {
             switch self {
@@ -78,19 +85,26 @@ struct DeviceChoice: Identifiable {
             case .iOSDevice: "iOS Device"
             case .androidEmulator: "Android Emulator"
             case .androidDevice: "Android Device"
+            case .macOSDesktop: "macOS Desktop"
             }
         }
     }
 
     enum Availability: Equatable {
-        case online, offline, unknown
+        case online, offline, starting, unknown
+    }
+
+    enum LaunchTarget {
+        case iOS(String), android(String)
     }
 
     let device: FlutterDevice
     let availability: Availability
+    var launchTarget: LaunchTarget? = nil
     var id: String { device.id }
     var name: String { device.name }
     var kind: Kind {
+        if device.isMacOSDesktop { return .macOSDesktop }
         if device.platform == "ios" {
             return device.isSimulator ? .iOSSimulator : .iOSDevice
         }
@@ -134,13 +148,17 @@ final class SessionController {
     private(set) var manualSDKPath: String?
     private(set) var devices: [FlutterDevice] = []
     private var knownDevices: [FlutterDevice] = []
-    private var hasDeviceSnapshot = false
-    private var devicePreference: DevicePreference?
+    private var deviceSnapshotSDK: FlutterSDK?
+    private var devicePreference: FlutterDevice?
     private(set) var activeLaunch: ActiveLaunch?
     private(set) var simulators: [FlutterSimulator] = []
-    private(set) var isStartingSimulator = false
+    private(set) var androidEmulators: [AndroidEmulator] = []
+    private var androidAVDByDeviceID: [String: String] = [:]
+    private var startingDeviceID: String?
+    var isStartingSimulator: Bool { startingDeviceID != nil }
     private(set) var simulatorIssue: LocalizedStringResource?
     private(set) var isRefreshingDevices = false
+    var isRefreshingWithoutDevice: Bool { isRefreshingDevices && selectedDeviceChoice == nil }
     private(set) var deviceIssue: LocalizedStringResource?
     private(set) var vmConnected = false
     private var hasCurrentDevToolsAddress = false
@@ -174,26 +192,67 @@ final class SessionController {
             recovery == nil && recoveryStoreIssue == nil && !isStartingSimulator && !isRefreshingDevices &&
             (!isBusy || status == .running || status == .connectionInterrupted)
     }
-    var selectedDeviceID: String? { devicePreference?.device?.id }
+    var selectedDeviceID: String? { devicePreference?.id }
     var selectedDevice: FlutterDevice? { devices.first { $0.id == selectedDeviceID } }
-    var selectedDeviceChoice: DeviceChoice? { deviceChoices.first { $0.id == selectedDeviceID } }
+    var selectedDeviceChoice: DeviceChoice? {
+        let choices = deviceChoices
+        let id = startingDeviceID ?? selectedDeviceID
+        if let choice = choices.first(where: { $0.id == id }) { return choice }
+        if id == nil {
+            let target = selection?.launch?.deviceID
+            return choices.first { $0.id == target } ?? choices.first
+        }
+        guard let id, let avd = androidAVDByDeviceID[id] else { return nil }
+        return choices.first { $0.id == Self.androidChoiceID(avd) }
+    }
     var selectedDeviceName: String? { selectedDeviceChoice?.name }
     var deviceIsOffline: Bool { selectedDeviceChoice?.availability == .offline }
     var deviceChoices: [DeviceChoice] {
-        let snapshotIsValid = hasDeviceSnapshot && sdk != nil && deviceIssue == nil && !isRefreshingDevices
+        let snapshotIsValid = deviceSnapshotSDK != nil && deviceSnapshotSDK == sdk && deviceIssue == nil
         let onlineIDs = Set(devices.map(\.id))
         var listedIDs = Set<String>()
-        let shutdown = simulators.map {
+        let onlineSimulators = Set(devices.filter { $0.platform == "ios" && $0.isSimulator }
+            .compactMap { UUID(uuidString: $0.id) })
+        let shutdown = simulators.filter { simulator in
+            UUID(uuidString: simulator.id).map { !onlineSimulators.contains($0) } ?? false
+        }.map {
             FlutterDevice(id: $0.id, name: $0.name, platform: "ios", isSimulator: true)
         }
-        let candidates = devices + shutdown + knownDevices + [devicePreference?.device].compactMap { $0 }
-        return candidates.compactMap { device in
+        let online = devices.filter { !$0.isMacOSDesktop } + devices.filter(\.isMacOSDesktop)
+        let candidates = online + shutdown + knownDevices + [devicePreference].compactMap { $0 }
+        let availableIOS = Set(shutdown.map(\.id))
+        let offlineAVDs = Set(androidEmulators.map(\.id))
+        let choices: [DeviceChoice] = candidates.compactMap { device in
             guard listedIDs.insert(device.id).inserted else { return nil }
-            let availability: DeviceChoice.Availability =
-                snapshotIsValid ? (onlineIDs.contains(device.id) ? .online : .offline) : .unknown
-            return DeviceChoice(device: device, availability: availability)
+            if !onlineIDs.contains(device.id), let avd = androidAVDByDeviceID[device.id], offlineAVDs.contains(avd) {
+                return nil
+            }
+            let target: DeviceChoice.LaunchTarget? = availableIOS.contains(device.id) ? .iOS(device.id) : nil
+            let availability: DeviceChoice.Availability = if startingDeviceID == device.id {
+                .starting
+            } else if target != nil {
+                .offline
+            } else if snapshotIsValid {
+                onlineIDs.contains(device.id) ? .online : .offline
+            } else {
+                .unknown
+            }
+            return DeviceChoice(device: device, availability: availability, launchTarget: target)
+        }
+        return choices + androidEmulators.map { emulator in
+            let id = Self.androidChoiceID(emulator.id)
+            let device = FlutterDevice(id: id, name: emulator.name, platform: "android", isSimulator: true)
+            return DeviceChoice(device: device, availability: startingDeviceID == id ? .starting : .offline,
+                                launchTarget: .android(emulator.id))
         }
     }
+
+    private static func androidChoiceID(_ id: String) -> String { "avd:\(id)" }
+
+    func canChooseDevice(_ device: DeviceChoice) -> Bool {
+        canSelectNextDevice && (device.launchTarget == nil || canStartSimulator)
+    }
+
     private(set) var status: SessionStatus = .idle
     private(set) var message: LocalizedStringResource?
     private(set) var taskIssue: LocalizedStringResource?
@@ -220,10 +279,27 @@ final class SessionController {
     private(set) var didClearLogs = false
     private(set) var logGeneration: UInt64 = 0
     private(set) var logTrimmedUTF16 = 0
+    private(set) var logSpans: [SessionLogSpan] = []
     @ObservationIgnored private var pendingLogs = ""
+    @ObservationIgnored private var pendingLogSpans: [SessionLogSpan] = []
+    @ObservationIgnored private var logEndUTF16 = 0
     @ObservationIgnored private var logFlush: Task<Void, Never>?
     var selection: LaunchChoice? { choices.first { $0.id == selectedID } }
     var canRun: Bool { recovery == nil && canStartSelectedConfiguration }
+    private var isConfirmingRestart = false
+    @ObservationIgnored private var restartDeviceID: String?
+
+    private var restartableLaunch: ActiveLaunch? {
+        // Observe the launch phase even before there is an active process.
+        switch status {
+        case .waitingForVM, .waitingLonger, .running, .connectionInterrupted:
+            guard canStop, !isConfirmingRestart, !isFinishingTermination, !updateReserved,
+                  !executionIsUnconfirmed, active != nil else { return nil }
+            return activeLaunch
+        default:
+            return nil
+        }
+    }
 
     var canRunAfterRecovery: Bool {
         status == .recoveryFailed && recoveryProjectIsOpen && canStartSelectedConfiguration
@@ -253,19 +329,31 @@ final class SessionController {
     }
     func canPerformDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
         switch action {
-        case .run: canRun || (source == .mainWindow && canRunAfterRecovery)
+        case .run: restartableLaunch != nil || canRun || (source == .mainWindow && canRunAfterRecovery)
         case .stop: canStop
         case .reload, .restart: canHotOperate
         }
     }
 
     @discardableResult
-    func performDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar) -> Bool {
+    func performDebugAction(_ action: DebugAction, source: DebugActionSource = .menuBar,
+                            confirmRestart: (ActiveLaunch) -> Bool = { _ in false }) -> Bool {
         guard canPerformDebugAction(action, source: source) else { return false }
         switch action {
         case .run:
-            if source == .mainWindow && canRunAfterRecovery { runAfterRecovery() }
-            else { run() }
+            if let launch = restartableLaunch, let process = active {
+                isConfirmingRestart = true
+                let confirmed = confirmRestart(launch)
+                isConfirmingRestart = false
+                if confirmed, active === process, restartableLaunch != nil {
+                    restartDeviceID = launch.device.id
+                    stop()
+                }
+            } else if source == .mainWindow && canRunAfterRecovery {
+                runAfterRecovery()
+            } else {
+                run()
+            }
         case .stop: stop()
         case .reload: hotOperation(.reload)
         case .restart: hotOperation(.restart)
@@ -276,12 +364,12 @@ final class SessionController {
     var displayMessage: LocalizedStringResource? {
         recoveryMessage ?? message ?? debugStatusMessage ?? debugEndReason ?? selection?.issue ?? sdkStatusIssue ?? deviceSelectionIssue
     }
-    private var debugStatusMessage: LocalizedStringResource?
+    private(set) var debugStatusMessage: LocalizedStringResource?
     private var debugEndReason: LocalizedStringResource?
     private var sdkStatusIssue: LocalizedStringResource? { isCheckingSDK ? "Checking Flutter SDK" : sdkIssue }
     private var deviceSelectionIssue: LocalizedStringResource? {
         guard toolchain != nil, project != nil, !isBusy else { return nil }
-        if isStartingSimulator { return "Starting iOS Simulator" }
+        if isStartingSimulator { return "Starting Simulator" }
         if isRefreshingDevices { return "Refreshing Devices" }
         if let deviceIssue { return deviceIssue }
         if let target = selection?.launch?.deviceID, target != selectedDeviceID {
@@ -307,13 +395,8 @@ final class SessionController {
     private static let recentProjectsKey = "recentProjects"
     private static let preferFVMKey = "preferProjectFVM"
     private static let manualSDKKey = "manualFlutterSDKPath"
-    private struct DevicePreference {
-        let device: FlutterDevice?
-    }
-
-    @ObservationIgnored private var projectDevices: [String: DevicePreference] = [:]
+    @ObservationIgnored private var projectDevices: [String: FlutterDevice] = [:]
     @ObservationIgnored private var preferences: UserDefaults?
-    @ObservationIgnored private var hasLoadedConfiguration = false
     @ObservationIgnored private var store: ProjectRecoveryStore?
     @ObservationIgnored private let runner: SessionProcessRunner
     @ObservationIgnored private let allowedRoot: URL?
@@ -650,13 +733,14 @@ final class SessionController {
             isCheckingSDKSelection = false
             devices = []
             knownDevices = []
-            hasDeviceSnapshot = false
+            deviceSnapshotSDK = nil
             devicePreference = projectDevices[canonical.path]
             simulators = []
+            androidEmulators = []
+            androidAVDByDeviceID = [:]
             deviceIssue = nil
             choices = []
             selectedID = nil
-            hasLoadedConfiguration = false
             apply(configuration(canonical), preserving: nil)
             status = .ready
             if remember {
@@ -820,20 +904,18 @@ final class SessionController {
         configurationIsStale = config.launchIssue != nil
         if configurationIsStale { return }
         choices = config.choices
+        let defaultChoice = choices.first { $0.launch != nil } ?? choices.first
         if let name {
             let matches = choices.filter { $0.name == name }
-            selectedID = matches.only?.id
+            selectedID = (matches.only ?? defaultChoice)?.id
             if matches.isEmpty {
-                message = "The previous configuration no longer exists. Select another one"
+                message = "The previous launch configuration is no longer available"
             } else if matches.count > 1 {
                 message = "Multiple configurations have the previous name. Rename them in launch.json"
             }
-        } else if !hasLoadedConfiguration {
-            selectedID = choices.filter { $0.launch != nil }.only?.id
         } else {
-            selectedID = nil
+            selectedID = defaultChoice?.id
         }
-        hasLoadedConfiguration = true
         chooseInitialDevice()
     }
 
@@ -842,34 +924,40 @@ final class SessionController {
     }
 
     func select(_ id: Int?) {
-        guard !isBusy, !configurationIsStale else { return }
+        guard !isBusy, !configurationIsStale, let id, choices.contains(where: { $0.id == id }) else { return }
         selectedID = id
         chooseInitialDevice()
         if !choices.isEmpty { message = nil }
     }
 
-    func selectDevice(_ id: String?) {
-        guard canSelectNextDevice, let project else { return }
-        let device = deviceChoices.first { $0.id == id }?.device
-        guard id == nil || device != nil else { return }
-        storeDevice(DevicePreference(device: device), for: project)
+    func selectDevice(_ id: String) {
+        guard canSelectNextDevice, let project, let choice = deviceChoices.first(where: { $0.id == id }) else { return }
+        switch choice.launchTarget {
+        case .iOS(let id):
+            startSimulator(id)
+            return
+        case .android(let id):
+            startAndroidEmulator(id)
+            return
+        case nil:
+            storeDevice(choice.device, for: project)
+        }
         if !isBusy { message = nil }
     }
 
-    private func storeDevice(_ preference: DevicePreference, for project: URL) {
-        devicePreference = preference
-        projectDevices[project.path] = preference
+    private func storeDevice(_ device: FlutterDevice, for project: URL) {
+        devicePreference = device
+        projectDevices[project.path] = device
     }
 
     private func chooseInitialDevice() {
         guard devicePreference == nil, let project else { return }
-        let device: FlutterDevice?
-        if let target = selection?.launch?.deviceID {
-            device = devices.first { $0.id == target }
-        } else {
-            device = devices.only
+        let online = deviceChoices.filter { $0.availability == .online }
+        let target = selection?.launch?.deviceID
+        let choice = target == nil ? online.first : online.first { $0.id == target }
+        if let choice {
+            storeDevice(choice.device, for: project)
         }
-        if let device { storeDevice(DevicePreference(device: device), for: project) }
     }
 
     private var sdkOptions: FlutterSDKOptions {
@@ -973,7 +1061,7 @@ final class SessionController {
         let request = UUID()
         discoveryID = request
         simulatorLaunchID = nil
-        isStartingSimulator = false
+        startingDeviceID = nil
         simulatorIssue = nil
         isCheckingSDK = true
         isRefreshingDevices = project != nil
@@ -1008,8 +1096,24 @@ final class SessionController {
                 self.simulators = []
                 self.simulatorIssue = "Could not list iOS simulators: \(LocalizedStringResource.appIssue(error)). Refresh devices and try again."
             }
+            do {
+                let emulators = try await toolchain.androidEmulators(sdk, probeEnvironment)
+                guard self.discoveryID == request, self.project == project else { return }
+                self.applyAndroidEmulatorSnapshot(emulators)
+            } catch {
+                guard self.discoveryID == request, self.project == project else { return }
+                self.androidEmulators = []
+                self.simulatorIssue = "Could not list Android emulators: \(LocalizedStringResource.appIssue(error)). Refresh devices and try again."
+            }
             self.isRefreshingDevices = false
         }
+    }
+
+    private func applyAndroidEmulatorSnapshot(_ emulators: [AndroidEmulator]) {
+        for emulator in emulators {
+            if let id = emulator.deviceID { androidAVDByDeviceID[id] = emulator.id }
+        }
+        androidEmulators = emulators.filter { $0.deviceID == nil }
     }
 
     private func applyDeviceSnapshot(_ devices: [FlutterDevice], project: URL) {
@@ -1017,10 +1121,10 @@ final class SessionController {
         let discoveredIDs = Set(devices.map(\.id))
         knownDevices.removeAll { discoveredIDs.contains($0.id) }
         knownDevices.append(contentsOf: devices)
-        hasDeviceSnapshot = true
+        deviceSnapshotSDK = sdk
         updateDeviceIssue(nil)
         if let device = selectedDevice {
-            storeDevice(DevicePreference(device: device), for: project)
+            storeDevice(device, for: project)
         } else {
             chooseInitialDevice()
         }
@@ -1031,12 +1135,12 @@ final class SessionController {
         deviceIssue = error.map { "Could not refresh devices: \(LocalizedStringResource.appIssue($0)). Check the devices and try again." }
     }
 
-    func startSimulator(_ id: String) {
+    private func startSimulator(_ id: String) {
         guard canStartSimulator, let toolchain, let sdk, let project, let target = UUID(uuidString: id),
               simulators.contains(where: { $0.id == id }) else { return }
         let request = UUID()
         simulatorLaunchID = request
-        isStartingSimulator = true
+        startingDeviceID = id
         simulatorIssue = nil
         let environment = FlutterToolchain.probeEnvironment(environment, project)
         Task { [weak self] in
@@ -1044,7 +1148,7 @@ final class SessionController {
             defer {
                 if self.simulatorLaunchID == request {
                     self.simulatorLaunchID = nil
-                    self.isStartingSimulator = false
+                    self.startingDeviceID = nil
                 }
             }
             do {
@@ -1053,11 +1157,12 @@ final class SessionController {
                 while self.simulatorLaunchID == request, self.project == project, .now < deadline {
                     let discovered = try? await toolchain.discover(sdk, environment)
                     guard self.simulatorLaunchID == request, self.project == project else { return }
-                    if let discovered, discovered.contains(where: {
+                    if let discovered, let device = discovered.first(where: {
                         $0.platform == "ios" && $0.isSimulator && UUID(uuidString: $0.id) == target
                     }) {
                         self.applyDeviceSnapshot(discovered, project: project)
                         self.simulators.removeAll { $0.id == id }
+                        self.storeDevice(device, for: project)
                         return
                     }
                     try await Task.sleep(for: .seconds(2))
@@ -1066,6 +1171,48 @@ final class SessionController {
             } catch {
                 guard self.simulatorLaunchID == request, self.project == project else { return }
                 self.simulatorIssue = "Could not start the iOS simulator: \(LocalizedStringResource.appIssue(error)). Check the simulator and try again."
+            }
+        }
+    }
+
+    private func startAndroidEmulator(_ id: String) {
+        guard canStartSimulator, let toolchain, let sdk, let project,
+              androidEmulators.contains(where: { $0.id == id }) else { return }
+        let request = UUID()
+        simulatorLaunchID = request
+        startingDeviceID = Self.androidChoiceID(id)
+        simulatorIssue = nil
+        let environment = FlutterToolchain.probeEnvironment(environment, project)
+        Task { [weak self] in
+            guard let self, self.simulatorLaunchID == request, self.project == project else { return }
+            defer {
+                if self.simulatorLaunchID == request {
+                    self.simulatorLaunchID = nil
+                    self.startingDeviceID = nil
+                }
+            }
+            do {
+                try await toolchain.bootAndroidEmulator(id, sdk, environment)
+                let deadline = ContinuousClock.now + .seconds(90)
+                while self.simulatorLaunchID == request, self.project == project, .now < deadline {
+                    let emulators = try await toolchain.androidEmulators(sdk, environment)
+                    let discovered = try await toolchain.discover(sdk, environment)
+                    guard self.simulatorLaunchID == request, self.project == project else { return }
+                    if let deviceID = emulators.first(where: { $0.id == id })?.deviceID,
+                       discovered.contains(where: { $0.id == deviceID && $0.isSimulator && $0.platform.hasPrefix("android") }) {
+                        self.applyDeviceSnapshot(discovered, project: project)
+                        if let device = discovered.first(where: { $0.id == deviceID }) {
+                            self.storeDevice(device, for: project)
+                        }
+                        self.applyAndroidEmulatorSnapshot(emulators)
+                        return
+                    }
+                    try await Task.sleep(for: .seconds(2))
+                }
+                throw SessionIssue(localized: "Flutter has not found the selected simulator")
+            } catch {
+                guard self.simulatorLaunchID == request, self.project == project else { return }
+                self.simulatorIssue = "Could not start the Android emulator: \(LocalizedStringResource.appIssue(error)). Check the emulator and try again."
             }
         }
     }
@@ -1196,6 +1343,13 @@ final class SessionController {
         isBusy = false
         operation = nil
         if status == .checkingToolchain || status == .stopping { status = .ready }
+
+        let deviceID = restartDeviceID
+        restartDeviceID = nil
+        guard let deviceID, status == .ready, recovery == nil, recoveryStoreIssue == nil,
+              !isFinishingTermination, !updateReserved, !executionIsUnconfirmed,
+              !configurationIsStale, let project, let selection, let store, let toolchain else { return }
+        beginFlutterRun(project, selection: selection, deviceID: deviceID, store: store, toolchain: toolchain)
     }
 
     func stop() {
@@ -1278,11 +1432,14 @@ final class SessionController {
         logFlush?.cancel()
         logFlush = nil
         pendingLogs = ""
+        pendingLogSpans = []
+        logEndUTF16 = 0
         logGeneration = logBoundary.withLock { value in
             value &+= 1
             return value
         }
         logs = ""
+        logSpans = []
         logTrimmedUTF16 = 0
         didClearLogs = clearedByUser
     }
@@ -1488,6 +1645,16 @@ final class SessionController {
             }
         }
 
+        if !stopRequested, let toolchain, let device, device.platform == "ios", device.isSimulator {
+            do {
+                try await toolchain.showSimulator(device.id, FlutterToolchain.probeEnvironment(environment, launch.project))
+            } catch {
+                if !stopRequested {
+                    feedback = SessionFeedback(title: "Could not open the iOS simulator window", detail: nil)
+                }
+            }
+        }
+
         if !stopRequested {
             guard launch.mode == "debug" else {
                 if let record { markRecovery(record, "Execution blocked because the configuration is not in Debug mode") }
@@ -1594,14 +1761,14 @@ final class SessionController {
                          device: FlutterDevice? = nil, startsRun: Bool = false) async -> SessionExit {
         let lines = SessionLineStream { [weak self, weak flutter] line, isError, generation in
             guard let self else { return }
-            let publish: (String) -> Void = { text in
+            let publish: (String, SessionLogTone?) -> Void = { text, tone in
                 guard generation == self.logGeneration else { return }
-                self.appendLog(FlutterLogRedaction.clean(text))
+                self.appendLog(FlutterLogRedaction.clean(text), tone: tone)
             }
             if let flutter {
                 flutter.receive(line, isError: isError, output: publish)
             } else {
-                publish(line)
+                publish(line, isError ? .diagnostic : nil)
             }
         }
         defer {
@@ -1704,8 +1871,11 @@ final class SessionController {
         }
     }
 
-    private func appendLog(_ output: String) {
+    private func appendLog(_ output: String, tone: SessionLogTone?) {
         guard !output.isEmpty else { return }
+        let end = logEndUTF16 + output.utf16.count
+        if let tone { pendingLogSpans.append(SessionLogSpan(range: logEndUTF16..<end, tone: tone)) }
+        logEndUTF16 = end
         pendingLogs += output
         guard logFlush == nil else { return }
         logFlush = Task { [weak self] in
@@ -1721,14 +1891,18 @@ final class SessionController {
         guard !pendingLogs.isEmpty else { return }
         let combined = logs + pendingLogs
         pendingLogs = ""
+        let spans = logSpans + pendingLogSpans
+        pendingLogSpans = []
         let bytes = combined.utf8
         guard bytes.count > 64 * 1024 else {
+            logSpans = spans
             logs = combined
             return
         }
         var start = bytes.index(bytes.endIndex, offsetBy: -64 * 1024)
         while bytes[start] & 0xc0 == 0x80 { bytes.formIndex(after: &start) }
         logTrimmedUTF16 += String(decoding: bytes[..<start], as: UTF8.self).utf16.count
+        logSpans = Array(spans.drop { $0.range.upperBound <= logTrimmedUTF16 })
         logs = String(decoding: bytes[start...], as: UTF8.self)
     }
 

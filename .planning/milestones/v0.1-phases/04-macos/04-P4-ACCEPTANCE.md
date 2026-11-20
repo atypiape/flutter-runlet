@@ -53,7 +53,7 @@ done
 | A25 | 通过 | 真实 doctor 摘要为 Flutter 通过、Xcode 通过、Android Toolchain 警告，对应原始输出。完整输出在独立原生 sheet 分别展示 stdout 与 stderr。取消显示明确原因，重试再次得到三项摘要。见 `final-doctor-{summary,output,cancel,retry}.ax`。XCTest 覆盖双流、截断、失败与过期请求。 |
 | A26 | 通过（阶段范围） | 关于使用实际 0.1.0／构建 1、上游归属与版权、MIT 声明。三条已确认链接交给默认浏览器 Edge，AX 地址栏核对仓库、README 和 LICENSE 地址。匿名可访问性按阶段决定留待发布复验。见 `final-about-en.ax`、`final-links.txt`、`final-{light,dark}-{zh,en}-about.png`。 |
 
-[验收矩阵及判定规则](../../../../docs/04-ACCEPTANCE.md) · [阶段 UI 契约](04-UI-SPEC.md) · [阶段决定](04-CONTEXT.md)
+[验收矩阵及判定规则](../../../../docs/04-ACCEPTANCE.md) · [阶段 UI 契约](04-VERIFICATION.md) · [阶段决定](04-VERIFICATION.md)
 
 ## 审查修正复验
 
@@ -67,7 +67,7 @@ done
 - 在 `988ac81` 的 Debug 候选上，用辅助功能树、原生按键探针和区域截屏检查四窗。测试副本仅修改 Bundle ID 以隔离偏好与旧 Dock 图标缓存，然后临时重签。原始 Debug 和 Release 签名证据取自构建产物。脚本 `ax.swift`、`native.swift`、`final-appearance.sh` 与截图保存在审查前宿主证据目录。外观测试结束后恢复系统原有深色。
 - 主窗外框 640 × 580 pt，实测工具栏占 52 pt，其下布局区 640 × 528 pt，正文宽 600 pt。设置外框 672 × 520 pt，顶部原生工具栏占 52 pt，其下布局区 672 × 468 pt，侧栏可访问滚动区宽 142 pt，分隔线距外框左边 150 pt。关于外框 440 × 480 pt，标题栏下内容约 440 × 452 pt。菜单栏运行态外框 404 × 278 pt，反馈出现时高度随内容增长。四按钮原生实测高 24 pt，设计参考为 26 pt。未观察到标签裁切或换行。
 - 在基线 `67a6270` 中，从通用切换到 Flutter 时系统会把英文设置标题改为中文。`988ac81` 在设置详情显式设置导航标题，在两种语言下往返两个分类并重新截取四窗，均保留所选语言。基线证据为 `title-regression-en.ax`，复验证据为 `final-flutter-{en,zh}.ax` 和 `final-general-return-{en,zh}.ax`。原生文件面板的「打开」「取消」及系统生成的警告辅助名称由 macOS 提供，本次保持系统简体中文。应用提供的标题、说明和退出按钮随偏好切换。 [SwiftUI 导航标题](https://developer.apple.com/documentation/swiftui/view/navigationtitle(_:)-avgj)
-- Dock 旧标识缓存现象见第四波记录。原生验收以独立标识复验图标。两种外观中的状态项均取原生菜单栏区域，宿主菜单栏背景相同。 [图标基线](04-04-SUMMARY.md)
+- Dock 旧标识缓存现象见第四波记录。原生验收以独立标识复验图标。两种外观中的状态项均取原生菜单栏区域，宿主菜单栏背景相同。 [图标基线](04-VERIFICATION.md)
 - 真实模拟器阶段使用公开样例副本，prod 后置失败通过 `fail-before-test` 模拟。启动恢复补验在 `988ac81` 的同源 Debug 构建保留原任务记录并重启，关闭启动主窗及记住项目后仍出现一扇主窗。点击「打开待恢复项目」后标记仍为 prod。移除故障标记，从面板明确重试，恢复至 test。公开样例配置及脚本前后 SHA-256 一致，FVM 链接还原，风险记录归零，模拟器恢复关机。证据见 `recovery-result.txt`、`sample-before.txt`、`sample-after.txt`、`simulator-after.txt`。 [公开样例](../../../../docs/examples/sample-flutter-app/README.md)
 
 ## 剩余验收
@@ -76,4 +76,4 @@ A04 已完成跨登录验证。旧候选在 `SMAppService.mainApp.status = .notF
 
 固定路径安装后的实际重启确认 `loginwindow` 于 18:34:38 通过已启用的登录项启动 FlutterRunlet。主窗偏好为开启，辅助功能树仍显示零窗口。修复候选 `184ffc5` 在菜单栏场景就绪后按偏好显式打开主窗。隔离副本在正常、后台及直接启动中，偏好开启时均为一扇主窗，关闭时均为仅菜单栏，重复打开仍只有一扇。Debug 75 项及 Release 构建通过。同路径安装更新后，主窗打开且系统登记仍启用。
 
-用户确认 `184ffc5` 登录启动与主窗行为符合预期。关闭主窗偏好时，登录后仅有菜单栏。撤销「登录时启动」后，用户注销并重新登录，确认菜单栏图标未自动出现。只读检查未发现应用进程或登录项记录。 [A04 用户验收](04-UAT.md)
+用户确认 `184ffc5` 登录启动与主窗行为符合预期。关闭主窗偏好时，登录后仅有菜单栏。撤销「登录时启动」后，用户注销并重新登录，确认菜单栏图标未自动出现。只读检查未发现应用进程或登录项记录。 [A04 用户验收](04-VERIFICATION.md)

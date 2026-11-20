@@ -29,7 +29,7 @@ struct MainWindowView: View {
             .background(palette.toolbar)
             palette.divider.frame(height: 1)
             VStack(alignment: .leading, spacing: 13) {
-                ProjectControls(session: session, demoName: presentation.selection?.project)
+                ProjectControls(session: session, demoName: presentation.selection?.project, offersFirstProjectGuide: true)
                 HStack(spacing: 12) {
                     RunConfigurationControls(session: session, demoConfiguration: presentation.selection?.configuration,
                                              runDemo: run, source: .mainWindow)
@@ -59,97 +59,95 @@ struct MainWindowView: View {
     }
 
     private var sessionDetails: some View {
-        Group {
-            if let session, session.status == .recoveryFailed {
-                recoveryFailureDetails(session)
-            } else {
-                regularSessionDetails
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                statusLine
+                if let session {
+                    if session.status != .restoringEnvironment, let action = session.recoveryAction {
+                        if session.status == .recoveryFailed, action == .retry {
+                            RecoveryRetryButton(session: session)
+                        } else {
+                            Button(action: session.performRecoveryAction) { Text(action.title) }
+                                .interactivePointer()
+                                .disabled(!session.canPerformRecoveryAction)
+                        }
+                    }
+                    if session.sdkIssue != nil, let openFlutterSettings {
+                        Button("Open Flutter Settings", action: openFlutterSettings)
+                            .interactivePointer()
+                    }
+                }
             }
-        }
-    }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(statusIsError ? palette.errorSurface : palette.toolbar, in: .rect(cornerRadius: 7))
+            .overlay(alignment: .bottom) {
+                if let session, session.status.showsLaunchProgress || session.isRefreshingWithoutDevice { LaunchProgressBar() }
+            }
+            .clipShape(.rect(cornerRadius: 7))
 
-    private var isRestoring: Bool { session?.status == .restoringEnvironment }
-
-    private var regularSessionDetails: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let selection = presentation.selection {
-                Text("Debug Session").font(RunletType.localized(locale, size: 13, medium: true))
-                sessionCaption(verbatim: "\(selection.configuration) · \(selection.device)")
-            } else if let session, isRestoring {
-                Text("Flutter Has Exited").font(RunletType.localized(locale, size: 13, medium: true))
-                if let task = session.activeRecoveryTaskLabel {
-                    Text("Running post-debug task \(task).")
-                        .font(RunletType.localized(locale, size: 11)).foregroundStyle(palette.secondary)
-                } else {
-                    Text(session.status.title).font(RunletType.localized(locale, size: 11)).foregroundStyle(palette.secondary)
-                }
-            } else if let session, let launch = session.activeLaunch {
-                Text("Debug Session").font(RunletType.localized(locale, size: 13, medium: true))
-                sessionCaption(verbatim: "\(launch.configurationName) · \(launch.device.name) (\(locale.appString(DeviceChoice(device: launch.device, availability: .online).kind.title)))")
-                    .accessibilityValue(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
-                    .help(Text(session.vmConnected ? "VM Service Connected" : "VM Service Disconnected"))
-            } else {
-                Text("Debug Not Started").font(RunletType.localized(locale, size: 13, medium: true))
-                Text("Choose a launch configuration and device to run.")
-                    .font(RunletType.localized(locale, size: 11))
-                    .foregroundStyle(palette.secondary)
-            }
-            if let session {
-                if !isRestoring, let issue = session.displayMessage, session.recoveryMessage == nil,
-                   locale.appString(issue) != locale.appString("Select a debug device") {
-                    Text(session.configurationIsStale && !session.choices.isEmpty ? "Configuration Out of Date · \(issue)" : issue)
-                        .foregroundStyle(palette.secondary)
-                }
-                if !isRestoring { RecoveryDetails(session: session) }
-                if session.sdkIssue != nil, let openFlutterSettings {
-                    Button("Open Flutter Settings", action: openFlutterSettings)
-                }
-                if let issue = session.taskIssue, issue != session.displayMessage {
-                    Text(issue).foregroundStyle(palette.secondary)
-                }
-            }
             SessionFeedbackView(session: session)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
-        .background(palette.toolbar, in: .rect(cornerRadius: 7))
     }
 
-    private func sessionCaption(verbatim caption: String) -> some View {
-        Text(verbatim: caption)
-            .font(RunletType.localized(locale, size: 11))
-            .foregroundStyle(palette.secondary)
-            .lineLimit(2)
-            .help(caption)
-    }
-
-    private func recoveryFailureDetails(_ session: SessionController) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.recoveryFailure?.message ?? session.recoveryMessage ?? session.status.title)
-                    .font(RunletType.localized(locale, size: 12, medium: true))
-                    .frame(minHeight: 19, alignment: .leading)
-                    .foregroundStyle(palette.error)
-                if session.canRunAfterRecovery {
-                    Text(RecoveryRetryButton.runHint)
-                } else if let blocker = session.recoveryRunBlocker {
-                    Text(blocker)
-                }
-                if session.recoveryAction == .openProject {
-                    RecoveryDetails(session: session, showMessage: false)
-                }
-            }
-            .font(RunletType.localized(locale, size: 11))
-            .foregroundStyle(palette.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            RecoveryRetryButton(session: session)
+    private var statusIsError: Bool {
+        switch session?.status {
+        case .recoveryFailed, .recoveryUnavailable, .preTaskFailed, .launchBlocked, .processUnconfirmed: true
+        default: false
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(minHeight: 59)
-        .background(palette.errorSurface, in: .rect(cornerRadius: 7))
+    }
+
+    private static let projectPrompt: LocalizedStringResource = "Click the folder button above to open a Flutter project."
+
+    private var statusLine: some View {
+        let message = statusMessage
+        let latest = locale.appString(message)
+        return Text(verbatim: latest)
+            .foregroundStyle(statusIsError ? palette.error : (message == Self.projectPrompt ? palette.accent : palette.secondary))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .help(statusHelp(latest))
+    }
+
+    var statusMessage: LocalizedStringResource {
+        guard let session else {
+            return presentation.selection == nil ? Self.projectPrompt : SessionStatus.ready.title
+        }
+        if session.status == .restoringEnvironment {
+            if let task = session.activeRecoveryTaskLabel { return "Running post-debug task \(task)." }
+            return session.status.title
+        }
+        if session.status.showsLaunchProgress || session.status == .running ||
+            session.status == .connectionInterrupted || session.status == .stopping {
+            return session.debugStatusMessage ?? session.status.title
+        }
+        if let failure = session.recoveryFailure { return failure.message }
+        if let issue = session.displayMessage, issue != LocalizedStringResource("Select a debug device") {
+            return session.configurationIsStale && !session.choices.isEmpty ? "Configuration Out of Date · \(issue)" : issue
+        }
+        if session.project == nil, session.canChangeProject { return Self.projectPrompt }
+        if let issue = session.taskIssue, session.status == .idle || session.status == .ready { return issue }
+        return session.status == .idle ? "Idle" : session.status.title
+    }
+
+    private func statusHelp(_ latest: String) -> String {
+        guard let session else { return latest }
+        var messages = [latest]
+        if let record = session.recovery, session.status != .restoringEnvironment {
+            messages.append("\(record.projectPath) · \(record.taskLabel)")
+        }
+        if session.status == .recoveryFailed {
+            if session.canRunAfterRecovery {
+                messages.append(locale.appString(RecoveryRetryButton.runHint))
+            } else if let blocker = session.recoveryRunBlocker {
+                messages.append(locale.appString(blocker))
+            }
+        }
+        if let issue = session.taskIssue {
+            let localized = locale.appString(issue)
+            if localized != latest { messages.append(localized) }
+        }
+        return messages.joined(separator: "\n")
     }
 
     private var logs: some View {
@@ -169,7 +167,7 @@ struct MainWindowView: View {
             .background(palette.toolbar)
             if isLogExpanded {
                 if let session, !session.logs.isEmpty {
-                    SessionLogView(contents: session.logs, trimmedUTF16: session.logTrimmedUTF16)
+                    SessionLogView(contents: session.logs, trimmedUTF16: session.logTrimmedUTF16, spans: session.logSpans)
                         .id(session.logGeneration)
                         .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity)
                 } else {
@@ -223,6 +221,9 @@ struct DeviceSelectionControls: View {
 
     var body: some View {
         let device = session?.selectedDeviceChoice
+        let isRefreshing = session?.isRefreshingWithoutDevice == true
+        let placeholder: LocalizedStringResource = isRefreshing ? "Refreshing Devices" : "Select a debug device"
+        let deviceSummary = device.map(summary) ?? locale.appString(placeholder)
         let canInspect = session?.usesFlutterToolchain == true && session?.project != nil
         Button {
             isShowing.toggle()
@@ -234,20 +235,27 @@ struct DeviceSelectionControls: View {
                 } else if let demoDevice {
                     Text(verbatim: demoDevice)
                 } else {
-                    Text("Select a debug device").foregroundStyle(palette.secondary)
+                    Text(placeholder).foregroundStyle(palette.primary)
                 }
                 Spacer(minLength: 4)
-                RunletIcon("DeviceArrow", size: 13).foregroundStyle(palette.secondary)
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityHidden(true)
+                } else {
+                    if let device { availabilityStatus(device.availability) }
+                    RunletIcon("DeviceArrow", size: 13).foregroundStyle(palette.secondary)
+                }
             }
             .font(RunletType.localized(locale, size: 12))
             .lineLimit(1)
             .padding(.horizontal, 9)
             .frame(height: 32)
         }
-        .buttonStyle(RunletButtonStyle(surface: .outlinedField))
+        .buttonStyle(RunletButtonStyle(surface: .outlinedField, disabledOpacity: device == nil && demoDevice == nil ? 1 : 0.44))
         .accessibilityLabel("Device for Next Run")
-        .accessibilityValue(summary(device))
-        .help(summary(device))
+        .accessibilityValue(deviceSummary)
+        .help(deviceSummary)
         .disabled(!canInspect && demoDevice == nil)
         .contextMenu {
             if let device { Text(verbatim: summary(device)) }
@@ -258,19 +266,26 @@ struct DeviceSelectionControls: View {
     }
 
     private func choices(for session: SessionController) -> some View {
-        RunletPopup(title: "Select Device", close: { isShowing = false }) {
-            Text("The selected device is used for the next run.")
-                .padding(.horizontal, 5)
-                .font(RunletType.localized(locale, size: 11))
-                .foregroundStyle(palette.secondary)
+        RunletPopup(title: "Select Device") {
+            Group {
+                if session.isRefreshingDevices {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Refreshing Devices")
+                } else {
+                    Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .help("Refresh Devices")
+                        .interactivePointer()
+                        .focusable(false)
+                        .disabled(!session.canRefreshDevices || session.isStartingSimulator)
+                }
+            }
+            .frame(width: 20, height: 20)
+        } content: {
             if session.isBusy {
                 Text("Showing the last device scan.").foregroundStyle(palette.secondary)
-            }
-            if session.isRefreshingDevices || session.isStartingSimulator {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text(session.isStartingSimulator ? "Starting iOS Simulator" : "Refreshing Devices")
-                }
             }
             if let issue = session.deviceIssue ?? session.sdkIssue ?? session.simulatorIssue {
                 Text(issue).foregroundStyle(palette.secondary)
@@ -284,44 +299,23 @@ struct DeviceSelectionControls: View {
                     VStack(spacing: 5) {
                         ForEach(session.deviceChoices) { device in
                             Button {
-                                guard session.canSelectNextDevice else { return }
                                 session.selectDevice(device.id)
                                 isShowing = false
                             } label: {
                                 deviceRow(device)
                             }
                             .buttonStyle(RunletButtonStyle(surface: .field, radius: 5))
+                            .focusable(false)
                             .accessibilityLabel(summary(device))
-                            .accessibilityAddTraits(device.id == session.selectedDeviceID ? .isSelected : [])
+                            .accessibilityAddTraits(device.id == session.selectedDeviceChoice?.id ? .isSelected : [])
                             .help(summary(device))
-                            .disabled(!session.canSelectNextDevice)
+                            .disabled(!session.canChooseDevice(device))
                         }
                     }
                 }
                 .frame(idealHeight: min(CGFloat(session.deviceChoices.count) * 37 - 5, 224), maxHeight: 224)
                 .fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
-                Button("Refresh Devices", systemImage: "arrow.clockwise", action: session.refreshDevices)
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("Refresh Devices")
-                    .disabled(!session.canRefreshDevices || session.isRefreshingDevices || session.isStartingSimulator)
-                Spacer()
-                if !session.simulators.isEmpty {
-                    Menu("Start iOS Simulator", systemImage: "iphone") {
-                        ForEach(session.simulators) { simulator in
-                            Button {
-                                session.startSimulator(simulator.id)
-                            } label: {
-                                Text(verbatim: simulator.name)
-                            }
-                        }
-                    }
-                    .disabled(!session.canStartSimulator)
-                }
-            }
-            .padding(.horizontal, 5)
         }
     }
 
@@ -333,37 +327,45 @@ struct DeviceSelectionControls: View {
                 .font(RunletType.localized(locale, size: 11))
                 .foregroundStyle(palette.secondary)
             Spacer(minLength: 6)
-            availabilityDot(device.availability)
+            availabilityStatus(device.availability)
         }
         .lineLimit(1)
         .padding(.horizontal, 7)
         .frame(height: 32)
     }
 
-    private func summary(_ device: DeviceChoice?) -> String {
-        guard let device else { return locale.appString("Select a debug device") }
-        return [device.name, locale.appString(device.kind.title), locale.appString(availabilityTitle(device.availability))]
+    private func summary(_ device: DeviceChoice) -> String {
+        [device.name, locale.appString(device.kind.title), locale.appString(availabilityTitle(device.availability))]
             .joined(separator: " · ")
     }
 
     private func availabilityTitle(_ availability: DeviceChoice.Availability) -> LocalizedStringResource {
         switch availability {
-        case .online: "Online"
-        case .offline: "Offline"
+        case .online: "online"
+        case .offline: "offline"
+        case .starting: "Starting Simulator"
         case .unknown: "Unknown"
         }
     }
 
-    private func availabilityDot(_ availability: DeviceChoice.Availability) -> some View {
-        let color: Color = switch availability {
-        case .online: palette.success
-        case .offline: palette.error
-        case .unknown: palette.muted
+    @ViewBuilder
+    private func availabilityStatus(_ availability: DeviceChoice.Availability) -> some View {
+        if availability == .starting {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityHidden(true)
+        } else {
+            let color: Color = switch availability {
+            case .online: palette.success
+            case .offline: palette.error
+            case .unknown, .starting: palette.secondary
+            }
+            Text(availabilityTitle(availability))
+                .font(RunletType.localized(locale, size: 11))
+                .foregroundStyle(color)
+                .fixedSize()
+                .accessibilityHidden(true)
         }
-        return Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
-            .accessibilityHidden(true)
     }
 }
 
@@ -386,6 +388,7 @@ struct RecoveryDetails: View {
             Button(action: session.performRecoveryAction) {
                 Text(action.title)
             }
+            .interactivePointer()
             .disabled(!session.canPerformRecoveryAction)
         }
     }
@@ -424,6 +427,7 @@ struct SessionBrand: View {
 private struct SessionLogView: NSViewRepresentable {
     let contents: String
     let trimmedUTF16: Int
+    let spans: [SessionLogSpan]
 
     func makeNSView(context: Context) -> SessionLogScrollView {
         SessionLogScrollView()
@@ -431,14 +435,14 @@ private struct SessionLogView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: SessionLogScrollView, context: Context) {
         scrollView.setLogAccessibilityLabel(context.environment.locale.appString("Run Logs"))
-        scrollView.scheduleUpdate(contents, trimmedUTF16: trimmedUTF16)
+        scrollView.scheduleUpdate(contents, trimmedUTF16: trimmedUTF16, spans: spans)
     }
 }
 
 final class SessionLogScrollView: NSScrollView {
     private struct ReadingAnchor {
         let character: Int
-        let offset: CGPoint
+        let offset: CGFloat
     }
 
     private static let logColor = NSColor(name: nil) { appearance in
@@ -448,35 +452,45 @@ final class SessionLogScrollView: NSScrollView {
         return NSColor(srgbRed: 25 / 255, green: 38 / 255, blue: 56 / 255, alpha: 1)
     }
 
+    private static let launchColor = NSColor(name: nil) { appearance in
+        let palette = RunletAppearance(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light)
+        return NSColor(palette.warning)
+    }
+
+    private static let diagnosticColor = NSColor(name: nil) { appearance in
+        let palette = RunletAppearance(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light)
+        return NSColor(palette.error)
+    }
+
     private let logText = NSTextView(frame: .zero)
     private let logFont = RunletType.logFont()
     private let logParagraph: NSParagraphStyle = {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = 18
         style.maximumLineHeight = 18
+        style.lineBreakMode = .byWordWrapping
         return style.copy() as? NSParagraphStyle ?? .default
     }()
     private var trimmedUTF16 = 0
+    private var spans: [SessionLogSpan] = []
     private var lastUpdate: ContinuousClock.Instant?
-    private var pendingUpdate: (contents: String, trimmedUTF16: Int)?
+    private var pendingUpdate: (contents: String, trimmedUTF16: Int, spans: [SessionLogSpan])?
     private var updateTask: Task<Void, Never>?
 
     init() {
         super.init(frame: .zero)
         drawsBackground = false
-        hasHorizontalScroller = true
         hasVerticalScroller = true
         autohidesScrollers = true
         logText.drawsBackground = false
         logText.isEditable = false
         logText.isSelectable = true
         logText.isRichText = false
+        logText.isVerticallyResizable = false
         logText.font = logFont
         logText.textColor = Self.logColor
         logText.defaultParagraphStyle = logParagraph
         logText.textContainerInset = NSSize(width: 7, height: 8)
-        logText.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        logText.textContainer?.containerSize = logText.maxSize
         logText.textContainer?.widthTracksTextView = false
         documentView = logText
     }
@@ -492,11 +506,14 @@ final class SessionLogScrollView: NSScrollView {
         let visible = documentVisibleRect
         let follow = followsBottom(visible)
         super.layout()
-        sizeDocument(origin: visible.origin, follow: follow)
+        let width = textContainerWidth
+        let reflow = logText.textContainer?.containerSize.width != width
+        let anchor = reflow && !follow ? readingAnchor(in: visible) : nil
+        sizeDocument(origin: visible.minY, follow: follow, anchor: anchor)
     }
 
-    func scheduleUpdate(_ contents: String, trimmedUTF16: Int) {
-        pendingUpdate = (contents, trimmedUTF16)
+    func scheduleUpdate(_ contents: String, trimmedUTF16: Int, spans: [SessionLogSpan]) {
+        pendingUpdate = (contents, trimmedUTF16, spans)
         guard updateTask == nil else { return }
         let now = ContinuousClock.now
         guard let deadline = lastUpdate?.advanced(by: .milliseconds(100)), now < deadline else {
@@ -514,17 +531,19 @@ final class SessionLogScrollView: NSScrollView {
         guard let update = pendingUpdate else { return }
         pendingUpdate = nil
         lastUpdate = .now
-        show(update.contents, trimmedUTF16: update.trimmedUTF16)
+        show(update.contents, trimmedUTF16: update.trimmedUTF16, spans: update.spans)
     }
 
-    func show(_ contents: String, trimmedUTF16: Int) {
+    func show(_ contents: String, trimmedUTF16: Int, spans: [SessionLogSpan] = []) {
         let old = logText.string as NSString
         let textChanged = !old.isEqual(to: contents)
-        guard textChanged || self.trimmedUTF16 != trimmedUTF16 else { return }
+        let trimChanged = self.trimmedUTF16 != trimmedUTF16
+        guard textChanged || trimChanged || self.spans != spans else { return }
         let visible = documentVisibleRect
         let follow = followsBottom(visible)
         let removed = max(0, trimmedUTF16 - self.trimmedUTF16)
         self.trimmedUTF16 = trimmedUTF16
+        self.spans = spans
         let retained = removed <= old.length ? old.substring(from: removed) : nil
         let retainsText = retained.map { contents.utf16.starts(with: $0.utf16) } ?? false
         let oldAnchor = !follow && removed > 0 ? readingAnchor(in: visible) : nil
@@ -534,18 +553,16 @@ final class SessionLogScrollView: NSScrollView {
             let start = max(range.location, removed)
             return NSValue(range: NSRange(location: start - removed, length: NSMaxRange(range) - start))
         } : []
-        if textChanged, let storage = logText.textStorage {
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: logFont, .foregroundColor: Self.logColor, .paragraphStyle: logParagraph,
-            ]
-            if retainsText, let retained {
-                let suffix = (contents as NSString).substring(from: retained.utf16.count)
+        if let storage = logText.textStorage {
+            if (textChanged || trimChanged), retainsText, let retained {
+                let retainedLength = retained.utf16.count
+                let suffix = (contents as NSString).substring(from: retainedLength)
                 storage.beginEditing()
                 if removed > 0 { storage.deleteCharacters(in: NSRange(location: 0, length: removed)) }
-                storage.append(NSAttributedString(string: suffix, attributes: attributes))
+                storage.append(attributedLog(suffix, start: trimmedUTF16 + retainedLength, spans: spans))
                 storage.endEditing()
             } else {
-                storage.setAttributedString(NSAttributedString(string: contents, attributes: attributes))
+                storage.setAttributedString(attributedLog(contents, start: trimmedUTF16, spans: spans))
             }
         }
         if selection.isEmpty {
@@ -559,8 +576,24 @@ final class SessionLogScrollView: NSScrollView {
         } else {
             anchor = nil
         }
-        let origin = removed > 0 && !follow ? .zero : visible.origin
+        let origin = removed > 0 && !follow ? 0 : visible.minY
         sizeDocument(origin: origin, follow: follow, anchor: anchor)
+    }
+
+    private func attributedLog(_ contents: String, start: Int, spans: [SessionLogSpan]) -> NSAttributedString {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: logFont, .foregroundColor: Self.logColor, .paragraphStyle: logParagraph,
+        ]
+        let text = NSMutableAttributedString(string: contents, attributes: attributes)
+        let bounds = start..<(start + text.length)
+        for span in spans {
+            let range = span.range.clamped(to: bounds)
+            guard !range.isEmpty else { continue }
+            let color = span.tone == .launch ? Self.launchColor : Self.diagnosticColor
+            text.addAttribute(.foregroundColor, value: color,
+                              range: NSRange(location: range.lowerBound - start, length: range.count))
+        }
+        return text
     }
 
     private func followsBottom(_ visible: NSRect) -> Bool {
@@ -572,33 +605,44 @@ final class SessionLogScrollView: NSScrollView {
         let origin = logText.textContainerOrigin
         let glyphs = layout.glyphRange(forBoundingRect: visible.offsetBy(dx: -origin.x, dy: -origin.y), in: container)
         guard glyphs.length > 0 else { return nil }
-        let first = glyphOrigin(glyphs.location, in: layout)
+        let first = lineTop(forGlyph: glyphs.location, in: layout)
         return ReadingAnchor(character: layout.characterIndexForGlyph(at: glyphs.location),
-                             offset: CGPoint(x: visible.minX - first.x, y: visible.minY - first.y))
+                             offset: visible.minY - first)
     }
 
-    private func glyphOrigin(_ glyph: Int, in layout: NSLayoutManager) -> CGPoint {
-        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-        let origin = logText.textContainerOrigin
-        return CGPoint(x: origin.x + line.minX + layout.location(forGlyphAt: glyph).x, y: origin.y + line.minY)
+    private func lineTop(forGlyph glyph: Int, in layout: NSLayoutManager) -> CGFloat {
+        layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY + logText.textContainerOrigin.y
     }
 
-    private func sizeDocument(origin: CGPoint, follow: Bool, anchor: ReadingAnchor? = nil) {
-        guard let layout = logText.layoutManager, let container = logText.textContainer else { return }
+    private var textContainerWidth: CGFloat {
+        max(0, contentView.bounds.width - logText.textContainerInset.width * 2)
+    }
+
+    private func fitDocument(_ container: NSTextContainer, in layout: NSLayoutManager) {
+        let width = textContainerWidth
+        if container.containerSize.width != width {
+            container.containerSize = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+        }
         layout.ensureLayout(for: container)
         let used = layout.usedRect(for: container).integral
         let viewport = contentView.bounds.size
-        let size = NSSize(width: max(viewport.width, used.maxX + logText.textContainerInset.width * 2),
+        let size = NSSize(width: viewport.width,
                           height: max(viewport.height, used.maxY + logText.textContainerInset.height * 2))
         if logText.frame.size != size { logText.setFrameSize(size) }
-        let maxY = max(0, size.height - viewport.height)
+    }
+
+    private func sizeDocument(origin: CGFloat, follow: Bool, anchor: ReadingAnchor? = nil) {
+        guard let layout = logText.layoutManager, let container = logText.textContainer else { return }
+        fitDocument(container, in: layout)
+        // A legacy vertical scroller changes the clip width when it appears or disappears.
+        if container.containerSize.width != textContainerWidth { fitDocument(container, in: layout) }
+        let maxY = max(0, logText.frame.height - contentView.bounds.height)
         var target = origin
         if let anchor, anchor.character < (logText.textStorage?.length ?? 0) {
-            let glyph = glyphOrigin(layout.glyphIndexForCharacter(at: anchor.character), in: layout)
-            target = CGPoint(x: glyph.x + anchor.offset.x, y: glyph.y + anchor.offset.y)
+            let glyph = layout.glyphIndexForCharacter(at: anchor.character)
+            target = lineTop(forGlyph: glyph, in: layout) + anchor.offset
         }
-        contentView.scroll(to: CGPoint(x: min(max(0, target.x), max(0, size.width - viewport.width)),
-                                       y: follow ? maxY : min(max(0, target.y), maxY)))
+        contentView.scroll(to: CGPoint(x: 0, y: follow ? maxY : min(max(0, target), maxY)))
         reflectScrolledClipView(contentView)
     }
 }
@@ -606,20 +650,33 @@ final class SessionLogScrollView: NSScrollView {
 struct ProjectControls: View {
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(Self.firstProjectGuideKey) private var didShowFirstProjectGuide = false
     @State private var isShowingHistory = false
+    @State private var guideStart: Date?
 
+    static let firstProjectGuideKey = "didShowFirstProjectGuide"
     static let historyTitle: LocalizedStringResource = "Recent Projects"
     static let folderTitle: LocalizedStringResource = "Open Project"
     static func removeTitle(_ name: String) -> LocalizedStringResource { "Remove \(name) from Recent Projects" }
 
     let session: SessionController?
     let demoName: String?
+    var offersFirstProjectGuide = false
     var prepareForPicker: (() -> (() -> Void)?)? = nil
 
     private var palette: RunletAppearance { RunletAppearance(scheme) }
 
+    private var canOpenProject: Bool { session?.canChangeProject == true || demoName != nil }
+
+    private var canShowGuide: Bool {
+        offersFirstProjectGuide && demoName == nil && session?.project == nil &&
+            session?.canChangeProject == true && session?.recoveryStoreIssue == nil
+    }
+
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
+            openProjectButton
             let name = session?.project?.lastPathComponent ?? demoName
             Group {
                 if let name {
@@ -638,10 +695,41 @@ struct ProjectControls: View {
                 .popover(isPresented: $isShowingHistory, arrowEdge: .bottom) {
                     if let session { history(session).environment(\.locale, locale) }
                 }
-
-            projectButton(Self.folderTitle, icon: "Folder", action: openProject)
         }
         .frame(height: 26)
+        .task(id: canShowGuide) {
+            guard canShowGuide, !didShowFirstProjectGuide else { return }
+            didShowFirstProjectGuide = true
+            guard !reduceMotion else { return }
+            guideStart = .now
+            defer { guideStart = nil }
+            try? await Task.sleep(for: .seconds(1.6))
+        }
+    }
+
+    private var openProjectButton: some View {
+        Button(action: openProject) {
+            RunletIcon("Folder", size: 16)
+                .frame(width: 28, height: 26)
+        }
+        .buttonStyle(AuxiliaryButtonStyle(surface: .accent, radius: 6))
+        .accessibilityLabel(Text(Self.folderTitle))
+        .help(Text(Self.folderTitle))
+        .disabled(!canOpenProject)
+        .overlay {
+            if let guideStart, canShowGuide, !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    let progress = min(max(context.date.timeIntervalSince(guideStart) / 0.8, 0), 2)
+                    let phase = progress.truncatingRemainder(dividingBy: 1)
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(palette.accent, lineWidth: 2)
+                        .padding(-2 - phase * 3)
+                        .opacity(1 - phase)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
     }
 
     private func projectButton(_ title: LocalizedStringResource, icon: String,
@@ -654,7 +742,7 @@ struct ProjectControls: View {
         .buttonStyle(RunletButtonStyle(surface: .outlinedField))
         .accessibilityLabel(Text(title))
         .help(Text(title))
-        .disabled(session?.canChangeProject != true && demoName == nil)
+        .disabled(!canOpenProject)
     }
 
     private func history(_ session: SessionController) -> some View {
@@ -681,6 +769,7 @@ struct ProjectControls: View {
                                     .frame(height: 32)
                                 }
                                 .buttonStyle(RunletButtonStyle())
+                                .focusable(false)
                                 .help(project.path)
                                 .disabled(!session.canChangeProject)
                                 Button {
@@ -691,6 +780,7 @@ struct ProjectControls: View {
                                         .frame(width: 22, height: 26)
                                 }
                                 .buttonStyle(RunletButtonStyle())
+                                .focusable(false)
                                 .accessibilityLabel(Text(Self.removeTitle(name)))
                                 .help(Text(Self.removeTitle(name)))
                             }
@@ -716,6 +806,37 @@ struct ProjectControls: View {
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url { session.open(url) }
         restorePickerWindow?()
+    }
+}
+
+struct LaunchProgressBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        GeometryReader { geometry in
+            if reduceMotion {
+                segment(in: geometry.size.width, phase: 0.5)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    let duration = 1.5
+                    let elapsed = context.date.timeIntervalSinceReferenceDate
+                    segment(in: geometry.size.width, phase: elapsed.truncatingRemainder(dividingBy: duration) / duration)
+                }
+            }
+        }
+        .frame(height: 3)
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func segment(in width: CGFloat, phase: Double) -> some View {
+        let segmentWidth = width * 0.28
+        return Rectangle()
+            .fill(RunletAppearance(scheme).accent)
+            .frame(width: segmentWidth)
+            .offset(x: (width + segmentWidth) * phase - segmentWidth)
     }
 }
 
@@ -813,7 +934,9 @@ struct RunConfigurationControls: View {
         HStack(spacing: 0) {
             Button {
                 if let session {
-                    session.performDebugAction(.run, source: source)
+                    session.performDebugAction(.run, source: source) { launch in
+                        confirmSessionRestart(launch, locale: locale)
+                    }
                 } else {
                     runDemo()
                 }
@@ -836,7 +959,7 @@ struct RunConfigurationControls: View {
                 .padding(.horizontal, 9)
                 .frame(height: 32)
             }
-            .buttonStyle(RunletButtonStyle(disabledOpacity: 0.48))
+            .buttonStyle(RunletButtonStyle(disabledOpacity: selected == nil ? 1 : 0.48))
             .accessibilityLabel("Configuration")
             .accessibilityValue(Text(verbatim: prompt))
             .help(prompt)
@@ -885,6 +1008,7 @@ struct RunConfigurationControls: View {
                             .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
                         }
                         .buttonStyle(RunletButtonStyle(surface: .field, radius: 5))
+                        .focusable(false)
                         .accessibilityAddTraits(choice.id == session.selectedID ? .isSelected : [])
                     }
                 }
@@ -892,18 +1016,13 @@ struct RunConfigurationControls: View {
             .frame(idealHeight: min(CGFloat(session.choices.count) * 35 - 5, 224), maxHeight: 224)
             .fixedSize(horizontal: false, vertical: true)
             HStack {
-                if session.selection != nil {
-                    Button("Clear Configuration Selection") {
-                        session.select(nil as Int?)
-                        isShowing = false
-                    }
-                }
                 Spacer()
                 Button("Reload Configuration", systemImage: "arrow.clockwise") {
                     session.reload()
                     isShowing = false
                 }
                 .labelStyle(.iconOnly)
+                .focusable(false)
                 .help("Reload Configuration")
             }
             .buttonStyle(RunletButtonStyle())
@@ -962,6 +1081,7 @@ struct SessionFeedbackView: View {
                 Spacer(minLength: 0)
                 Button("Dismiss", action: session.dismissFeedback)
                     .buttonStyle(.bordered)
+                    .interactivePointer()
             }
         }
     }

@@ -34,11 +34,12 @@ final class FlutterToolchainTests: XCTestCase {
     func testNextDeviceAndAvailabilityLabelsInBothLanguages() throws {
         let labels = [
             "Device for Next Run": "下次运行设备",
-            "The selected device is used for the next run.": "所选设备用于下一次运行。",
             "Showing the last device scan.": "显示上次设备扫描结果。",
             "iOS Simulator": "iOS 模拟器", "iOS Device": "iOS 实体设备",
             "Android Emulator": "Android 模拟器", "Android Device": "Android 实体设备",
-            "Online": "在线", "Offline": "离线", "Unknown": "未知"
+            "macOS Desktop": "macOS 桌面",
+            "Starting Simulator": "正在启动模拟器",
+            "online": "在线", "offline": "离线", "Unknown": "未知"
         ]
         for language in ["en", "zh-Hans"] {
             let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"))
@@ -433,7 +434,8 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { !session.isRefreshingDevices }
         XCTAssertNil(session.selectedDeviceID)
         XCTAssertFalse(session.canRun)
-        scanner.devices = [first]
+        let desktop = FlutterDevice(id: "macos", name: "macOS", platform: "darwin", isSimulator: false)
+        scanner.devices = [first, desktop]
         session.refreshDevices()
         try await eventually { !session.isRefreshingDevices }
         XCTAssertEqual(session.selectedDeviceID, first.id)
@@ -484,8 +486,7 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == second.id })?.availability, .online)
         XCTAssertTrue(session.open(other.project))
         try await eventually { !session.isRefreshingDevices }
-        XCTAssertNil(session.selectedDeviceID)
-        session.selectDevice(first.id)
+        XCTAssertEqual(session.selectedDeviceID, first.id)
         let alias = fixture.base.appending(path: "Project Alias")
         try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: fixture.project)
         XCTAssertTrue(session.open(alias))
@@ -496,9 +497,53 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
 
         let reopened = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        scanner.devices = [first]
+        try original.replacingOccurrences(of: #""name": "sample-flutter-app(dev)","#,
+            with: #""name": "sample-flutter-app(dev)", "deviceId": "emulator-5560","#)
+            .write(to: path, atomically: true, encoding: .utf8)
         XCTAssertTrue(reopened.open(alias))
         try await eventually { !reopened.isRefreshingDevices }
-        XCTAssertNil(reopened.selectedDeviceID)
+        XCTAssertEqual(reopened.selectedDeviceChoice?.id, first.id)
+        XCTAssertFalse(reopened.canRun, "配置显式指定的设备离线时禁止使用临时显示项运行")
+        scanner.devices = [first, second]
+        reopened.refreshDevices()
+        try await eventually { !reopened.isRefreshingDevices }
+        XCTAssertEqual(reopened.selectedDeviceID, second.id, "配置显式指定的设备就绪后成为默认项")
+        XCTAssertTrue(reopened.canRun)
+    }
+
+    func testOfflineDefaultDoesNotBootAndRefreshPromotesAvailableDevice() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let scanner = DeviceScanner()
+        let id = "pixel"
+        let connected = FlutterDevice(id: "emulator-5554", name: "Pixel", platform: "android", isSimulator: true)
+        var toolchain = FlutterToolchain(
+            resolve: { _, _ in FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"),
+                                          flutterVersion: "3", dartVersion: "3") },
+            discover: { _, _ in try scanner.scan() }
+        )
+        toolchain.androidEmulators = { _, _ in
+            [AndroidEmulator(id: id, name: "Pixel", deviceID: scanner.devices.first?.id)]
+        }
+        toolchain.bootAndroidEmulator = { id, _, _ in scanner.boots.append(id) }
+        let session = SessionController(store: try ProjectRecoveryStore(directory: fixture.storage),
+                                        runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        XCTAssertTrue(session.open(fixture.project))
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.selectedDeviceChoice?.id, "avd:pixel")
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertTrue(scanner.boots.isEmpty)
+        XCTAssertFalse(session.canRun)
+
+        scanner.devices = [connected]
+        session.refreshDevices()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.selectedDeviceChoice?.id, connected.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertEqual(session.deviceChoices.count, 1)
+        XCTAssertTrue(scanner.boots.isEmpty)
+        XCTAssertTrue(session.canRun)
     }
 
     func testSimulatorStartWaitsForFlutterAndNeverLaunchesDebug() async throws {
@@ -507,6 +552,7 @@ final class FlutterToolchainTests: XCTestCase {
         let candidate = FlutterSimulator(id: UUID().uuidString, name: "iPhone 18 Pro")
         let other = FlutterSimulator(id: UUID().uuidString, name: "iPhone 17")
         let device = FlutterDevice(id: candidate.id, name: candidate.name, platform: "ios", isSimulator: true)
+        let phone = FlutterDevice(id: "physical-id", name: "iPhone", platform: "ios", isSimulator: false)
         let scanner = DeviceScanner()
         let bootDiscovery = PausedProbe()
         let store = try ProjectRecoveryStore(directory: fixture.storage)
@@ -515,9 +561,9 @@ final class FlutterToolchainTests: XCTestCase {
             discover: { _, _ in
                 if scanner.boots.last == candidate.id {
                     await bootDiscovery.wait()
-                    return [device]
+                    return [phone, device]
                 }
-                return []
+                return [phone]
             }, simulators: { _ in [candidate, other] }, bootSimulator: { id, _ in
                 scanner.boots.append(id)
                 if id == other.id { throw SessionIssue("模拟器启动失败") }
@@ -527,13 +573,16 @@ final class FlutterToolchainTests: XCTestCase {
         try await eventually { session.simulators.count == 2 && !session.isRefreshingDevices }
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.availability, .offline)
         XCTAssertEqual(session.deviceChoices.first(where: { $0.id == candidate.id })?.kind, .iOSSimulator)
-        session.startSimulator(other.id)
+        session.selectDevice(other.id)
         try await eventually { session.simulatorIssue != nil }
         XCTAssertTrue(session.canStartSimulator)
-        session.startSimulator(candidate.id)
+        XCTAssertEqual(session.selectedDeviceID, phone.id)
+        session.selectDevice(candidate.id)
         try await eventually { bootDiscovery.continuation != nil }
         XCTAssertTrue(session.isStartingSimulator)
         XCTAssertFalse(session.canRun)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, candidate.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .starting)
         XCTAssertEqual(scanner.boots, [other.id, candidate.id])
         bootDiscovery.release()
         try await eventually { session.canRun }
@@ -544,6 +593,223 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(try fixture.marker(), "test\n")
         XCTAssertNil(try store.read(project: fixture.project))
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
+    }
+
+    func testAndroidAVDMappingUsesIdentityAndFiltersInvalidEntries() throws {
+        let data = Data(#"""
+        {"emulator.getEmulators":[
+          {"id":"pixel_xl","name":"Pixel XL","platformType":"android"},
+          {"id":"pixel_xl","name":"Duplicate","platformType":"android"},
+          {"id":"pixel_small","name":"Pixel Small","platformType":"android"},
+          {"id":"apple_ios_simulator","name":"iOS","platformType":"ios"},
+          {"id":"--launch","name":"Invalid","platformType":"android"}],
+         "device.getDevices":[
+          {"id":"emulator-5554","emulatorId":"pixel_xl","platform":"android-arm64","emulator":true,"isConnected":true},
+          {"id":"phone","emulatorId":"pixel_small","platform":"android-arm64","emulator":false,"isConnected":true}]}
+        """#.utf8)
+        XCTAssertEqual(try FlutterToolchain.decodeAndroidEmulators(data), [
+            AndroidEmulator(id: "pixel_small", name: "Pixel Small", deviceID: nil),
+            AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: "emulator-5554")
+        ])
+        XCTAssertThrowsError(try FlutterToolchain.decodeAndroidEmulators(Data("{}".utf8)))
+    }
+
+    func testAndroidStartSelectsMatchingAVDWithoutLaunchingDebug() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let scanner = DeviceScanner()
+        let bootDiscovery = PausedProbe()
+        let target = FlutterDevice(id: "emulator-5556", name: "sdk gphone16k arm64", platform: "android-arm64", isSimulator: true)
+        let neighbor = FlutterDevice(id: "emulator-5554", name: target.name, platform: target.platform, isSimulator: true)
+        var toolchain = FlutterToolchain(
+            resolve: { _, _ in FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "3", dartVersion: "3") },
+            discover: { _, _ in scanner.boots.isEmpty ? [neighbor] : [neighbor, target] }
+        )
+        toolchain.androidEmulators = { _, _ in
+            if !scanner.boots.isEmpty { await bootDiscovery.wait() }
+            return [AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: scanner.boots.isEmpty ? nil : target.id),
+                    AndroidEmulator(id: "pixel_other", name: "Other Pixel", deviceID: neighbor.id)]
+        }
+        scanner.fails = true
+        toolchain.bootAndroidEmulator = { id, _, _ in
+            if scanner.fails { throw SessionIssue("AVD launch failed") }
+            scanner.boots.append(id)
+        }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: toolchain)
+        try fixture.select("prod", in: session)
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.androidEmulators.map(\.id), ["pixel_xl"])
+        XCTAssertEqual(session.selectedDeviceID, neighbor.id)
+        let offline = try XCTUnwrap(session.deviceChoices.first { $0.name == "Pixel XL" })
+        XCTAssertEqual(offline.availability, .offline)
+        XCTAssertEqual(offline.kind, .androidEmulator)
+        XCTAssertFalse(session.deviceChoices.contains { $0.name == "Other Pixel" })
+        session.selectDevice("unknown")
+        XCTAssertTrue(scanner.boots.isEmpty)
+        session.selectDevice(offline.id)
+        try await eventually { session.simulatorIssue != nil && !session.isStartingSimulator }
+        XCTAssertEqual(session.selectedDeviceID, neighbor.id)
+        XCTAssertTrue(session.canStartSimulator)
+        scanner.fails = false
+        session.selectDevice(offline.id)
+        try await eventually { bootDiscovery.continuation != nil }
+        XCTAssertTrue(session.isStartingSimulator)
+        XCTAssertFalse(session.canRun)
+        session.selectDevice(offline.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .starting)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, offline.id)
+        XCTAssertEqual(scanner.boots, ["pixel_xl"])
+        bootDiscovery.release()
+        try await eventually { !session.isStartingSimulator }
+        XCTAssertEqual(session.selectedDeviceID, target.id)
+        XCTAssertTrue(session.androidEmulators.isEmpty)
+        XCTAssertTrue(session.canRun)
+        scanner.boots.removeAll()
+        session.refreshDevices()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertFalse(session.deviceChoices.contains { $0.id == target.id })
+        XCTAssertEqual(session.selectedDeviceChoice?.id, offline.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertFalse(session.canRun)
+        XCTAssertEqual(try fixture.marker(), "test\n")
+        XCTAssertNil(try store.read(project: fixture.project))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("sdk-used").path))
+    }
+
+    func testAndroidDaemonProbeUsesSDKAndReadsFragmentedResponses() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let executable = try makeSDK(fixture.base.appending(path: "sdk"), version: "3")
+        let script = #"""
+        #!/bin/sh
+        if [ "$1" = emulators ]; then
+          [ "$2" = --launch ] && [ "$3" = pixel_xl ] || exit 7
+          printf booted > "$BOOT_MARKER"
+          exit
+        fi
+        [ "$1" = daemon ] || exit 7
+        read -r first
+        read -r second
+        case "$first" in *emulator.getEmulators*) ;; *) exit 8 ;; esac
+        case "$second" in *device.getDevices*) ;; *) exit 9 ;; esac
+        printf 'noise\n[{"event":"daemon.connected","params":{}}]\n'
+        printf '[{"id":"device.getDevices","result":[]}]\n'
+        printf '[{"id":"emulator.getEmulators","res'
+        sleep 0.1
+        printf 'ult":[{"id":"pixel_xl","name":"Pixel XL","platformType":"android"}]}]\n'
+        read -r keep_open
+        """#
+        try script.write(to: executable, atomically: false, encoding: .utf8)
+        let sdk = FlutterSDK(executable: executable, flutterVersion: "3", dartVersion: "3")
+        var environment = fixture.environment
+        let marker = fixture.base.appending(path: "boot-marker")
+        environment["BOOT_MARKER"] = marker.path
+        let emulators = try await FlutterToolchain.production.androidEmulators(sdk, environment)
+        XCTAssertEqual(emulators, [AndroidEmulator(id: "pixel_xl", name: "Pixel XL", deviceID: nil)])
+        try await FlutterToolchain.production.bootAndroidEmulator("pixel_xl", sdk, environment)
+        XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "booted")
+        try FileManager.default.removeItem(at: marker)
+        do {
+            try await FlutterToolchain.production.bootAndroidEmulator("--launch", sdk, environment)
+            XCTFail("Invalid AVD identifier was accepted")
+        } catch {}
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testMacOSDesktopCanBeTheOnlyDevice() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let desktop = FlutterDevice(id: "macos", name: "macOS", platform: "darwin-x64", isSimulator: false)
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _ in sdk },
+            discover: { _, _ in [desktop] }
+        ))
+        try fixture.select("prod", in: session)
+        try await eventually { session.canRun }
+        XCTAssertTrue(desktop.isUsableDebugDevice)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, desktop.id)
+        XCTAssertEqual(session.selectedDeviceChoice?.kind, .macOSDesktop)
+    }
+
+    func testInitialDeviceRefreshAllowsConfigurationChangesButBlocksRun() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let device = FlutterDevice(id: "device", name: "Device", platform: "ios", isSimulator: false)
+        let paused = PausedProbe()
+        defer { paused.release() }
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _, _ in sdk },
+            discover: { _, _ in
+                await paused.wait()
+                return [device]
+            }
+        ))
+
+        XCTAssertTrue(session.open(fixture.project))
+        XCTAssertTrue(session.isRefreshingWithoutDevice)
+        try await eventually { paused.continuation != nil }
+        XCTAssertTrue(session.isRefreshingWithoutDevice)
+        XCTAssertNil(session.selectedDeviceChoice)
+        XCTAssertTrue(session.canChangeConfiguration(source: .mainWindow))
+        XCTAssertTrue(session.canChangeConfiguration(source: .menuBar))
+        XCTAssertFalse(session.canPerformDebugAction(.run, source: .mainWindow))
+        XCTAssertFalse(session.canPerformDebugAction(.run, source: .menuBar))
+
+        let configuration = "sample-flutter-app(prod)"
+        session.select(configuration)
+        XCTAssertEqual(session.selection?.launch?.name, configuration)
+        XCTAssertFalse(session.canRun)
+
+        paused.release()
+        try await eventually { session.canRun }
+        XCTAssertFalse(session.isRefreshingWithoutDevice)
+        XCTAssertEqual(session.selection?.launch?.name, configuration)
+        XCTAssertEqual(session.selectedDeviceChoice?.id, device.id)
+    }
+
+    func testDeviceRefreshPreservesOnlineStatusUntilDiscoveryCompletes() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let device = FlutterDevice(id: "device", name: "Device", platform: "ios", isSimulator: false)
+        let scanner = DeviceScanner()
+        scanner.devices = [device]
+        let paused = PausedProbe()
+        defer { paused.release() }
+        var shouldPause = false
+        let sdk = FlutterSDK(executable: URL(fileURLWithPath: "/bin/sh"), flutterVersion: "test", dartVersion: "test")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment, toolchain: FlutterToolchain(
+            resolve: { _, _ in sdk },
+            discover: { _, _ in
+                if shouldPause { await paused.wait() }
+                return try scanner.scan()
+            }
+        ))
+        try fixture.select("prod", in: session)
+        try await eventually { session.canRun }
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+
+        shouldPause = true
+        session.refreshDevices()
+        try await eventually { paused.continuation != nil }
+        XCTAssertTrue(session.isRefreshingDevices)
+        XCTAssertFalse(session.isRefreshingWithoutDevice)
+        XCTAssertEqual(session.deviceChoices.map(\.availability), [.online])
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertFalse(session.canRun)
+        XCTAssertFalse(session.canSelectNextDevice)
+
+        scanner.devices = []
+        paused.release()
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.deviceChoices.map(\.availability), [.offline])
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .offline)
+        XCTAssertFalse(session.canRun)
     }
 
     func testObsoleteDeviceScanCannotReplaceTheNewProjectsSelection() async throws {
@@ -587,17 +853,18 @@ final class FlutterToolchainTests: XCTestCase {
         [{"id":"emulator-5560","name":"Android 名称","targetPlatform":"android-arm64","emulator":true,"isSupported":true},
          {"id":"physical-ios","name":"iPhone 真机","targetPlatform":"ios","emulator":false,"isSupported":true},
          {"id":"unsupported","name":"离线","targetPlatform":"ios","emulator":false,"isSupported":false},
-         {"id":"macos","name":"macOS","targetPlatform":"darwin","emulator":false,"isSupported":true}]
+         {"id":"macos","name":"macOS","targetPlatform":"darwin","emulator":false,"isSupported":true},
+         {"id":"mac-designed-for-ipad","name":"Mac Designed for iPad","targetPlatform":"darwin","emulator":false,"isSupported":true},
+         {"id":"chrome","name":"Chrome","targetPlatform":"web-javascript","emulator":false,"isSupported":true}]
         """
         _ = try makeSDK(fixture.base.appending(path: "System SDK"), version: "3.41.0", devices: devices)
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = SessionController(store: store, runner: .bundled, environment: environment, toolchain: .production)
         try fixture.select("physical", in: session)
         try await eventually { !session.isRefreshingDevices }
-        XCTAssertEqual(session.devices.map(\.id), ["emulator-5560", "physical-ios"])
-        XCTAssertEqual(session.devices.map(\.name), ["Android 名称", "iPhone 真机"])
-        XCTAssertNil(session.selectedDeviceID)
-        session.selectDevice("emulator-5560")
+        XCTAssertEqual(session.devices.map(\.id), ["emulator-5560", "physical-ios", "macos"])
+        XCTAssertEqual(session.devices.map(\.name), ["Android 名称", "iPhone 真机", "macOS"])
+        XCTAssertEqual(session.selectedDeviceID, "emulator-5560")
         XCTAssertTrue(session.canRun)
         let originalBytes = try fixture.configurationBytes()
         session.run()
@@ -607,6 +874,17 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(args.filter { $0.hasPrefix("--dart-define=") },
                        session.selection?.launch?.toolArguments.filter { $0.hasPrefix("--dart-define=") })
         XCTAssertEqual(try fixture.marker(), "dev\n")
+        XCTAssertEqual(try fixture.configurationBytes(), originalBytes)
+
+        session.selectDevice("macos")
+        XCTAssertEqual(session.selectedDeviceChoice?.kind, .macOSDesktop)
+        XCTAssertEqual(session.selectedDeviceChoice?.availability, .online)
+        XCTAssertNil(session.selectedDeviceChoice?.launchTarget)
+        XCTAssertTrue(session.canRun)
+        session.run()
+        await session.waitUntilIdle()
+        let macOSArgs = try String(contentsOf: fixture.state("sdk-args"), encoding: .utf8).split(separator: "\n")
+        XCTAssertEqual(Array(macOSArgs.prefix(5)), ["run", "--machine", "--debug", "-d", "macos"])
         XCTAssertEqual(try fixture.configurationBytes(), originalBytes)
 
         try FileManager.default.removeItem(at: fixture.state("sdk-used"))

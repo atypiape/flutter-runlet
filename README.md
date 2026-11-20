@@ -36,9 +36,9 @@ The deployment target is macOS 15.0. Universal builds include Apple Silicon and 
 
 ## Start debugging
 
-1. Install your project's Flutter SDK and get a simulator or physical device ready. In **Settings → Flutter**, check the SDK source and version. You can use the SDK on your PATH, pick one manually, or prefer the project's FVM configuration.
+1. Install your project's Flutter SDK. Run on an iOS or Android simulator or physical device, or use the local Mac for a Flutter project with macOS support. In **Settings → Flutter**, check the SDK source and version. You can use the SDK on your PATH, pick one manually, or prefer the project's FVM configuration.
 2. Open a Flutter project with `.vscode/launch.json`. If your launch configuration refers to tasks, include `.vscode/tasks.json` too. Select a **Debug** configuration and a device, then click **Run**.
-3. Once connected, hot reload, hot restart, or open DevTools and the Inspector in your browser. The main window lets you view, copy, and clear the session log.
+3. Once connected, hot reload, hot restart, or open DevTools and the Inspector in your browser. Select Run again and confirm to restart the current session. The main window lets you view, copy, and clear the session log.
 4. Click **Stop** and let any post-debug task finish. If environment recovery fails, reopen the affected project and use **Retry Recovery** to run the original task again.
 
 Choose VS Code (default), Cursor, or Zed in **Settings → DevTools → Source Editor**. In DevTools 2.61.0 and later, select a widget and click its source location in the Inspector details pane. With bundled DevTools 2.60.0, selecting the widget opens its source. FlutterRunlet launches the editor on demand for Dart files in the active project.

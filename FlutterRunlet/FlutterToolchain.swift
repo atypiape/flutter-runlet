@@ -133,8 +133,12 @@ struct FlutterDevice: Decodable, Equatable, Identifiable, Sendable {
         self.isSupported = isSupported
     }
 
-    var isUsableMobileDevice: Bool {
-        (platform == "ios" || platform == "android" || platform.hasPrefix("android-")) &&
+    var isMacOSDesktop: Bool {
+        id == "macos" && (platform == "darwin" || platform.hasPrefix("darwin-"))
+    }
+
+    var isUsableDebugDevice: Bool {
+        (platform == "ios" || platform == "android" || platform.hasPrefix("android-") || isMacOSDesktop) &&
             isSupported != false && !name.isEmpty && !id.isEmpty && !id.hasPrefix("-")
     }
 }
@@ -142,6 +146,12 @@ struct FlutterDevice: Decodable, Equatable, Identifiable, Sendable {
 struct FlutterSimulator: Equatable, Identifiable, Sendable {
     let id: String
     let name: String
+}
+
+struct AndroidEmulator: Equatable, Identifiable, Sendable {
+    let id: String
+    let name: String
+    let deviceID: String?
 }
 
 enum FlutterDeviceAvailability: Equatable, Sendable {
@@ -162,6 +172,11 @@ struct FlutterToolchain {
     let validateManual: @MainActor (URL, URL?, [String: String]) async throws -> FlutterSDK
     let simulators: SimulatorDiscovery
     let bootSimulator: SimulatorBoot
+    var showSimulator: SimulatorBoot = { _, _ in }
+    var androidEmulators: @MainActor (FlutterSDK, [String: String]) async throws -> [AndroidEmulator] = { _, _ in [] }
+    var bootAndroidEmulator: @MainActor (String, FlutterSDK, [String: String]) async throws -> Void = { _, _, _ in
+        throw SessionIssue(localized: "Android emulator launch is unavailable")
+    }
 
     init(resolve: @escaping SDKResolution, discover: @escaping DeviceDiscovery,
          simulators: @escaping SimulatorDiscovery = { _ in [] },
@@ -185,7 +200,7 @@ struct FlutterToolchain {
     }
 
     static var production: Self {
-        Self(resolve: { project, environment, options in
+        var toolchain = Self(resolve: { project, environment, options in
             try await resolveSDK(project: project, environment: environment, options: options)
         }, discover: { sdk, environment in
             let data = try await query(sdk.executable, ["devices", "--machine", "--device-timeout=5"],
@@ -194,7 +209,7 @@ struct FlutterToolchain {
                 throw SessionIssue(localized: "Could not read the Flutter device list")
             }
             var ids = Set<String>()
-            return devices.filter { $0.isUsableMobileDevice && ids.insert($0.id).inserted }
+            return devices.filter { $0.isUsableDebugDevice && ids.insert($0.id).inserted }
         }, simulators: { environment in
             let data = try await query(xcrun, ["simctl", "list", "devices", "available", "--json"],
                                        environment: environment)
@@ -215,6 +230,82 @@ struct FlutterToolchain {
                 throw SessionIssue(localized: "The system could not start the selected simulator")
             }
         })
+        toolchain.showSimulator = showIOSSimulator
+        toolchain.androidEmulators = discoverAndroidEmulators
+        toolchain.bootAndroidEmulator = { id, sdk, environment in
+            guard validAVDIdentifier(id),
+                  try await discoverAndroidEmulators(sdk, environment).contains(where: { $0.id == id }) else {
+                throw SessionIssue(localized: "The simulator identifier is invalid")
+            }
+            _ = try await query(sdk.executable, ["emulators", "--launch", id], environment: environment)
+        }
+        return toolchain
+    }
+
+    @MainActor
+    private static func showIOSSimulator(_ id: String, _ environment: [String: String]) async throws {
+        guard let uuid = UUID(uuidString: id) else {
+            throw SessionIssue(localized: "The simulator identifier is invalid")
+        }
+        let data = try await query(URL(fileURLWithPath: "/usr/bin/xcode-select"), ["--print-path"],
+                                   environment: environment)
+        let path = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard path.hasPrefix("/") else {
+            throw SessionIssue(localized: "Could not open the iOS simulator window")
+        }
+        let developer = URL(fileURLWithPath: path, isDirectory: true)
+        let deviceHub = developer.deletingLastPathComponent().appending(path: "Applications/DeviceHub.app")
+        let arguments: [String]
+        if FileManager.default.fileExists(atPath: deviceHub.path) {
+            arguments = ["-a", deviceHub.path, "devices://device/open?id=\(uuid.uuidString)"]
+        } else {
+            let simulator = developer.appending(path: "Applications/Simulator.app")
+            arguments = ["-a", simulator.path, "--args", "-CurrentDeviceUDID", uuid.uuidString]
+        }
+        _ = try await query(URL(fileURLWithPath: "/usr/bin/open"), arguments, environment: environment)
+    }
+
+    @MainActor
+    private static func discoverAndroidEmulators(_ sdk: FlutterSDK, _ environment: [String: String]) async throws -> [AndroidEmulator] {
+        let data = try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                continuation.resume(with: Result {
+                    try readQuery(sdk.executable, ["daemon"], environment: environment,
+                                  daemonMethods: ["emulator.getEmulators", "device.getDevices"])
+                })
+            }
+        }
+        return try decodeAndroidEmulators(data)
+    }
+
+    static func validAVDIdentifier(_ id: String) -> Bool {
+        !id.isEmpty && !id.hasPrefix("-") && id.range(of: #"^[A-Za-z0-9_.-]+$"#, options: .regularExpression) != nil
+    }
+
+    static func decodeAndroidEmulators(_ data: Data) throws -> [AndroidEmulator] {
+        struct Snapshot: Decodable {
+            struct Emulator: Decodable { let id: String; let name: String; let platformType: String }
+            struct Device: Decodable {
+                let id: String; let emulatorId: String?; let platform: String
+                let emulator: Bool; let isConnected: Bool
+            }
+            let emulators: [Emulator]
+            let devices: [Device]
+            enum CodingKeys: String, CodingKey {
+                case emulators = "emulator.getEmulators"
+                case devices = "device.getDevices"
+            }
+        }
+        let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
+        var ids = Set<String>()
+        return snapshot.emulators.compactMap { emulator in
+            guard emulator.platformType == "android", validAVDIdentifier(emulator.id),
+                  !emulator.name.isEmpty, ids.insert(emulator.id).inserted else { return nil }
+            let device = snapshot.devices.first {
+                $0.emulator && $0.isConnected && $0.platform.hasPrefix("android") && $0.emulatorId == emulator.id
+            }
+            return AndroidEmulator(id: emulator.id, name: emulator.name, deviceID: device?.id)
+        }.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 
     @MainActor
@@ -540,8 +631,9 @@ struct FlutterToolchain {
     }
 
     private static func readQuery(_ executable: URL, _ arguments: [String],
-                                  environment: [String: String]) throws -> Data {
+                                  environment: [String: String], daemonMethods: [String]? = nil) throws -> Data {
         let process = Process()
+        let input = daemonMethods == nil ? nil : Pipe()
         let pipe = Pipe()
         let reader = pipe.fileHandleForReading
         let fd = reader.fileDescriptor
@@ -550,27 +642,58 @@ struct FlutterToolchain {
         process.arguments = arguments
         process.environment = environment
         process.currentDirectoryURL = URL(fileURLWithPath: "/", isDirectory: true)
-        process.standardInput = FileHandle.nullDevice
+        if let input { process.standardInput = input }
+        else { process.standardInput = FileHandle.nullDevice }
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
+        if let daemonMethods, let input {
+            // Queue bounded requests before launch; keep stdin open until all responses arrive.
+            for method in daemonMethods {
+                let request = try JSONSerialization.data(withJSONObject: [["id": method, "method": method]])
+                try input.fileHandleForWriting.write(contentsOf: request + Data([10]))
+            }
+        }
         do { try process.run() }
         catch { throw SessionIssue(localized: "Could not run the Flutter SDK probe") }
         defer {
             if process.isRunning { process.terminate() }
             try? reader.close()
+            try? input?.fileHandleForWriting.close()
+            try? input?.fileHandleForReading.close()
         }
         let deadline = ContinuousClock.now + .seconds(25)
         var data = Data()
+        var pending = Data()
+        var replies: [String: Any] = [:]
         var buffer = [UInt8](repeating: 0, count: 4096)
         while .now < deadline {
             let count = Darwin.read(fd, &buffer, buffer.count)
             if count > 0 {
                 guard data.count + count <= 1024 * 1024 else { throw SessionIssue(localized: "Flutter probe output exceeded the limit") }
                 data.append(contentsOf: buffer.prefix(count))
+                if let daemonMethods {
+                    pending.append(contentsOf: buffer.prefix(count))
+                    while let end = pending.firstIndex(of: 10) {
+                        let line = pending.prefix(upTo: end)
+                        pending.removeSubrange(...end)
+                        guard let messages = try? JSONSerialization.jsonObject(with: line) as? [[String: Any]] else { continue }
+                        for message in messages {
+                            guard let id = message["id"] as? String, daemonMethods.contains(id) else { continue }
+                            guard message["error"] == nil, let result = message["result"] else {
+                                throw SessionIssue(localized: "The Flutter probe did not complete successfully")
+                            }
+                            replies[id] = result
+                        }
+                    }
+                    if replies.count == daemonMethods.count {
+                        return try JSONSerialization.data(withJSONObject: replies)
+                    }
+                }
             } else if count == -1, errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR {
                 throw SessionIssue(localized: "Could not read Flutter probe output")
             } else if count == 0, !process.isRunning {
                 guard process.terminationStatus == 0 else { throw SessionIssue(localized: "The Flutter probe did not complete successfully") }
+                guard daemonMethods == nil else { throw SessionIssue(localized: "The Flutter probe did not complete successfully") }
                 return data
             } else {
                 Thread.sleep(forTimeInterval: 0.02)

@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FlutterRunlet: 构建并启动",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/scripts/build-debug.sh",
+      "runtimeArgs": ["--wait"],
+      "outputCapture": "std",
+      "experimentalNetworking": "off",
+      "postDebugTask": "FlutterRunlet: Stop"
+    },
+    {
+      "name": "FlutterRunlet: 仅构建",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/scripts/build-debug.sh",
+      "outputCapture": "std",
+      "experimentalNetworking": "off"
+    }
+  ]
+}

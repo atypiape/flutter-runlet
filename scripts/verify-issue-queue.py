@@ -18,7 +18,6 @@ READY = "task:ready"
 ACTIVE = ("task:working", "task:review")
 BLOCKED = "task:blocked"
 TASK_LABELS = {READY, *ACTIVE, BLOCKED}
-TASK_TYPES = {"文档", "XCTest 回归测试", "Swift 纯逻辑修复"}
 HOOK_DIR = ".githooks"
 PUSH_HOOK = f"{HOOK_DIR}/pre-push"
 RETRYABLE_HTTP = {408, 500, 502, 503, 504}
@@ -169,16 +168,12 @@ def timestamp(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def check_declared_fields(body):
+def declared_dependencies(body):
     sections = re.split(r"(?m)^#{1,6}[ \t]+([^\n]+)\n", (body or "").replace("\r\n", "\n"))
     dependencies = []
     for heading, value in zip(sections[1::2], sections[2::2]):
         heading, value = heading.strip(), value.strip()
-        if value in {"", "_No response_"}:
-            continue
-        if heading == "任务类型" and value not in TASK_TYPES:
-            raise Ineligible("任务类型需要人工处理。")
-        if heading != "前置 Issue" or value == "无":
+        if heading != "前置 Issue" or value in {"", "_No response_", "无"}:
             continue
         for reference in filter(None, map(str.strip, re.split(r"[,，\n]", value))):
             match = re.fullmatch(r"(?:[-*]\s+|\d+\.\s+)?#([1-9][0-9]*)", reference)
@@ -225,22 +220,51 @@ def approval_for(issue):
 
 
 def completed(issue):
-    return issue["state"] == "closed" and issue["state_reason"] == "completed"
+    return ("pull_request" not in issue and issue["state"] == "closed"
+            and issue["state_reason"] == "completed")
 
 
-def check_dependencies(number, dependencies):
+def dependency_blockers(issue):
+    number = issue["number"]
+    dependencies = declared_dependencies(issue["body"])
+    if number in dependencies:
+        raise Ineligible("Issue 不能依赖自身。")
+    pending = {}
+    unavailable = []
     for dependency in dependencies:
         try:
             prereq = get(f"issues/{dependency}")
         except GitHubError as error:
             if error.status != 404:
                 raise
-            raise Ineligible(f"无法读取前置 Issue #{dependency}。") from error
-        if "pull_request" in prereq or not completed(prereq):
-            raise Ineligible(f"前置 Issue #{dependency} 尚未完成或对应 PR。")
+            unavailable.append(f"无法读取前置 Issue #{dependency}。")
+            continue
+        if not completed(prereq):
+            pending[dependency] = f"前置 Issue #{dependency} 尚未完成或对应 PR。"
+
     native = get(f"issues/{number}/dependencies/blocked_by?per_page=100", paginate=True)
-    if any(not completed(prereq) for prereq in native):
-        raise Ineligible("GitHub 标记的阻塞 Issue 尚未完成。")
+    for prereq in native:
+        if completed(prereq):
+            continue
+        dependency = prereq["number"]
+        if prereq["repository_url"].lower() != f"https://api.github.com/repos/{REPO}":
+            unavailable.append(f"GitHub 标记的跨仓库阻塞 Issue #{dependency} 尚未完成。")
+            continue
+        if dependency == number:
+            raise Ineligible("Issue 不能依赖自身。")
+        pending.setdefault(dependency, f"GitHub 标记的阻塞 Issue #{dependency} 尚未完成。")
+    return sorted(pending), [*pending.values(), *unavailable]
+
+
+def development_dependencies(number):
+    issue = get(f"issues/{number}")
+    if "pull_request" in issue or issue["state"] != "open":
+        raise RuntimeError("前置依赖检查需要开放的任务 Issue。")
+    try:
+        _, blockers = dependency_blockers(issue)
+    except Ineligible as error:
+        blockers = [str(error)]
+    return {"number": number, "blocker": " ".join(blockers) or None}
 
 
 def check_issue(issue):
@@ -252,13 +276,15 @@ def check_issue(issue):
             raise Ineligible("Issue 已关闭。")
         if {label["name"] for label in issue["labels"]} & TASK_LABELS != {READY}:
             raise Ineligible("领取时四个任务标签中只能有 task:ready。")
-        dependencies = check_declared_fields(issue["body"])
-        if number in dependencies:
-            raise Ineligible("Issue 不能依赖自身。")
         approval = approval_for(issue)
-        check_dependencies(number, dependencies)
+        pending, blockers = dependency_blockers(issue)
     except Ineligible as error:
         return {"number": number, "eligible": False, "reason": str(error)}
+    if blockers:
+        return {
+            "number": number, "eligible": False, "reason": " ".join(blockers),
+            "pending_dependencies": pending,
+        }
 
     spec = json.dumps([issue["title"], issue["body"]], ensure_ascii=False)
     return {
@@ -270,46 +296,51 @@ def check_issue(issue):
     }
 
 
-def check_queue(number=None, *, skip=()):
+def check_queue(number=None):
     active = sorted({item["number"] for label in ACTIVE for item in open_with_label(label)})
     result = {"candidate": None, "active": active, "checked": []}
     if active and number is None:
         return result
-    numbers = [number] if number is not None else [
-        item["number"] for item in sorted(
-            open_with_label(READY), key=lambda item: (timestamp(item["created_at"]), item["number"]),
-        ) if item["number"] not in skip
-    ]
-    for issue_number in numbers:
+    remaining = {number} if number is not None else {item["number"] for item in open_with_label(READY)}
+    stack = sorted(remaining, reverse=True)
+    while stack:
+        issue_number = stack.pop()
+        if issue_number not in remaining:
+            continue
+        remaining.remove(issue_number)
         checked = check_issue(get(f"issues/{issue_number}"))
         result["checked"].append(checked)
         if checked["eligible"] and not active:
             result["candidate"] = issue_number
             break
+        if number is None:
+            # Visit explicit prerequisites before the next unrelated Issue. Visit each number once.
+            stack.extend(reversed(checked.get("pending_dependencies", [])))
     return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue", type=int, help="诊断指定 Issue 编号")
-    parser.add_argument("--skip", type=int, action="append", default=[],
-                        help="搜索队列时跳过本轮已评估的 Issue，可重复指定")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--preflight", action="store_true", help="核对仓库和 gh 身份后查询队列")
     mode.add_argument("--check-push-hook", action="store_true", help="只读检查当前 worktree 的推送 Hook")
+    mode.add_argument("--check-dependencies", action="store_true", help="单独核对指定 Issue 的前置依赖")
     args = parser.parse_args()
     if args.issue is not None and args.issue < 1:
         parser.error("Issue 编号须为正整数。")
     if args.check_push_hook and args.issue is not None:
         parser.error("--check-push-hook 无需指定 Issue。")
-    if args.skip and (args.issue is not None or args.check_push_hook or min(args.skip) < 1):
-        parser.error("--skip 仅用于搜索队列，须传入正整数。")
+    if args.check_dependencies and args.issue is None:
+        parser.error("--check-dependencies 须指定 --issue。")
     try:
         if args.check_push_hook:
             result = check_push_hook()
+        elif args.check_dependencies:
+            result = development_dependencies(args.issue)
         else:
             context = check_github_context() if args.preflight else None
-            result = check_queue(args.issue, skip=set(args.skip))
+            result = check_queue(args.issue)
             if context:
                 result["preflight"] = context
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:

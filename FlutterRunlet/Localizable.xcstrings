@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (%@) is already running. Restart this session?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@) is already running. Restart this session?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$@）已在运行。是否重启当前会话？"
+          }
+        }
+      }
+    },
     "%@ in %@ must be an array of objects": {
       "localizations": {
         "en": {
@@ -721,22 +737,6 @@
         }
       }
     },
-    "Clear Configuration Selection": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear Configuration Selection"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清除配置选择"
-          }
-        }
-      }
-    },
     "Clear Logs": {
       "localizations": {
         "en": {
@@ -781,6 +781,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "解除更新阻塞"
+          }
+        }
+      }
+    },
+    "Click the folder button above to open a Flutter project.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click the folder button above to open a Flutter project."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击上方的文件夹按钮，选择 Flutter 项目。"
           }
         }
       }
@@ -1213,6 +1229,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法打开待同步的目录"
+          }
+        }
+      }
+    },
+    "Could not open the iOS simulator window": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the iOS simulator window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开 iOS 模拟器窗口"
           }
         }
       }
@@ -3121,6 +3153,22 @@
         }
       }
     },
+    "macOS Desktop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS Desktop"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 桌面"
+          }
+        }
+      }
+    },
     "Main Window": {
       "localizations": {
         "en": {
@@ -3377,12 +3425,12 @@
         }
       }
     },
-    "Online": {
+    "online": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Online"
+            "value": "online"
           }
         },
         "zh-Hans": {
@@ -3393,12 +3441,12 @@
         }
       }
     },
-    "Offline": {
+    "offline": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline"
+            "value": "offline"
           }
         },
         "zh-Hans": {
@@ -5489,22 +5537,6 @@
         }
       }
     },
-    "The selected device is used for the next run.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The selected device is used for the next run."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所选设备用于下一次运行。"
-          }
-        }
-      }
-    },
     "The signed version does not match the release tag.": {
       "localizations": {
         "en": {
@@ -5997,22 +6029,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "路径不是绝对目录"
-          }
-        }
-      }
-    },
-    "The previous configuration no longer exists. Select another one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The previous configuration no longer exists. Select another one"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "原配置已不存在，请重新选择"
           }
         }
       }
@@ -6925,6 +6941,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "简体中文"
+          }
+        }
+      }
+    },
+    "Starting Simulator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting Simulator"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在启动模拟器"
+          }
+        }
+      }
+    },
+    "Android emulator launch is unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android emulator launch is unavailable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android 模拟器启动不可用"
+          }
+        }
+      }
+    },
+    "Could not list Android emulators: %@. Refresh devices and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not list Android emulators: %@. Refresh devices and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取 Android 模拟器：%@。请刷新设备后重试。"
+          }
+        }
+      }
+    },
+    "Could not start the Android emulator: %@. Check the emulator and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not start the Android emulator: %@. Check the emulator and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动 Android 模拟器：%@。请检查模拟器后重试。"
           }
         }
       }

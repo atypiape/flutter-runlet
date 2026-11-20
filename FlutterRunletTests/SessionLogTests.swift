@@ -37,6 +37,32 @@ final class SessionLogTests: XCTestCase {
         """)
     }
 
+    func testFlutterOutputKeepsLaunchAndDiagnosticStyles() {
+        let debug = FlutterDebugSession(deviceID: "fixture", verifyVM: nil, timing: .continuous, sdk: nil,
+                                        connectionChanged: { _ in }, browserAvailabilityChanged: { _ in })
+        defer { debug.finish() }
+        var messages: [String] = []
+        var tones: [SessionLogTone?] = []
+        func collect(_ text: String, _ tone: SessionLogTone?) {
+            messages.append(text)
+            tones.append(tone)
+        }
+
+        let launch = "Launching lib/main.dart on Sample in debug mode...\n"
+        debug.receive(launch, isError: false, output: collect)
+        debug.receive("plain output\n", isError: false, output: collect)
+        debug.receive("warning on stderr\n  continuation\n", isError: true, output: collect)
+        debug.receive(#"[{"event":"daemon.logMessage","params":{"message":"tool warning","level":"warning"}}]"#,
+                      isError: false, output: collect)
+        debug.receive(#"[{"event":"app.start","params":{"appId":"sample","deviceId":"fixture","mode":"debug"}}]"#,
+                      isError: false, output: collect)
+        debug.receive(#"[{"event":"app.log","params":{"appId":"sample","log":"application error","error":true}}]"#,
+                      isError: false, output: collect)
+        XCTAssertEqual(messages, [launch, "plain output\n", "warning on stderr\n  continuation\n",
+                                  "tool warning\n", "application error\n"])
+        XCTAssertEqual(tones, [.launch, nil, .diagnostic, .diagnostic, .diagnostic])
+    }
+
     func testLiveTaskAndDebugLogsClearAndCopyWithoutChangingProdRecovery() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
@@ -87,6 +113,7 @@ final class SessionLogTests: XCTestCase {
             XCTAssertEqual(try store.read(project: fixture.project), record)
             try Data().write(to: fixture.state("next-output"))
             try await eventually { session.logs == "same worker new log\n" }
+            XCTAssertEqual(session.logSpans, [SessionLogSpan(range: 0..<session.logs.utf16.count, tone: .diagnostic)])
             session.stop()
             try await eventually { session.logs.contains("post task streamed") }
             XCTAssertEqual(session.status, .restoringEnvironment)
@@ -197,7 +224,7 @@ final class SessionLogTests: XCTestCase {
         try first.write(to: fixture.state("first-output"), atomically: true, encoding: .utf8)
         try later.write(to: fixture.state("later-output"), atomically: true, encoding: .utf8)
         let session = fixture.session(store: store, script: #"""
-            /bin/cat .runlet-fixture/first-output
+            /bin/cat .runlet-fixture/first-output >&2
             while [ ! -f .runlet-fixture/continue ]; do /bin/sleep .02; done
             /bin/cat .runlet-fixture/later-output
             """#)
@@ -209,7 +236,7 @@ final class SessionLogTests: XCTestCase {
             scroll.setFrameSize(NSSize(width: 580, height: 108))
             scroll.layoutSubtreeIfNeeded()
             scroll.show("尚无运行日志", trimmedUTF16: 0)
-            scroll.show(session.logs, trimmedUTF16: session.logTrimmedUTF16)
+            scroll.show(session.logs, trimmedUTF16: session.logTrimmedUTF16, spans: session.logSpans)
             let text = try XCTUnwrap(scroll.documentView as? NSTextView)
             let layout = try XCTUnwrap(text.layoutManager)
             let storage = try XCTUnwrap(text.textStorage)
@@ -229,7 +256,7 @@ final class SessionLogTests: XCTestCase {
             XCTAssertGreaterThan(trimmed, 0)
             XCTAssertLessThan(trimmed, selected.location)
             XCTAssertLessThanOrEqual(session.logs.utf8.count, 64 * 1024)
-            scroll.show(session.logs, trimmedUTF16: trimmed)
+            scroll.show(session.logs, trimmedUTF16: trimmed, spans: session.logSpans)
             let retained = (text.string as NSString).range(of: reading)
             XCTAssertEqual(retained.location, selected.location - trimmed)
             XCTAssertEqual(text.selectedRange(), retained)
@@ -239,6 +266,12 @@ final class SessionLogTests: XCTestCase {
             XCTAssertEqual(retainedFont.fontName, "RobotoMono-Regular")
             XCTAssertEqual(retainedFont.pointSize, 11)
             XCTAssertEqual(appendedFont, retainedFont)
+            let retainedColor = storage.attribute(.foregroundColor, at: retained.location, effectiveRange: nil) as? NSColor
+            let appendedColor = storage.attribute(.foregroundColor, at: storage.length - 2, effectiveRange: nil) as? NSColor
+            XCTAssertNotNil(retainedColor)
+            XCTAssertNotNil(appendedColor)
+            XCTAssertNotEqual(retainedColor, appendedColor)
+            XCTAssertEqual(storage.string, session.logs)
             // A reading anchor and selection that were actually removed clamp to the retained start.
             scroll.contentView.scroll(to: .zero)
             text.setSelectedRange(NSRange(location: 0, length: 1))
@@ -274,6 +307,92 @@ final class SessionLogTests: XCTestCase {
         let next = String(replacement.dropFirst(8)) + "new row\n"
         scroll.show(next, trimmedUTF16: first.utf16.count + 8)
         XCTAssertTrue(text.string.utf8.elementsEqual(next.utf8))
+    }
+
+    func testLogViewWrapsLongLinesAtViewportWidthAndCopiesOriginalText() throws {
+        let scroll = SessionLogScrollView()
+        scroll.scrollerStyle = .legacy
+        scroll.setFrameSize(NSSize(width: 500, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        let sample = "Flutter output with spaces 路径😀 " + String(repeating: "abcdef", count: 60)
+        let contents = String(repeating: sample + "\n", count: 12)
+        scroll.show(contents, trimmedUTF16: 0)
+        let text = try XCTUnwrap(scroll.documentView as? NSTextView)
+        let layout = try XCTUnwrap(text.layoutManager)
+        let container = try XCTUnwrap(text.textContainer)
+        func assertViewportWidth(file: StaticString = #filePath, line: UInt = #line) {
+            let viewport = scroll.contentView.bounds.width
+            XCTAssertEqual(text.frame.width, viewport, accuracy: 1, file: file, line: line)
+            XCTAssertEqual(container.containerSize.width, viewport - 2 * text.textContainerInset.width,
+                           accuracy: 1, file: file, line: line)
+            XCTAssertLessThanOrEqual(layout.usedRect(for: container).maxX, container.containerSize.width,
+                                     file: file, line: line)
+        }
+        func lineTop(at index: Int) -> CGFloat {
+            let glyph = layout.glyphIndexForCharacter(at: index)
+            return layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
+                + text.textContainerOrigin.y
+        }
+        let lastCharacter = sample.utf16.count - 1
+        let wideLineTop = lineTop(at: lastCharacter)
+        let wideHeight = text.frame.height
+        assertViewportWidth()
+        XCTAssertGreaterThan(wideLineTop, lineTop(at: 0))
+        XCTAssertEqual(scroll.documentVisibleRect.maxY, wideHeight, accuracy: 1)
+
+        scroll.setFrameSize(NSSize(width: 260, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        XCTAssertFalse(scroll.hasHorizontalScroller)
+        XCTAssertTrue(scroll.hasVerticalScroller)
+        assertViewportWidth()
+        XCTAssertGreaterThan(lineTop(at: lastCharacter), wideLineTop)
+        XCTAssertGreaterThan(text.frame.height, wideHeight)
+        XCTAssertEqual(scroll.documentVisibleRect.maxY, text.frame.height, accuracy: 1)
+
+        let selection = NSRange(location: (sample.utf16.count + 1) * 3, length: sample.utf16.count)
+        text.setSelectedRange(selection)
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: lineTop(at: selection.location) + 3))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        scroll.setFrameSize(NSSize(width: 500, height: 108))
+        scroll.layoutSubtreeIfNeeded()
+        assertViewportWidth()
+        XCTAssertEqual(lineTop(at: lastCharacter), wideLineTop, accuracy: 1)
+        XCTAssertEqual(scroll.documentVisibleRect.minY, lineTop(at: selection.location) + 3, accuracy: 1)
+        XCTAssertEqual(scroll.documentVisibleRect.minX, 0, accuracy: 1)
+        XCTAssertEqual(text.selectedRange(), selection)
+        XCTAssertEqual(text.string, contents)
+
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        XCTAssertTrue(text.writeSelection(to: pasteboard, types: text.writablePasteboardTypes))
+        XCTAssertEqual(pasteboard.string(forType: .string), sample)
+
+        scroll.show("short", trimmedUTF16: 0)
+        assertViewportWidth()
+        XCTAssertEqual(scroll.documentVisibleRect.minY, 0, accuracy: 1)
+        XCTAssertEqual(text.frame.height, scroll.contentView.bounds.height, accuracy: 1)
+    }
+
+    func testLogViewRendersLaunchAndDiagnosticTonesWithoutChangingText() throws {
+        let scroll = SessionLogScrollView()
+        let contents = "Launching sample\nWarning details\nPlain output\n"
+        let launch = 0..<"Launching sample\n".utf16.count
+        let warning = launch.upperBound..<(launch.upperBound + "Warning details\n".utf16.count)
+        scroll.show(contents, trimmedUTF16: 0)
+        let text = try XCTUnwrap(scroll.documentView as? NSTextView)
+        let storage = try XCTUnwrap(text.textStorage)
+        let originalColor = try XCTUnwrap(storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)
+        scroll.show(contents, trimmedUTF16: 0, spans: [
+            SessionLogSpan(range: launch, tone: .launch),
+            SessionLogSpan(range: warning, tone: .diagnostic),
+        ])
+        let launchColor = try XCTUnwrap(storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)
+        let warningColor = try XCTUnwrap(storage.attribute(.foregroundColor, at: warning.lowerBound, effectiveRange: nil) as? NSColor)
+        XCTAssertNotEqual(launchColor, warningColor)
+        XCTAssertNotEqual(launchColor, originalColor)
+        XCTAssertNotEqual(warningColor, originalColor)
+        XCTAssertEqual(storage.attribute(.foregroundColor, at: warning.upperBound, effectiveRange: nil) as? NSColor, originalColor)
+        XCTAssertEqual(text.string, contents)
     }
 
     private func eventually(_ condition: () -> Bool) async throws {
