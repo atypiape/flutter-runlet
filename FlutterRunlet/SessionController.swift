@@ -170,6 +170,7 @@ final class SessionController {
     private(set) var standaloneDevToolsVersion: String?
     private(set) var standaloneDevToolsIssue: LocalizedStringResource?
     private(set) var feedback: SessionFeedback?
+    private(set) var hotRestartStatusMessage: LocalizedStringResource?
     private(set) var isHotOperationPending = false
     var canHotOperate: Bool {
         canStop && vmConnected && !isHotOperationPending && debug?.supportsRestart == true
@@ -1364,6 +1365,7 @@ final class SessionController {
         status = .stopping
         message = nil
         debugStatusMessage = nil
+        hotRestartStatusMessage = nil
         feedback = nil
         isHotOperationPending = false
         if let device {
@@ -1389,6 +1391,7 @@ final class SessionController {
 
     func hotOperation(_ operation: FlutterHotOperation) {
         guard canHotOperate, let debug, let active else { return }
+        hotRestartStatusMessage = nil
         feedback = nil
         isHotOperationPending = true
         debug.hotOperation(operation, send: active.send) { [weak self, weak debug] result in
@@ -1396,8 +1399,13 @@ final class SessionController {
             self.isHotOperationPending = false
             switch result {
             case .success:
-                self.feedback = SessionFeedback(title: operation == .reload ? "Hot Reload Completed" : "Hot Restart Completed",
-                                                detail: "The current debug session is still running.")
+                switch operation {
+                case .reload:
+                    self.feedback = SessionFeedback(title: "Hot Reload Completed",
+                                                    detail: "The current debug session is still running.")
+                case .restart:
+                    if self.status == .running { self.hotRestartStatusMessage = "Hot Restart Completed" }
+                }
             case .failure(let issue):
                 let reason = LocalizedStringResource.appIssue(issue)
                 self.feedback = SessionFeedback(
@@ -1691,6 +1699,7 @@ final class SessionController {
                         self.debugStatusMessage = nil
                     } else {
                         self.cancelBrowserFocus()
+                        self.hotRestartStatusMessage = nil
                         self.status = .connectionInterrupted
                         self.debugStatusMessage = "The VM Service connection was interrupted. Reconnecting. You can stop the current session."
                     }
@@ -1799,6 +1808,7 @@ final class SessionController {
                 debugLease = nil
                 hasCurrentDevToolsAddress = false
                 debugStatusMessage = nil
+                hotRestartStatusMessage = nil
                 feedback = nil
                 isHotOperationPending = false
                 vmWaitTimeout?.cancel()
