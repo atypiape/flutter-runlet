@@ -10,7 +10,7 @@ private struct ToolEventServer {
     let listener: NWListener
     let port: UInt16
 
-    static func start(file: URL) async throws -> Self {
+    static func start(file: URL, viewIsolates: @escaping @Sendable () -> [String: String] = { [:] }) async throws -> Self {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         parameters.defaultProtocolStack.applicationProtocols.insert(NWProtocolWebSocket.Options(), at: 0)
@@ -19,7 +19,7 @@ private struct ToolEventServer {
         let attempts = OSAllocatedUnfairLock(initialState: 0)
         listener.newConnectionHandler = { connection in
             connection.start(queue: queue)
-            receive(on: connection, file: file, attempts: attempts)
+            receive(on: connection, file: file, attempts: attempts, viewIsolates: viewIsolates)
         }
         let (states, updates) = AsyncThrowingStream<NWEndpoint.Port, Error>.makeStream()
         listener.stateUpdateHandler = { [weak listener] state in
@@ -37,21 +37,26 @@ private struct ToolEventServer {
         return Self(listener: listener, port: port.rawValue)
     }
 
-    private static func receive(on connection: NWConnection, file: URL, attempts: OSAllocatedUnfairLock<Int>) {
+    private static func receive(on connection: NWConnection, file: URL, attempts: OSAllocatedUnfairLock<Int>,
+                                viewIsolates: @escaping @Sendable () -> [String: String]) {
         connection.receiveMessage { data, _, _, error in
             guard error == nil, let data,
                   let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = request["id"] as? String else { connection.cancel(); return }
-            reply(to: request["method"] as? String, id: id, on: connection, file: file, attempts: attempts)
-            receive(on: connection, file: file, attempts: attempts)
+            reply(to: request["method"] as? String, id: id, on: connection, file: file,
+                  attempts: attempts, viewIsolates: viewIsolates)
+            receive(on: connection, file: file, attempts: attempts, viewIsolates: viewIsolates)
         }
     }
 
     private static func reply(to method: String?, id: String, on connection: NWConnection, file: URL,
-                              attempts: OSAllocatedUnfairLock<Int>) {
+                              attempts: OSAllocatedUnfairLock<Int>, viewIsolates: () -> [String: String]) {
         switch method {
         case "getVersion":
             send(["jsonrpc": "2.0", "id": id, "result": ["type": "Version", "major": 4, "minor": 20]], on: connection)
+        case "_flutter.listViews":
+            let views = viewIsolates().map { ["id": $0.key, "isolate": ["id": $0.value]] }
+            send(["jsonrpc": "2.0", "id": id, "result": ["type": "FlutterViewList", "views": views]], on: connection)
         case "streamListen":
             let first = attempts.withLock { value in
                 value += 1
@@ -505,10 +510,10 @@ final class FlutterDebugSessionTests: XCTestCase {
             let failure = try XCTUnwrap(session.feedback)
             let detail = try XCTUnwrap(failure.detail)
             XCTAssertEqual(language.locale.appString(failure.title), "Hot Restart Incomplete")
-            XCTAssertEqual(language.locale.appString(detail), "Flutter returned error code 1. Check the current debug connection and try again.")
+            XCTAssertEqual(language.locale.appString(detail), "Flutter returned error code 1. To stop and start the debug session again, choose Run and confirm.")
             language.selection = .simplifiedChinese
             XCTAssertEqual(language.locale.appString(failure.title), "热重启未完成")
-            XCTAssertEqual(language.locale.appString(detail), "Flutter 返回错误码 1。请确认当前调试连接后重试。")
+            XCTAssertEqual(language.locale.appString(detail), "Flutter 返回错误码 1。如需停止并重新启动调试会话，请选择「运行」并确认。")
             XCTAssertTrue(session.vmConnected)
             session.dismissFeedback()
 
@@ -523,6 +528,62 @@ final class FlutterDebugSessionTests: XCTestCase {
             await session.waitUntilIdle()
             XCTAssertNil(session.feedback)
             XCTAssertEqual(try fixture.marker(), "test\n")
+        } catch {
+            session.stop()
+            await session.waitUntilIdle()
+            throw error
+        }
+    }
+
+    func testHotRestartRequiresReplacementOfTheRunningFlutterViewIsolate() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let isolates = OSAllocatedUnfairLock(initialState: ["view-1": "isolate-before", "view-2": "other-before"])
+        let service = try await ToolEventServer.start(file: fixture.project) { isolates.withLock { $0 } }
+        defer { service.listener.cancel() }
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let ready = Self.machineReady.replacingOccurrences(of: "8181/private=", with: "\(service.port)/private=")
+        let executable = try makeFlutter(in: fixture, script: ready + "\n" + #"""
+            count=0
+            while IFS= read -r command; do
+                case "$command" in
+                    *app.stop*) exit 0 ;;
+                esac
+                count=$((count + 1))
+                printf '%s\n' "$command" > ".runlet-fixture/command-$count"
+                while [ ! -f ".runlet-fixture/reply-$count" ]; do /bin/sleep .02; done
+                /bin/cat ".runlet-fixture/reply-$count"
+            done
+            """#)
+        let session = controller(fixture, store: store, executable: executable) { _ in true }
+        try fixture.select("prod", in: session)
+        try await eventually { session.canRun }
+        XCTAssertTrue(session.performDebugAction(.run))
+        do {
+            try await eventually { session.canHotOperate }
+            XCTAssertTrue(session.performDebugAction(.restart))
+            try await fixture.waitFor("command-1")
+            let restart = try request(fixture, number: 1)
+            XCTAssertEqual(restart.fullRestart, true)
+            isolates.withLock { $0["unrelated-view"] = "unrelated-isolate" }
+            try reply(fixture, to: restart.id, number: 1, code: 0)
+            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "热重启未完成" }
+            let failure = try XCTUnwrap(session.feedback?.detail)
+            XCTAssertEqual(chinese.appString(failure), "无法确认 Flutter 应用已重启。如需停止并重新启动调试会话，请选择「运行」并确认。")
+            XCTAssertTrue(session.canStop)
+            XCTAssertTrue(session.vmConnected)
+
+            XCTAssertTrue(session.performDebugAction(.restart))
+            try await fixture.waitFor("command-2")
+            let next = try request(fixture, number: 2)
+            isolates.withLock {
+                $0 = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
+            }
+            try reply(fixture, to: next.id, number: 2, code: 0)
+            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "已热重启" }
+            XCTAssertTrue(session.canHotOperate)
+            XCTAssertTrue(session.performDebugAction(.stop))
+            await session.waitUntilIdle()
         } catch {
             session.stop()
             await session.waitUntilIdle()

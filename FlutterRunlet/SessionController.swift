@@ -1399,8 +1399,13 @@ final class SessionController {
                 self.feedback = SessionFeedback(title: operation == .reload ? "Hot Reload Completed" : "Hot Restart Completed",
                                                 detail: "The current debug session is still running.")
             case .failure(let issue):
-                self.feedback = SessionFeedback(title: operation == .reload ? "Hot Reload Incomplete" : "Hot Restart Incomplete",
-                                                detail: "\(LocalizedStringResource.appIssue(issue)). Check the current debug connection and try again.")
+                let reason = LocalizedStringResource.appIssue(issue)
+                self.feedback = SessionFeedback(
+                    title: operation == .reload ? "Hot Reload Incomplete" : "Hot Restart Incomplete",
+                    detail: operation == .reload
+                        ? "\(reason). Check the current debug connection and try again."
+                        : "\(reason). To stop and start the debug session again, choose Run and confirm."
+                )
             }
         }
     }
