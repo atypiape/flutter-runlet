@@ -729,11 +729,10 @@ final class FlutterDebugSessionTests: XCTestCase {
 
         var opened: [URL] = []
         var focused: [URL] = []
-        var inspectorStillOpen = true
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = controller(fixture, store: store, executable: executable,
                                  openURL: { opened.append($0); return true },
-                                 focusInspector: { focused.append($0); return inspectorStillOpen }) { _ in true }
+                                 focusBrowserTab: { focused.append($0); return focused.count.isMultiple(of: 2) == false }) { _ in true }
         try fixture.select("test", in: session)
         session.selectStandaloneDevTools(directory)
         XCTAssertEqual(session.standaloneDevToolsVersion, "2.61.0")
@@ -752,13 +751,23 @@ final class FlutterDebugSessionTests: XCTestCase {
             session.openBrowser(.inspector)
             try await eventually { focused.count == 1 }
             XCTAssertEqual(focused, opened)
-            inspectorStillOpen = false
             session.openBrowser(.inspector)
             try await eventually { opened.count == 2 }
             XCTAssertEqual(opened[0], opened[1])
+            session.dismissFeedback()
             session.openBrowser(.devTools)
             XCTAssertEqual(opened.map(\.path), ["/inspector", "/inspector", "/"])
             XCTAssertEqual(opened.map(\.port), [9123, 9123, 9123])
+            XCTAssertNil(session.feedback)
+            session.openBrowser(.devTools)
+            try await eventually { focused.count == 3 }
+            XCTAssertEqual(focused.last, opened.last)
+            XCTAssertEqual(opened.count, 3)
+            XCTAssertNil(session.feedback)
+            session.openBrowser(.devTools)
+            try await eventually { opened.count == 4 }
+            XCTAssertEqual(opened[2], opened[3])
+            XCTAssertNil(session.feedback)
             for url in opened {
                 XCTAssertEqual(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
                                [URLQueryItem(name: "uri", value: "ws://127.0.0.1:8181/private=/ws")])
@@ -787,7 +796,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         var finishFocus: CheckedContinuation<Bool, Never>?
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let session = controller(fixture, store: store, executable: executable,
-                                 openURL: { opened.append($0); return true }, focusInspector: { _ in
+                                 openURL: { opened.append($0); return true }, focusBrowserTab: { _ in
                                      await withCheckedContinuation { finishFocus = $0 }
                                  }) { _ in true }
         try fixture.select("test", in: session)
@@ -850,18 +859,28 @@ final class FlutterDebugSessionTests: XCTestCase {
         XCTAssertEqual(locations[0].column, 3)
     }
 
-    func testInspectorTabMatchingIgnoresBrowserOptionsButNotSessionOrPage() throws {
+    func testDevToolsRootMatchesRedirectedPageButInspectorRequiresItsOwnPath() throws {
         let origin = "http://127.0.0.1:9100"
         let inspector = try XCTUnwrap(URL(string: origin + "/inspector?uri=ws://127.0.0.1:8181/current=/ws"))
         let encoded = try XCTUnwrap(URL(string: origin + "/inspector?compiler=wasm&uri=ws%3A%2F%2F127.0.0.1%3A8181%2Fcurrent%3D%2Fws"))
-        XCTAssertTrue(InspectorBrowserTabs.matches(encoded, inspector: inspector))
+        XCTAssertTrue(DevToolsBrowserTabs.matches(encoded, destination: inspector))
+        let devTools = try XCTUnwrap(URL(string: origin + "/auth=/devtools/?uri=ws://127.0.0.1:8181/current=/ws"))
+        let canonical = try XCTUnwrap(URL(string: origin + "/auth=/devtools?uri=ws://127.0.0.1:8181/current=/ws"))
+        let page = try XCTUnwrap(URL(string: origin + "/auth=/devtools/home?compiler=wasm&uri=ws://127.0.0.1:8181/current=/ws"))
+        let sibling = try XCTUnwrap(URL(string: origin + "/other=/devtools/home?uri=ws://127.0.0.1:8181/current=/ws"))
+        let previousSession = try XCTUnwrap(URL(string: origin + "/auth=/devtools/home?uri=ws://127.0.0.1:8181/previous=/ws"))
+        XCTAssertTrue(DevToolsBrowserTabs.matches(canonical, destination: devTools))
+        XCTAssertTrue(DevToolsBrowserTabs.matches(page, destination: devTools))
+        XCTAssertFalse(DevToolsBrowserTabs.matches(sibling, destination: devTools))
+        XCTAssertFalse(DevToolsBrowserTabs.matches(previousSession, destination: devTools))
+        XCTAssertFalse(DevToolsBrowserTabs.matches(inspector, destination: devTools))
         for other in [
             origin + "/inspector?uri=ws://127.0.0.1:8181/previous=/ws",
             origin + "/inspector?uri=ws://127.0.0.1:8181/current=/ws&uri=other",
             origin + "/memory?uri=ws://127.0.0.1:8181/current=/ws",
             "http://127.0.0.1:9101/inspector?uri=ws://127.0.0.1:8181/current=/ws"
         ] {
-            XCTAssertFalse(InspectorBrowserTabs.matches(try XCTUnwrap(URL(string: other)), inspector: inspector))
+            XCTAssertFalse(DevToolsBrowserTabs.matches(try XCTUnwrap(URL(string: other)), destination: inspector))
         }
     }
 
@@ -884,9 +903,11 @@ final class FlutterDebugSessionTests: XCTestCase {
         var vmOnline = true
         var opened: [URL] = []
         var canLaunchBrowser = false
+        var focused: [URL] = []
         let session = controller(fixture, store: store, executable: executable, timing: clock.timing,
                                  flutterVersion: "3.47.4", devToolsVersion: "2.60.0",
-                                 openURL: { opened.append($0); return canLaunchBrowser }) { _ in vmOnline }
+                                 openURL: { opened.append($0); return canLaunchBrowser },
+                                 focusBrowserTab: { focused.append($0); return true }) { _ in vmOnline }
         try fixture.select("prod", in: session)
         try await eventually { session.canRun }
         session.run()
@@ -907,6 +928,16 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(URLComponents(url: inspector, resolvingAgainstBaseURL: false)?
                 .queryItems?.first?.value, "ws://127.0.0.1:8181/private=/ws")
             XCTAssertFalse(session.logs.contains("private="))
+            session.openBrowser(.devTools)
+            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开 Inspector")
+            session.dismissFeedback()
+            let devTools = try XCTUnwrap(opened.last)
+            session.openBrowser(.devTools)
+            session.openBrowser(.devTools)
+            try await eventually { focused.count == 1 }
+            XCTAssertEqual(focused, [devTools])
+            XCTAssertEqual(opened.count, 3)
+            XCTAssertNil(session.feedback)
 
             vmOnline = false
             try await eventually { clock.hasSleeper(.seconds(2)) }
@@ -914,7 +945,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             try await eventually { !session.vmConnected }
             XCTAssertFalse(session.canOpenBrowser)
             session.openBrowser(.devTools)
-            XCTAssertEqual(opened.count, 2)
+            XCTAssertEqual(opened.count, 3)
             vmOnline = true
             try await eventually { clock.hasSleeper(.milliseconds(500)) }
             clock.advance(by: .milliseconds(500))
@@ -924,7 +955,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             await session.waitUntilIdle()
             XCTAssertFalse(session.canOpenBrowser)
             session.openBrowser(.devTools)
-            XCTAssertEqual(opened.count, 2)
+            XCTAssertEqual(opened.count, 3)
             let next = Self.machineReady.replacingOccurrences(of: "8181/private=", with: "8182/next=")
             _ = try makeFlutter(in: fixture, script: next + "\n" + #"""
                 printf '%s\n' '[{"event":"app.devTools","params":{"appId":"current","uri":"http://127.0.0.1:8181/private=/devtools/?uri=ws://127.0.0.1:8181/private=/ws"}}]'
@@ -1013,6 +1044,7 @@ final class FlutterDebugSessionTests: XCTestCase {
             try await eventually { session.canHotOperate }
             session.openBrowser(.devTools)
             session.openBrowser(.inspector)
+            try await eventually { opened.count == 2 }
             XCTAssertEqual(opened.map(\.port), [8181, 8181])
             XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开当前会话的 DevTools，请选择 Inspector。")
             session.stop()
@@ -1108,7 +1140,7 @@ final class FlutterDebugSessionTests: XCTestCase {
                             timing: FlutterDebugTiming = .continuous, discovery: DeviceDiscovery? = nil,
                             flutterVersion: String = "test", devToolsVersion: String? = nil,
                             openURL: @escaping (URL) -> Bool = { _ in false },
-                            focusInspector: @escaping @MainActor (URL) async -> Bool = { _ in false },
+                            focusBrowserTab: @escaping @MainActor (URL) async -> Bool = { _ in false },
                             verify: @escaping @MainActor (URL) async -> Bool) -> SessionController {
         let device = self.device
         return SessionController(store: store, runner: .bundled, environment: fixture.environment,
@@ -1125,7 +1157,7 @@ final class FlutterDebugSessionTests: XCTestCase {
                                         guard let discovery else { return [] }
                                         return discovery.shutdown
                                     }
-                                 ), verifyVM: verify, debugTiming: timing, openURL: openURL, focusInspector: focusInspector)
+                                 ), verifyVM: verify, debugTiming: timing, openURL: openURL, focusBrowserTab: focusBrowserTab)
     }
 
     private func makeFlutter(in fixture: SessionFixture, script: String) throws -> URL {
