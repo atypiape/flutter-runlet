@@ -185,7 +185,9 @@ final class FlutterDebugSession {
     private var probe: Task<Void, Never>?
     private var sourceListener: Task<Void, Never>?
     private var hotTimeout: Task<Void, Never>?
-    private var hotRequest: (id: Int, complete: HotCompletion)?
+    private var hotWork: Task<Void, Never>?
+    private var hotRequest: (id: Int, operation: FlutterHotOperation, complete: HotCompletion)?
+    private var restartBaseline: (endpoint: URL, isolates: [String: String])?
     private var nextID = 2  // app.stop uses request 1.
     private(set) var supportsRestart = false
     private(set) var hasVerifiedVM = false
@@ -219,19 +221,44 @@ final class FlutterDebugSession {
         return Self.request(id: 1, method: "app.stop", appID: appID)
     }
 
-    func hotOperation(_ operation: FlutterHotOperation, send: (Data) -> Bool, complete: @escaping HotCompletion) {
-        guard connected, supportsRestart, !stopped, hotRequest == nil, let appID else {
+    func hotOperation(_ operation: FlutterHotOperation, send: @escaping (Data) -> Bool,
+                      complete: @escaping HotCompletion) {
+        guard connected, supportsRestart, !stopped, hotRequest == nil, let appID, let endpoint else {
             complete(.failure(SessionIssue(localized: "The current Flutter debug connection is unavailable")))
             return
         }
         let id = nextID
         nextID += 1
         guard let request = Self.request(id: id, method: "app.restart", appID: appID,
-                                         fullRestart: operation == .restart), send(request) else {
+                                         fullRestart: operation == .restart) else {
             complete(.failure(SessionIssue(localized: "Could not send the command to the current Flutter process")))
             return
         }
-        hotRequest = (id, complete)
+        hotRequest = (id, operation, complete)
+        if operation == .restart {
+            hotWork = Task { [weak self] in
+                let probe = VMServiceProbe(url: endpoint)
+                defer { probe.close() }
+                let isolates = await probe.viewIsolates()
+                guard let self, !Task.isCancelled, self.hotRequest?.id == id else { return }
+                self.hotWork = nil
+                guard self.endpoint == endpoint else {
+                    self.completeHot(.failure(SessionIssue(localized: "The current Flutter debug connection is unavailable")))
+                    return
+                }
+                if let isolates, !isolates.isEmpty { self.restartBaseline = (endpoint, isolates) }
+                self.sendHotRequest(request, id: id, send: send)
+            }
+        } else {
+            sendHotRequest(request, id: id, send: send)
+        }
+    }
+
+    private func sendHotRequest(_ request: Data, id: Int, send: (Data) -> Bool) {
+        guard send(request) else {
+            completeHot(.failure(SessionIssue(localized: "Could not send the command to the current Flutter process")))
+            return
+        }
         hotTimeout = Task { [weak self, timing] in
             do { try await timing.sleep(.seconds(30)) }
             catch { return }
@@ -240,11 +267,18 @@ final class FlutterDebugSession {
         }
     }
 
-    private func completeHot(_ result: Result<Void, SessionIssue>) {
-        let request = hotRequest
+    private func resetHotRequest() {
         hotRequest = nil
+        restartBaseline = nil
         hotTimeout?.cancel()
         hotTimeout = nil
+        hotWork?.cancel()
+        hotWork = nil
+    }
+
+    private func completeHot(_ result: Result<Void, SessionIssue>) {
+        let request = hotRequest
+        resetHotRequest()
         request?.complete(result)
     }
 
@@ -261,9 +295,7 @@ final class FlutterDebugSession {
         stopped = true
         probe?.cancel()
         probe = nil
-        hotRequest = nil
-        hotTimeout?.cancel()
-        hotTimeout = nil
+        resetHotRequest()
         endpoint = nil
         reportedDevTools = nil
         openedBrowserURLs.removeAll()
@@ -420,13 +452,52 @@ final class FlutterDebugSession {
     }
 
     private func handleResponse(_ message: [String: Any]) {
-        guard !stopped, let hotRequest, Self.integer(message["id"]) == hotRequest.id else { return }
+        guard !stopped, hotWork == nil, let hotRequest, Self.integer(message["id"]) == hotRequest.id else { return }
         if message["error"] != nil {
             completeHot(.failure(SessionIssue(localized: "Flutter rejected the request")))
         } else if let result = message["result"] as? [String: Any], let code = Self.integer(result["code"]) {
-            completeHot(code == 0 ? .success(()) : .failure(SessionIssue(localized: "Flutter returned error code \(String(code))")))
+            if code != 0 {
+                completeHot(.failure(SessionIssue(localized: "Flutter returned error code \(String(code))")))
+            } else if hotRequest.operation == .restart {
+                confirmRestart(id: hotRequest.id)
+            } else {
+                completeHot(.success(()))
+            }
         } else {
             completeHot(.failure(SessionIssue(localized: "Flutter did not confirm that the operation completed")))
+        }
+    }
+
+    private func confirmRestart(id: Int) {
+        let unconfirmed = SessionIssue(localized: "Could not verify that the Flutter app restarted")
+        guard let baseline = restartBaseline else {
+            completeHot(.failure(unconfirmed))
+            return
+        }
+        hotTimeout?.cancel()
+        hotTimeout = nil
+        hotWork = Task { [weak self, timing] in
+            let probe = VMServiceProbe(url: baseline.endpoint)
+            defer { probe.close() }
+            // The machine response can precede publication of the new UI isolate.
+            for attempt in 0..<3 {
+                if attempt > 0 {
+                    do { try await timing.sleep(.milliseconds(250)) }
+                    catch { return }
+                }
+                guard !Task.isCancelled, self?.hotRequest?.id == id else { return }
+                guard self?.endpoint == baseline.endpoint else { break }
+                let current = await probe.viewIsolates()
+                guard !Task.isCancelled, self?.hotRequest?.id == id else { return }
+                guard self?.endpoint == baseline.endpoint else { break }
+                if let current, baseline.isolates.allSatisfy({ view, isolate in
+                    current[view].map { $0 != isolate } == true
+                }) {
+                    self?.completeHot(.success(()))
+                    return
+                }
+            }
+            self?.completeHot(.failure(unconfirmed))
         }
     }
 
@@ -490,38 +561,62 @@ private final class VMServiceProbe {
     }
 
     func verify() async -> Bool {
+        await request("getVersion") { result -> Bool? in
+            guard result["type"] as? String == "Version", let major = result["major"] as? Int,
+                  major > 0, result["minor"] is Int else { return nil }
+            return true
+        } ?? false
+    }
+
+    func viewIsolates() async -> [String: String]? {
+        await request("_flutter.listViews") { result in
+            guard result["type"] as? String == "FlutterViewList",
+                  let views = result["views"] as? [[String: Any]] else { return nil }
+            var isolates: [String: String] = [:]
+            for view in views {
+                guard let viewID = view["id"] as? String, !viewID.isEmpty,
+                      let isolate = view["isolate"] as? [String: Any],
+                      let isolateID = isolate["id"] as? String, !isolateID.isEmpty else { continue }
+                isolates[viewID] = isolateID
+            }
+            return isolates
+        }
+    }
+
+    private func request<Value: Sendable>(_ method: String,
+                                          decode: @escaping @Sendable ([String: Any]) -> Value?) async -> Value? {
+        guard !Task.isCancelled else { return nil }
         let socket = connection()
         nextID += 1
-        let id = "runlet-vm-version-\(nextID)"
-        let ready = await withTaskCancellationHandler {
-            await withTaskGroup(of: Bool.self) { group in
+        let id = "runlet-vm-\(nextID)"
+        let value = await withTaskCancellationHandler {
+            await withTaskGroup(of: Value?.self) { group in
                 group.addTask {
                     do {
-                        try await socket.send(.string(#"{"jsonrpc":"2.0","id":"\#(id)","method":"getVersion","params":{}}"#))
+                        try await socket.send(.string(#"{"jsonrpc":"2.0","id":"\#(id)","method":"\#(method)","params":{}}"#))
                         let message = try await socket.receive()
                         guard case .string(let response) = message,
                               let envelope = try? JSONSerialization.jsonObject(with: Data(response.utf8)) as? [String: Any],
                               envelope["jsonrpc"] as? String == "2.0",
                               envelope["id"] as? String == id, envelope["error"] == nil,
-                              let result = envelope["result"] as? [String: Any], result["type"] as? String == "Version",
-                              let major = result["major"] as? Int, major > 0, result["minor"] is Int else { return false }
-                        return true
-                    } catch { return false }
+                              let result = envelope["result"] as? [String: Any] else { return nil }
+                        return decode(result)
+                    } catch { return nil }
                 }
                 group.addTask {
                     try? await Task.sleep(for: .seconds(3))
-                    return false
+                    return nil
                 }
-                let result = await group.next() ?? false
-                if !result { socket.cancel(with: .normalClosure, reason: nil) }
+                let result = await group.next() ?? nil
+                if result == nil { socket.cancel(with: .normalClosure, reason: nil) }
                 group.cancelAll()
                 return result
             }
         } onCancel: {
             socket.cancel(with: .normalClosure, reason: nil)
         }
-        if !ready { self.socket = nil }
-        return ready
+        if value == nil { self.socket = nil }
+        return value
     }
 
     static func listenForToolEvents(at url: URL, receive: ([String: Any]) -> Void) async throws {
