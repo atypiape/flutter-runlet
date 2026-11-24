@@ -580,10 +580,25 @@ final class FlutterDebugSessionTests: XCTestCase {
                 $0 = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
             }
             try reply(fixture, to: next.id, number: 2, code: 0)
-            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "已热重启" }
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            let menuStatus = SessionStatusLabel(session: session, hasDemo: false, showsHotRestart: true)
+            try await eventually { self.chinese.appString(mainWindow.statusMessage) == "已热重启" }
+            XCTAssertEqual(menuStatus.hotRestartTitle.map { chinese.appString($0) }, "已热重启")
+            XCTAssertEqual(menuStatus.hotRestartTitle.map { Locale(identifier: "en").appString($0) }, "Hot Restart Completed")
+            XCTAssertNil(session.feedback)
             XCTAssertTrue(session.canHotOperate)
+
+            XCTAssertTrue(session.performDebugAction(.reload))
+            XCTAssertNil(menuStatus.hotRestartTitle)
+            XCTAssertEqual(mainWindow.statusMessage, SessionStatus.running.title)
+            try await fixture.waitFor("command-3")
+            let reload = try request(fixture, number: 3)
+            try reply(fixture, to: reload.id, number: 3, code: 0)
+            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "已热重载" }
+
             XCTAssertTrue(session.performDebugAction(.stop))
             await session.waitUntilIdle()
+            XCTAssertNil(menuStatus.hotRestartTitle)
         } catch {
             session.stop()
             await session.waitUntilIdle()

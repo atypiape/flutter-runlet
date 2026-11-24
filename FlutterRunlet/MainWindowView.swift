@@ -119,7 +119,7 @@ struct MainWindowView: View {
         }
         if session.status.showsLaunchProgress || session.status == .running ||
             session.status == .connectionInterrupted || session.status == .stopping {
-            return session.debugStatusMessage ?? session.status.title
+            return session.debugStatusMessage ?? session.hotRestartStatusMessage ?? session.status.title
         }
         if let failure = session.recoveryFailure { return failure.message }
         if let issue = session.displayMessage, issue != LocalizedStringResource("Select a debug device") {
@@ -846,9 +846,15 @@ struct SessionStatusLabel: View {
 
     let session: SessionController?
     let hasDemo: Bool
+    var showsHotRestart = false
+
+    private var status: SessionStatus { session?.status ?? (hasDemo ? .ready : .idle) }
+
+    var hotRestartTitle: LocalizedStringResource? {
+        showsHotRestart && status == .running ? session?.hotRestartStatusMessage : nil
+    }
 
     var body: some View {
-        let status = session?.status ?? (hasDemo ? .ready : .idle)
         let palette = RunletAppearance(scheme)
         let colors: (foreground: Color, surface: Color) = switch status {
         case .running: (palette.success, palette.successSurface)
@@ -858,7 +864,7 @@ struct SessionStatusLabel: View {
         }
         HStack(spacing: 6) {
             Circle().fill(colors.foreground).frame(width: 6, height: 6).accessibilityHidden(true)
-            Text(shortTitle(status)).font(RunletType.localized(locale, size: 11, medium: true))
+            Text(hotRestartTitle ?? shortTitle(status)).font(RunletType.localized(locale, size: 11, medium: true))
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -867,9 +873,9 @@ struct SessionStatusLabel: View {
         .frame(height: 22)
         .background(colors.surface, in: Capsule())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(status.title))
+        .accessibilityLabel(Text(hotRestartTitle ?? status.title))
         .accessibilityValue(Text(session?.recoveryMessage.map { locale.appString($0) } ?? ""))
-        .help(Text(session?.recoveryMessage ?? status.title))
+        .help(Text(session?.recoveryMessage ?? hotRestartTitle ?? status.title))
     }
 
     private func shortTitle(_ status: SessionStatus) -> LocalizedStringResource {

@@ -22,7 +22,7 @@ struct MenuBarPanelView: View {
                 SessionBrand()
                 Spacer(minLength: 4)
                 if let session { RecoveryRetryButton(session: session) }
-                SessionStatusLabel(session: session, hasDemo: presentation.selection != nil)
+                SessionStatusLabel(session: session, hasDemo: presentation.selection != nil, showsHotRestart: true)
                 SessionSettingsButton(open: openSettings)
             }
             .padding(.horizontal, 15)
