@@ -7,6 +7,7 @@ import os
 struct SessionFeedback {
     let title: LocalizedStringResource
     let detail: LocalizedStringResource?
+    var clearsOnDevToolsOpen = false
 }
 
 enum SessionStatus {
@@ -406,12 +407,12 @@ final class SessionController {
     @ObservationIgnored private let verifyVM: FlutterDebugSession.Verification?
     @ObservationIgnored private let debugTiming: FlutterDebugTiming
     @ObservationIgnored private let openURL: (URL) -> Bool
-    @ObservationIgnored private let focusInspector: @MainActor (URL) async -> Bool
+    @ObservationIgnored private let focusBrowserTab: @MainActor (URL) async -> Bool
     @ObservationIgnored private let logBoundary = OSAllocatedUnfairLock(initialState: UInt64(0))
     @ObservationIgnored private let environment: [String: String]
     @ObservationIgnored private var active: SessionProcess?
     @ObservationIgnored private var debug: FlutterDebugSession?
-    @ObservationIgnored private var inspectorFocusTask: Task<Void, Never>?
+    @ObservationIgnored private var browserFocusTasks: [URL: Task<Void, Never>] = [:]
     @ObservationIgnored private var debugLease: ProjectLease?
     @ObservationIgnored private var standaloneServer: StandaloneServer?
     @ObservationIgnored private var standaloneStartupTimeout: Task<Void, Never>?
@@ -459,11 +460,11 @@ final class SessionController {
         verifyVM: FlutterDebugSession.Verification? = nil,
         debugTiming: FlutterDebugTiming = .continuous,
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        focusInspector: @escaping @MainActor (URL) async -> Bool = { _ in false }
+        focusBrowserTab: @escaping @MainActor (URL) async -> Bool = { _ in false }
     ) {
         self.init(store: store, runner: runner, allowedRoot: nil, environment: environment,
                   preferences: preferences, toolchain: toolchain, verifyVM: verifyVM,
-                  debugTiming: debugTiming, openURL: openURL, focusInspector: focusInspector, debugCommand: nil)
+                  debugTiming: debugTiming, openURL: openURL, focusBrowserTab: focusBrowserTab, debugCommand: nil)
     }
 
     private init(
@@ -472,7 +473,7 @@ final class SessionController {
         verifyVM: FlutterDebugSession.Verification? = nil,
         debugTiming: FlutterDebugTiming = .continuous,
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        focusInspector: @escaping @MainActor (URL) async -> Bool = InspectorBrowserTabs.focus,
+        focusBrowserTab: @escaping @MainActor (URL) async -> Bool = DevToolsBrowserTabs.focus,
         debugCommand: ((PreparedLaunch) -> SessionCommand?)?, deferStartup: Bool = false
     ) {
         self.store = store
@@ -485,7 +486,7 @@ final class SessionController {
         self.verifyVM = verifyVM
         self.debugTiming = debugTiming
         self.openURL = openURL
-        self.focusInspector = focusInspector
+        self.focusBrowserTab = focusBrowserTab
         self.environment = environment
         self.preferences = preferences
         rememberRecentProject = true
@@ -1371,8 +1372,7 @@ final class SessionController {
         }
         vmWaitTimeout?.cancel()
         deviceMonitor?.cancel()
-        inspectorFocusTask?.cancel()
-        inspectorFocusTask = nil
+        cancelBrowserFocus()
         standaloneStartupTimeout?.cancel()
         standaloneStartupTimeout = nil
         standaloneServer?.process.stop()
@@ -1502,7 +1502,8 @@ final class SessionController {
                 self.presentBrowser(page, destination: destination)
             } else {
                 self.feedback = SessionFeedback(title: "Standalone DevTools is ready",
-                                                detail: "Open Inspector or DevTools again after the debug session reconnects.")
+                                                detail: "Open Inspector or DevTools again after the debug session reconnects.",
+                                                clearsOnDevToolsOpen: true)
             }
         }
         let command = SessionCommand(executable: sdk.dart.path,
@@ -1513,7 +1514,7 @@ final class SessionController {
                 lines.receive(data, isError: isError, generation: generation)
             })
             standaloneServer = StandaloneServer(id: id, process: process, version: sdk.version, pendingPage: page)
-            feedback = SessionFeedback(title: "Starting standalone DevTools…", detail: nil)
+            feedback = SessionFeedback(title: "Starting standalone DevTools…", detail: nil, clearsOnDevToolsOpen: true)
             standaloneStartupTimeout = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(15)) }
                 catch { return }
@@ -1529,9 +1530,8 @@ final class SessionController {
                 self.standaloneStartupTimeout?.cancel()
                 self.standaloneStartupTimeout = nil
                 self.standaloneServer = nil
-                self.inspectorFocusTask?.cancel()
-                self.inspectorFocusTask = nil
-                debug?.openedInspector = nil
+                self.cancelBrowserFocus()
+                debug?.openedBrowserURLs.removeAll()
                 if result.exit == .unconfirmed {
                     self.executionIsUnconfirmed = true
                     self.blockedLease = lease
@@ -1541,7 +1541,8 @@ final class SessionController {
                         self.showStandaloneDevToolsFailure()
                     } else if server.address != nil {
                         self.feedback = SessionFeedback(title: "Standalone DevTools stopped",
-                                                        detail: "Open Inspector or DevTools to start it again.")
+                                                        detail: "Open Inspector or DevTools to start it again.",
+                                                        clearsOnDevToolsOpen: true)
                     }
                 }
             }
@@ -1552,19 +1553,25 @@ final class SessionController {
 
     private func showStandaloneDevToolsFailure() {
         feedback = SessionFeedback(title: "Could not start standalone DevTools",
-                                   detail: "Check the Dart SDK in DevTools settings and try again.")
+                                   detail: "Check the Dart SDK in DevTools settings and try again.",
+                                   clearsOnDevToolsOpen: true)
+    }
+
+    private func cancelBrowserFocus() {
+        for task in browserFocusTasks.values { task.cancel() }
+        browserFocusTasks.removeAll()
     }
 
     private func presentBrowser(_ page: FlutterBrowserPage, destination: (url: URL, inspectorFallback: Bool)) {
-        let canReuse = page == .inspector && !destination.inspectorFallback
-        if canReuse, let debug, debug.openedInspector == destination.url {
-            guard inspectorFocusTask == nil else { return }
-            inspectorFocusTask = Task { [weak self, weak debug, focusInspector] in
-                let reused = await focusInspector(destination.url)
+        let url = destination.url
+        if let debug, debug.openedBrowserURLs.contains(url) {
+            guard browserFocusTasks[url] == nil else { return }
+            browserFocusTasks[url] = Task { [weak self, weak debug, focusBrowserTab] in
+                let reused = await focusBrowserTab(url)
                 guard let self, !Task.isCancelled else { return }
-                self.inspectorFocusTask = nil
+                self.browserFocusTasks[url] = nil
                 guard let debug, self.debug === debug, self.canOpenBrowser,
-                      debug.openedInspector == destination.url else { return }
+                      debug.openedBrowserURLs.contains(url) else { return }
                 self.finishPresentingBrowser(page, destination: destination, reused: reused)
             }
         } else {
@@ -1574,14 +1581,19 @@ final class SessionController {
 
     private func finishPresentingBrowser(_ page: FlutterBrowserPage,
                                          destination: (url: URL, inspectorFallback: Bool), reused: Bool) {
-        if !reused && !openURL(destination.url) {
+        guard reused || openURL(destination.url) else {
             feedback = SessionFeedback(title: "Could not open \(page.title)",
-                                       detail: "The system could not open this address. Check the default browser and current connection, then try again.")
-        } else if destination.inspectorFallback {
+                                       detail: "The system could not open this address. Check the default browser and current connection, then try again.",
+                                       clearsOnDevToolsOpen: page == .devTools)
+            return
+        }
+        debug?.openedBrowserURLs.insert(destination.url)
+        if destination.inspectorFallback {
             feedback = SessionFeedback(title: "Opened DevTools for the current session. Select Inspector.", detail: nil)
-        } else {
-            if page == .inspector { debug?.openedInspector = destination.url }
+        } else if page == .inspector {
             feedback = SessionFeedback(title: "Opened \(page.title)", detail: nil)
+        } else if feedback?.clearsOnDevToolsOpen == true {
+            feedback = nil
         }
     }
 
@@ -1673,6 +1685,7 @@ final class SessionController {
                         self.status = .running
                         self.debugStatusMessage = nil
                     } else {
+                        self.cancelBrowserFocus()
                         self.status = .connectionInterrupted
                         self.debugStatusMessage = "The VM Service connection was interrupted. Reconnecting. You can stop the current session."
                     }
@@ -1776,8 +1789,7 @@ final class SessionController {
             flushLogs()
             flutter?.finish()
             if flutter != nil {
-                inspectorFocusTask?.cancel()
-                inspectorFocusTask = nil
+                cancelBrowserFocus()
                 debug = nil
                 debugLease = nil
                 hasCurrentDevToolsAddress = false

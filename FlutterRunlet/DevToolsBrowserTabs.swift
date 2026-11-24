@@ -4,8 +4,8 @@ import Foundation
 import OSLog
 
 @MainActor
-enum InspectorBrowserTabs {
-    private static let logger = Logger(subsystem: "com.atypiape.FlutterRunlet", category: "InspectorBrowser")
+enum DevToolsBrowserTabs {
+    private static let logger = Logger(subsystem: "com.atypiape.FlutterRunlet", category: "DevToolsBrowser")
     private enum Browser: String {
         case edge = "com.microsoft.edgemac"
         case chrome = "com.google.Chrome"
@@ -19,26 +19,35 @@ enum InspectorBrowserTabs {
         }
     }
 
-    static func matches(_ candidate: URL, inspector: URL) -> Bool {
+    static func matches(_ candidate: URL, destination: URL) -> Bool {
         guard let current = URLComponents(url: candidate, resolvingAgainstBaseURL: false),
-              let expected = URLComponents(url: inspector, resolvingAgainstBaseURL: false),
+              let expected = URLComponents(url: destination, resolvingAgainstBaseURL: false),
               current.scheme == expected.scheme,
               current.host == expected.host, current.port == expected.port,
-              current.path == expected.path,
+              matchesPath(current.path, destination: expected.path),
               current.user == nil, current.password == nil else { return false }
         let session = expected.queryItems?.filter { $0.name == "uri" }
         return session?.count == 1 && session?.first?.value != nil &&
             current.queryItems?.filter { $0.name == "uri" } == session
     }
 
-    static func focus(_ inspector: URL) async -> Bool {
-        guard let application = NSWorkspace.shared.urlForApplication(toOpen: inspector),
+    private static func matchesPath(_ current: String, destination: String) -> Bool {
+        if current == destination || current == destination + "/" || destination == current + "/" {
+            return true
+        }
+        // A DevTools root can redirect to an active page and keeps the same VM Service query.
+        let root = destination.hasSuffix("/") ? destination : destination + "/"
+        return (root == "/" || root.hasSuffix("/devtools/")) && current.hasPrefix(root)
+    }
+
+    static func focus(_ destination: URL) async -> Bool {
+        guard let application = NSWorkspace.shared.urlForApplication(toOpen: destination),
               let bundleID = Bundle(url: application)?.bundleIdentifier,
               let browser = Browser(rawValue: bundleID),
               !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty,
-              let scheme = inspector.scheme, ["http", "https"].contains(scheme),
-              let host = inspector.host, ["127.0.0.1", "localhost", "::1", "[::1]"].contains(host),
-              let port = inspector.port else {
+              let scheme = destination.scheme, ["http", "https"].contains(scheme),
+              let host = destination.host, ["127.0.0.1", "localhost", "::1", "[::1]"].contains(host),
+              let port = destination.port else {
             logger.debug("No running scriptable default browser")
             return false
         }
@@ -75,7 +84,7 @@ enum InspectorBrowserTabs {
         for index in 1..<candidates.numberOfItems + 1 {
             guard let tab = candidates.atIndex(index),
                   let rawURL = tab.atIndex(3)?.stringValue, let url = URL(string: rawURL),
-                  matches(url, inspector: inspector) else { continue }
+                  matches(url, destination: destination) else { continue }
             let windowID = tab.atIndex(1)?.int32Value ?? 0
             let tabIndex = tab.atIndex(2)?.int32Value ?? 0
             guard windowID > 0, tabIndex > 0 else { continue }

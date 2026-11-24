@@ -191,7 +191,7 @@ final class FlutterDebugSession {
     private(set) var hasVerifiedVM = false
     private var connected = false
     private var stopped = false
-    var openedInspector: URL?
+    var openedBrowserURLs: Set<URL> = []
     var hasActiveVMService: Bool { connected && !stopped && endpoint != nil }
 
     init(deviceID: String, verifyVM: Verification?, timing: FlutterDebugTiming, sdk: FlutterSDK?,
@@ -266,7 +266,7 @@ final class FlutterDebugSession {
         hotTimeout = nil
         endpoint = nil
         reportedDevTools = nil
-        openedInspector = nil
+        openedBrowserURLs.removeAll()
         setConnected(false)
     }
 
@@ -327,7 +327,7 @@ final class FlutterDebugSession {
                   let url = Self.localEndpoint(address, schemes: ["ws", "wss"]), url != endpoint else { return }
             probe?.cancel()
             endpoint = url
-            openedInspector = nil
+            openedBrowserURLs.removeAll()
             setConnected(false)
             probe = Task { [weak self, verifyVM, timing] in
                 let service = VMServiceProbe(url: url)
