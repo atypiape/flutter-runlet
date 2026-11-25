@@ -36,7 +36,7 @@
 
 ## 发布授权和 AI
 
-仓库所有者在发布 PR 合入前完成 [公开脱敏审计](PUBLIC-RELEASE-AUDIT.md)，并按 [Release 模板](RELEASE-TEMPLATE.md)留下授权评论。评论绑定 PR 源提交、目标提交和发布方式。发布脚本核对评论作者和时间，拒绝合入后的补签或审批后发生变动的提交。通过授权检查后无需 Actions 部署审批。
+仓库所有者在完成 [公开脱敏审计](PUBLIC-RELEASE-AUDIT.md)后，亲自在 GitHub 合入发布 PR。工作流核对 GitHub 记录的合并账号、对应 PR 和实际合并提交。手动指定版本时，该 PR 须新增恰好一份与版本号对应的双语说明；有指定版本的 PR 走手动发布。
 
 版本计算作业使用只读仓库权限。缺少双语说明时，通过 GitHub Actions 的 `GITHUB_TOKEN` 调用 Copilot CLI，需仓库所有者可用的 Copilot 权益。模型只接收公开 PR 文本，无仓库写权限。发布作业单独拥有 `contents: write`，不调用 AI。
 
@@ -48,7 +48,7 @@
 
 按 [PR 模板](../.github/pull_request_template.md)填写发布类型。若本批含 `minor`，升次版本并将补丁位归零。只有 `patch` 时升补丁版本，`none` 不计入。同批只有 `none` 时跳过。缺少中文或英文说明时用 Copilot 补齐。PR 无法关联、缺少发布类型或标为 `manual` 时，日志指出原因并停止自动处理。
 
-对合入前已授权的应用改动，工作流确认同一 `main` 提交的推送 CI 已通过 XCTest、DMG 构建校验和上传，再构建候选。公开 Prerelease 前再次核对当前 `main` 提交、完整 CI、授权和产物校验值。已有 Tag 或 Release 时停止。需要指定版本时仍可手动触发。
+对仓库所有者合入的应用改动，工作流确认同一 `main` 提交的推送 CI 已通过 XCTest、DMG 构建校验和上传，再构建候选。公开 Prerelease 前再次核对当前 `main` 提交、完整 CI、授权和产物校验值。已有 Tag 或 Release 时停止。需要指定版本时仍可手动触发。
 
 | 现象 | 检查项 |
 |---|---|
@@ -63,7 +63,7 @@
 | Xcode 路径不存在 | 查看运行的 Runner 镜像说明；核实替代版本后同步修改两个工作流，再运行 CI |
 | 找不到 Run workflow | 确认 `release.yml` 已合入默认分支，且触发人有仓库写权限 |
 | 候选未生成 | 查看 Plan prerelease。自已发布版本起无可发布应用改动时会跳过。应用改动缺少发布类型或 Copilot 补写失败时，修正源 PR 信息后重跑 `main` CI |
-| 发布未执行或失败 | 核对发布 PR 的所有者授权记录、源和目标提交。缺少合入前授权时，须走新的发布 PR。手动运行还需勾选 `publish`，且版本与授权一致 |
+| 发布未执行或失败 | 核对发布 PR 的合并账号和实际合并提交。手动运行时勾选 `publish`，版本须与该 PR 新增的双语说明一致 |
 | 打包完成后发布失败 | 仍可下载原 Artifact。若已创建 Tag 或草稿，先检查状态；工作流不会覆盖或删除既有引用和资产 |
 
 Artifact 和日志受仓库可见性约束；公开仓库的候选和日志不能存放私有资料。详见 GitHub 的[工作流触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)和 [Copilot CLI 用法](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli-in-actions)。
