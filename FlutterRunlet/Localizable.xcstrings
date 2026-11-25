@@ -209,6 +209,22 @@
         }
       }
     },
+    "%@. To stop and start the debug session again, choose Run and confirm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@. To stop and start the debug session again, choose Run and confirm."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@。如需停止并重新启动调试会话，请选择「运行」并确认。"
+          }
+        }
+      }
+    },
     "--machine or --no-resident in toolArgs conflicts with the managed Debug session": {
       "localizations": {
         "en": {
@@ -1565,6 +1581,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法确认设备标识"
+          }
+        }
+      }
+    },
+    "Could not verify that the Flutter app restarted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not verify that the Flutter app restarted"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法确认 Flutter 应用已重启"
           }
         }
       }
