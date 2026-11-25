@@ -1,5 +1,12 @@
 # FlutterRunlet 版本说明
 
+## v0.4.2 · DevTools 标签与热重启
+
+- 再次打开当前调试会话的 DevTools 时，优先切回已打开的浏览器标签页。
+- 核实 Flutter 热重启是否完成，并在状态栏显示成功结果。无法确认时，提示原因和重新启动调试会话的方式。
+
+Universal DMG 支持 Apple Silicon 和 Intel，最低部署目标为 macOS 15.0。预发布包使用临时签名，未经 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.4.2)
+
 ## v0.4.1 · 手动更新提示
 
 - 检测到新版发布尚未锁定时，引导用户手动下载安装，并高亮「查看发布页」。
