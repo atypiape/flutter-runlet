@@ -188,12 +188,15 @@ final class SessionController {
         canStop && vmConnected && !isHotOperationPending && debug?.supportsRestart == true
     }
     var usesFlutterToolchain: Bool { toolchain != nil }
+    private var canAccessFlutterSDK: Bool {
+        toolchain != nil && !executionIsUnconfirmed && recovery == nil && recoveryStoreIssue == nil && !isCheckingSDKSelection
+    }
     var canEditFlutterSDK: Bool {
-        toolchain != nil && !isBusy && !executionIsUnconfirmed && recovery == nil && recoveryStoreIssue == nil &&
-            !isCheckingSDKSelection
+        canAccessFlutterSDK && !isBusy
     }
     var canCheckEnvironment: Bool {
-        canEditFlutterSDK && sdk != nil && !isCheckingSDK && !isCheckingEnvironment && !isFinishingTermination && !updateReserved
+        canAccessFlutterSDK && (!isBusy || status.showsLaunchProgress) && sdk != nil && !isCheckingSDK &&
+            !isCheckingEnvironment && !isFinishingTermination && !updateReserved
     }
     var hasPendingEnvironmentChecks: Bool { !doctorTasks.isEmpty }
     var canRefreshDevices: Bool {

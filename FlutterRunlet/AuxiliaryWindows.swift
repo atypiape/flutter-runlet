@@ -290,7 +290,7 @@ struct SettingsView: View {
                 AboutBrandGlyph(size: 28.35)
                 AboutIdentity(updates: updates, inSettings: true)
                 Spacer(minLength: 0)
-                UpdateButton(updates: updates, backdrop: palette.field)
+                UpdateButton(updates: updates)
             }
             .padding(.horizontal, 12)
             .frame(height: 65)
@@ -779,7 +779,7 @@ struct AboutView: View {
                     }
 
                     VStack(spacing: 7) {
-                        UpdateButton(updates: updates, backdrop: palette.window)
+                        UpdateButton(updates: updates)
                         UpdateFeedback(updates: updates, inSettings: false)
                     }
 
@@ -911,13 +911,10 @@ private extension AboutInformation.Destination {
 private struct UpdateButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let updates: UpdatePresentationSource
-    let backdrop: Color
 
     var body: some View {
         let presentation = updates.presentation
-        let isSpinning = presentation.status == .checking || presentation.status == .updating
-        AuxiliaryActionButton(emphasized: true, preservesDisabledSurface: true,
-                              action: { updates.perform(.primary) }) {
+        AuxiliaryActionButton(emphasized: true, action: { updates.perform(.primary) }) {
             HStack(spacing: 5) {
                 switch presentation.status {
                 case .available, .ready, .waiting: RunletIcon("UpdateDownload", size: 15)
@@ -928,7 +925,6 @@ private struct UpdateButton: View {
                     .lineLimit(1)
             }
         }
-        .modifier(UpdateButtonOpacity(isSpinning: isSpinning, backdrop: backdrop))
         .disabled(!presentation.canPerformPrimary)
         .accessibilityIdentifier("update-primary")
         .accessibilityLabel(Text(presentation.primaryTitle))
@@ -945,24 +941,6 @@ private struct UpdateButton: View {
         } else {
             RunletIcon("UpdateSpinner", size: 15)
                 .rotationEffect(.degrees(reduceMotion && rotation.isAnimated ? 0 : rotation.degrees(at: .now)))
-        }
-    }
-}
-
-private struct UpdateButtonOpacity: ViewModifier {
-    let isSpinning: Bool
-    let backdrop: Color
-
-    func body(content: Content) -> some View {
-        if isSpinning {
-            // Match the approved sRGB blend before the window converts to the display profile.
-            content
-                .compositingGroup()
-                .opacity(0.72)
-                .background(backdrop)
-                .drawingGroup(opaque: true, colorMode: .nonLinear)
-        } else {
-            content
         }
     }
 }
@@ -1180,7 +1158,6 @@ struct AuxiliaryWindowLayout<Content: View>: View {
 private struct AuxiliaryActionButton<Label: View>: View {
     @Environment(\.locale) private var locale
     var emphasized = false
-    var preservesDisabledSurface = false
     let action: () -> Void
     @ViewBuilder let label: () -> Label
 
@@ -1192,8 +1169,7 @@ private struct AuxiliaryActionButton<Label: View>: View {
                 .frame(height: 24)
                 .fixedSize(horizontal: true, vertical: false)
         }
-        .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, radius: 6,
-                                           preservesDisabledSurface: preservesDisabledSurface))
+        .buttonStyle(AuxiliaryButtonStyle(surface: emphasized ? .accent : .raised, radius: 6))
     }
 }
 
@@ -1205,7 +1181,7 @@ struct AuxiliaryButtonStyle: ButtonStyle {
 
     var surface: Surface = .raised
     var radius: CGFloat = 5
-    var preservesDisabledSurface = false
+    var preservesDisabledAppearance = false
     var outlined = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -1223,13 +1199,17 @@ struct AuxiliaryButtonStyle: ButtonStyle {
         case .link: palette.border
         default: outlined ? palette.divider : .clear
         }
-        let visuallyEnabled = enabled || preservesDisabledSurface
+        let visuallyEnabled = enabled || preservesDisabledAppearance
+        let usesDisabledAccent = !enabled && surface == .accent
+        let background = usesDisabledAccent ? palette.disabledControl : (visuallyEnabled ? fill : palette.disabled)
+        let foreground = visuallyEnabled ? (surface == .accent ? palette.onAccent : palette.primary)
+            : (usesDisabledAccent ? palette.primary : palette.disabledText)
         configuration.label
-            .foregroundStyle(visuallyEnabled ? (surface == .accent ? palette.onAccent : palette.primary) : palette.disabledText)
+            .foregroundStyle(foreground)
             .contentShape(Rectangle())
-            .background(configuration.isPressed ? fill.opacity(0.75) : (visuallyEnabled ? fill : palette.disabled), in: shape)
+            .background(configuration.isPressed ? fill.opacity(0.75) : background, in: shape)
             .overlay { shape.strokeBorder(stroke).allowsHitTesting(false) }
-            .opacity(visuallyEnabled ? 1 : 0.7)
+            .opacity(visuallyEnabled || usesDisabledAccent ? 1 : 0.7)
             .interactivePointer()
     }
 }
@@ -1240,6 +1220,8 @@ private struct AuxiliarySwitchStyle: ToggleStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let palette = RunletAppearance(scheme)
+        let offTrack = Color(.sRGB, red: 97/255, green: 102/255, blue: 115/255)
+        let track = enabled ? (configuration.isOn ? palette.accent : offTrack) : palette.disabledControl
         return Button {
             configuration.isOn.toggle()
         } label: {
@@ -1247,17 +1229,16 @@ private struct AuxiliarySwitchStyle: ToggleStyle {
                 configuration.label
                 Spacer(minLength: 0)
                 Capsule()
-                    .fill(configuration.isOn ? palette.accent : Color(.sRGB, red: 97/255, green: 102/255, blue: 115/255))
+                    .fill(track)
                     .frame(width: 32, height: 18)
                     .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                        Circle().fill(.white)
+                        Circle().fill(.white.opacity(enabled ? 1 : 0.55))
                             .frame(width: 12, height: 12)
                             .padding(.horizontal, 3)
                     }
-                    .opacity(enabled ? 1 : 0.55)
             }
         }
-        .buttonStyle(AuxiliaryButtonStyle(surface: .clear))
+        .buttonStyle(AuxiliaryButtonStyle(surface: .clear, preservesDisabledAppearance: true))
         .accessibilityRepresentation {
             Toggle(isOn: configuration.$isOn) { configuration.label }
                 .toggleStyle(.switch)
