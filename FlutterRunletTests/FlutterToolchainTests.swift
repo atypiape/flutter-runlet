@@ -195,6 +195,68 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(session.doctorResult?.stdout, session.sdk?.executable.path.appending("\n"))
     }
 
+    func testDoctorCanRunDuringStartupWhileSDKSettingsRemainLocked() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let executable = try makeSDK(fixture.base.appending(path: "Diagnostic SDK"), version: "3.43.0")
+        let started = fixture.state("doctor-started")
+        let finish = fixture.state("doctor-finish")
+        try """
+        #!/bin/sh
+        printf '%s\n' "$*" >> "\(started.path)"
+        while [ ! -f "\(finish.path)" ]; do /bin/sleep 0.02; done
+        printf '[✓] Flutter (startup diagnosis)\n'
+        """.write(to: executable, atomically: false, encoding: .utf8)
+        let sdk = FlutterSDK(executable: executable, flutterVersion: "3.43.0", dartVersion: "3.12.0")
+        let device = FlutterDevice(id: "ios-fixture", name: "Sample iPhone", platform: "ios", isSimulator: true)
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        var holdDiscovery = false
+        var discovery: CheckedContinuation<Void, Never>?
+        let session = SessionController(store: store, runner: .bundled, environment: fixture.environment,
+                                        toolchain: FlutterToolchain(resolve: { _, _, _ in sdk }, discover: { _, _ in
+            if holdDiscovery { await withCheckedContinuation { discovery = $0 } }
+            return [device]
+        }))
+        try fixture.select("test", in: session)
+        try await eventually { session.canRun }
+        let prefersFVM = session.preferProjectFVM
+        holdDiscovery = true
+        session.run()
+        do {
+            try await eventually { discovery != nil }
+            XCTAssertEqual(session.status, .checkingToolchain)
+            XCTAssertFalse(session.canEditFlutterSDK)
+            session.setPreferProjectFVM(!prefersFVM)
+            XCTAssertEqual(session.preferProjectFVM, prefersFVM)
+            XCTAssertTrue(session.canCheckEnvironment)
+
+            session.checkEnvironment()
+            try await fixture.waitFor("doctor-started")
+            XCTAssertFalse(session.canCheckEnvironment)
+            session.checkEnvironment()
+            try Data().write(to: finish)
+            try await eventually { session.doctorResult != nil }
+            XCTAssertNil(session.doctorResult?.failure)
+            XCTAssertEqual(session.doctorResult?.stdout, "[✓] Flutter (startup diagnosis)\n")
+            XCTAssertEqual(try String(contentsOf: started, encoding: .utf8), "--no-version-check doctor -v\n")
+            XCTAssertEqual(session.status, .checkingToolchain)
+            XCTAssertTrue(session.canCheckEnvironment)
+
+            session.stop()
+            XCTAssertFalse(session.canCheckEnvironment)
+            discovery?.resume()
+            discovery = nil
+            await session.waitUntilIdle()
+            XCTAssertTrue(session.canCheckEnvironment)
+        } catch {
+            session.stop()
+            discovery?.resume()
+            discovery = nil
+            _ = await session.finishForTermination()
+            throw error
+        }
+    }
+
     func testTerminationWaitsForCurrentAndCancelledDoctorCleanup() async throws {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
