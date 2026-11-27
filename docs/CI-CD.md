@@ -42,7 +42,7 @@
 
 ## 运行与排查
 
-[macOS Prerelease](../.github/workflows/release.yml) 监听同仓库 `main` 的 push CI，CI 成功后仅在运行引用为 `main` 时规划候选。GitHub 为 [`workflow_run`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) 使用默认分支；默认分支为 `dev` 时，自动入口会跳过，可在 `main` 手动运行候选构建。
+[macOS Prerelease](../.github/workflows/release.yml) 监听同仓库 `main` 的推送 CI。GitHub 在默认分支 `main` 上运行 [`workflow_run`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)。CI 成功且验证的提交仍是 `main` 的最新提交时，工作流开始规划候选。也可在 `main` 手动运行候选构建。
 
 候选以版本号最高的已公开发行标签为基准（含 Prerelease），要求该标签在本次提交的历史中。若应用、Xcode 工程、会话 worker、更新助手和随包分发的菜单栏图标均无净改动，跳过候选。若有待发布的应用改动，工作流从该标签到当前提交汇总源 PR，包括经 Merge Commit 合入 `main` 的 `dev` Squash 提交。
 
