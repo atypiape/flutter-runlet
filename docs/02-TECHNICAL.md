@@ -124,10 +124,12 @@ stateDiagram-v2
 
 ## 5. Flutter SDK / FVM / 设备
 
-SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FVM 配置时，使用该项目的 Flutter SDK；否则按「手动指定 SDK（如选择）」→ 系统 `PATH` 中 Flutter。**显示 SDK 与运行 SDK 必须一致**。
+「SDK 来源」默认选「自动」，应用启动时开始检测。启用「优先使用项目 FVM」且当前项目有 FVM 配置时，验证并使用项目 SDK。未打开项目、项目未配置 FVM 或关闭该选项时，按「SDK 来源」使用手动路径或自动查找 `flutter`。**显示 SDK 与运行 SDK 必须一致**。
 
+- 自动查找先用应用继承的 `PATH`，找不到时再用用户登录 shell 的 `PATH`。查询在项目目录外执行，并排除相对路径和项目内的候选。
+- 解析 `flutter` 的符号链接，并读取 `flutter --version --machine` 返回的 SDK 根目录。验证该目录的 `bin/flutter` 后，用它获取版本、发现设备和启动调试。输出缺少根目录时，按已解析的命令路径确定目录。
 - 项目 `.fvmrc` 与 `.fvm/flutter_sdk` 的存在不等于 SDK 可用；执行 `flutter --version` 验证真实路径，必要时支持 `fvm flutter`。
-- 有明确的项目 SDK 约束但该 SDK 缺失时，应提示并阻止启动，不能静默切换到另一版本。
+- 生效的项目 FVM SDK 或手动指定的 SDK 无法验证时，提示原因并阻止启动。
 - 设备通过 `flutter devices` 获取，名称原样展示。支持 iOS、Android 与 macOS 桌面。设备列表支持刷新，并在列表和选框中显示设备状态。选择可启动的离线 iOS 模拟器或 Android AVD 后，列表关闭，选框显示启动进度。再次打开列表可查看对应设备的进度。Flutter 发现目标设备后将其选中，调试任务仍需手动运行。Android AVD 清单与启动使用同一 Flutter SDK，通过 daemon 的 `emulatorId` 映射在线设备 ID。
 - `sample-flutter-app(physical)` 是**普通命名配置**，由用户实际选择设备；不从字符串推断必须真机。
 
@@ -160,7 +162,7 @@ SDK 解析建议：当「优先使用项目 FVM」启用且项目具有有效 FV
 | 任务 | shell 成功/失败、`${workspaceFolder}`、参数包含空格、任务不存在、不支持任务类型、`preLaunchTask` 失败阻断启动、`postDebugTask` 失败显著提示 |
 | 环境安全 | prod 正常停止恢复、启动中失败、恢复失败重试、重复点击 Run、切换项目、进程/应用异常退出 |
 | 会话 | VM URL 隔离、Hot Reload/Restart、Stop、进程退出、设备离线、日志增长与内存使用 |
-| SDK | PATH、手动 SDK、有效/无效 FVM、展示版本与实际执行版本一致 |
+| SDK | 应用及登录 shell 的 PATH、符号链接和启动脚本、手动 SDK、有效/无效 FVM、展示版本与实际执行版本一致 |
 | UI | 两种语言与跟随系统、菜单栏和主窗口一致、各状态按钮启禁用、DevTools 正确连接 |
 
 ## 9. 外部权威参考

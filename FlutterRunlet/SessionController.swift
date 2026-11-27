@@ -525,6 +525,7 @@ final class SessionController {
             _ = loadProject(URL(fileURLWithPath: path, isDirectory: true), remember: false)
         }
         discoverRecovery()
+        if project == nil { checkFlutterSDKIfNeeded() }
     }
 
     static var recoveryNamespace: URL {
@@ -728,6 +729,9 @@ final class SessionController {
                 debugEndReason = nil
             }
             project = canonical
+            discoveryID = nil
+            isCheckingSDK = false
+            isRefreshingDevices = false
             sdk = nil
             sdkIssue = nil
             sdkSelectionID = nil
@@ -1068,6 +1072,7 @@ final class SessionController {
         isCheckingSDK = true
         isRefreshingDevices = project != nil
         Task { [weak self, environment] in
+            guard self?.discoveryID == request, self?.project == project else { return }
             let sdk: FlutterSDK
             do {
                 sdk = try await toolchain.resolve(project, environment, options)
