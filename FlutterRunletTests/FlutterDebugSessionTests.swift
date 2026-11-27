@@ -539,7 +539,20 @@ final class FlutterDebugSessionTests: XCTestCase {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
         let isolates = OSAllocatedUnfairLock(initialState: ["view-1": "isolate-before", "view-2": "other-before"])
-        let service = try await ToolEventServer.start(file: fixture.project) { isolates.withLock { $0 } }
+        let pollsUntilReplacement = OSAllocatedUnfairLock(initialState: 0)
+        let service = try await ToolEventServer.start(file: fixture.project) {
+            let publishesNewIsolates = pollsUntilReplacement.withLock { remaining in
+                guard remaining > 0 else { return false }
+                remaining -= 1
+                return remaining == 0
+            }
+            return isolates.withLock { current in
+                if publishesNewIsolates {
+                    current = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
+                }
+                return current
+            }
+        }
         defer { service.listener.cancel() }
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let ready = Self.machineReady.replacingOccurrences(of: "8181/private=", with: "\(service.port)/private=")
@@ -567,7 +580,9 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(restart.fullRestart, true)
             isolates.withLock { $0["unrelated-view"] = "unrelated-isolate" }
             try reply(fixture, to: restart.id, number: 1, code: 0)
-            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "热重启未完成" }
+            try await eventually(timeout: .seconds(7)) {
+                session.feedback.map { self.chinese.appString($0.title) } == "热重启未完成"
+            }
             let failure = try XCTUnwrap(session.feedback?.detail)
             XCTAssertEqual(chinese.appString(failure), "无法确认 Flutter 应用已重启。如需停止并重新启动调试会话，请选择「运行」并确认。")
             XCTAssertTrue(session.canStop)
@@ -576,13 +591,12 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertTrue(session.performDebugAction(.restart))
             try await fixture.waitFor("command-2")
             let next = try request(fixture, number: 2)
-            isolates.withLock {
-                $0 = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
-            }
+            pollsUntilReplacement.withLock { $0 = 4 }
             try reply(fixture, to: next.id, number: 2, code: 0)
             let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
             let menuStatus = SessionStatusLabel(session: session, hasDemo: false, showsActionStatus: true)
-            try await eventually { self.chinese.appString(mainWindow.statusMessage) == "已热重启" }
+            try await eventually { !session.isHotOperationPending }
+            XCTAssertEqual(chinese.appString(mainWindow.statusMessage), "已热重启")
             XCTAssertEqual(menuStatus.actionStatusTitle.map { chinese.appString($0) }, "已热重启")
             XCTAssertEqual(menuStatus.actionStatusTitle.map { Locale(identifier: "en").appString($0) }, "Hot Restart Completed")
             XCTAssertNil(session.feedback)
@@ -1292,8 +1306,8 @@ final class FlutterDebugSessionTests: XCTestCase {
         return directory
     }
 
-    private func eventually(_ condition: () -> Bool) async throws {
-        let deadline = ContinuousClock.now + .seconds(5)
+    private func eventually(timeout: Duration = .seconds(5), _ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
         while !condition() {
             guard .now < deadline else { throw SessionIssue("等待调试状态超时") }
             try await Task.sleep(for: .milliseconds(20))
