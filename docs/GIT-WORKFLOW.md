@@ -6,9 +6,9 @@
 
 ## 分支与 PR
 
-- `main` 为稳定发布分支，`dev` 为开发集成分支。保护规则缺失时，报告并由仓库管理员补齐。不得以直接 Push 代替 PR 或擅自更改保护规则。
+- `main` 是 GitHub 默认分支和稳定发布分支，`dev` 是开发集成分支。保护规则缺失时，报告并由仓库管理员补齐。不得以直接 Push 代替 PR 或擅自更改保护规则。
 - 日常从 `dev` 创建 `feat/`、`fix/`、`docs/`、`refactor/`、`perf/`、`test/`、`chore/` 工作分支；紧急修复从 `main` 创建 `hotfix/`。`codex/*` 仅限本地。
-- 日常改动以 PR 合入 `dev`。`hotfix/* → main` 合入后须通过 PR 同步回 `dev`，可使用原 `hotfix/*` 分支。
+- 日常改动以 PR 合入 `dev`。创建时在 GitHub 选择 `base: dev`，或使用 `gh pr create --base dev`。`hotfix/* → main` 合入后须通过 PR 同步回 `dev`，可使用原 `hotfix/*` 分支。
 - `main` 只接受同仓库的 `dev` 发布 PR，以及从 `main` 创建的 `hotfix/*` 紧急修复 PR。热修复分支须包含当前 `main` 的顶端提交，且不得带入 `dev` 独有的提交。
 - 每个 PR 聚焦一项逻辑变更，写明内容与验证结果；Commit 和 PR 标题遵循 Conventional Commits，使用简体中文，scope 可选。沿用已配置的 Git 提交身份，并确认邮箱适合公开。
 - Commit 前完成必要本地验证，合并前通过已配置的必需 CI，并解决阻塞项；不得虚报验证结果。

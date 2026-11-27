@@ -3729,18 +3729,34 @@
         }
       }
     },
-    "Opened DevTools for the current session. Select Inspector.": {
+    "DevTools is open for the current session.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opened DevTools for the current session. Select Inspector."
+            "value": "DevTools is open for the current session."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已打开当前会话的 DevTools，请选择 Inspector。"
+            "value": "已打开当前会话的 DevTools。"
+          }
+        }
+      }
+    },
+    "Select Inspector": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Inspector"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择 Inspector"
           }
         }
       }

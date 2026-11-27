@@ -170,18 +170,33 @@ final class SessionController {
     private(set) var standaloneDevToolsVersion: String?
     private(set) var standaloneDevToolsIssue: LocalizedStringResource?
     private(set) var feedback: SessionFeedback?
-    private(set) var hotRestartStatusMessage: LocalizedStringResource?
+    private enum ActionStatus {
+        case hotRestartCompleted
+        case inspector(SessionFeedback)
+    }
+    private var actionStatus: ActionStatus?
+    var runningActionStatus: SessionFeedback? {
+        guard status == .running else { return nil }
+        switch actionStatus {
+        case .hotRestartCompleted: return SessionFeedback(title: "Hot Restart Completed", detail: nil)
+        case .inspector(let feedback): return feedback
+        case nil: return nil
+        }
+    }
     private(set) var isHotOperationPending = false
     var canHotOperate: Bool {
         canStop && vmConnected && !isHotOperationPending && debug?.supportsRestart == true
     }
     var usesFlutterToolchain: Bool { toolchain != nil }
+    private var canAccessFlutterSDK: Bool {
+        toolchain != nil && !executionIsUnconfirmed && recovery == nil && recoveryStoreIssue == nil && !isCheckingSDKSelection
+    }
     var canEditFlutterSDK: Bool {
-        toolchain != nil && !isBusy && !executionIsUnconfirmed && recovery == nil && recoveryStoreIssue == nil &&
-            !isCheckingSDKSelection
+        canAccessFlutterSDK && !isBusy
     }
     var canCheckEnvironment: Bool {
-        canEditFlutterSDK && sdk != nil && !isCheckingSDK && !isCheckingEnvironment && !isFinishingTermination && !updateReserved
+        canAccessFlutterSDK && (!isBusy || status.showsLaunchProgress) && sdk != nil && !isCheckingSDK &&
+            !isCheckingEnvironment && !isFinishingTermination && !updateReserved
     }
     var hasPendingEnvironmentChecks: Bool { !doctorTasks.isEmpty }
     var canRefreshDevices: Bool {
@@ -423,7 +438,7 @@ final class SessionController {
         let process: SessionProcess
         let version: String
         var address: URL?
-        var pendingPage: FlutterBrowserPage?
+        var page: FlutterBrowserPage
     }
     @ObservationIgnored private var stopFallback: Task<Void, Never>?
     @ObservationIgnored private var vmWaitTimeout: Task<Void, Never>?
@@ -1370,7 +1385,7 @@ final class SessionController {
         status = .stopping
         message = nil
         debugStatusMessage = nil
-        hotRestartStatusMessage = nil
+        actionStatus = nil
         feedback = nil
         isHotOperationPending = false
         if let device {
@@ -1396,7 +1411,7 @@ final class SessionController {
 
     func hotOperation(_ operation: FlutterHotOperation) {
         guard canHotOperate, let debug, let active else { return }
-        hotRestartStatusMessage = nil
+        actionStatus = nil
         feedback = nil
         isHotOperationPending = true
         debug.hotOperation(operation, send: active.send) { [weak self, weak debug] result in
@@ -1409,7 +1424,9 @@ final class SessionController {
                     self.feedback = SessionFeedback(title: "Hot Reload Completed",
                                                     detail: "The current debug session is still running.")
                 case .restart:
-                    if self.status == .running { self.hotRestartStatusMessage = "Hot Restart Completed" }
+                    if self.status == .running {
+                        self.actionStatus = .hotRestartCompleted
+                    }
                 }
             case .failure(let issue):
                 let reason = LocalizedStringResource.appIssue(issue)
@@ -1490,18 +1507,20 @@ final class SessionController {
         guard debug.hasActiveVMService, let lease = debugLease, let project else { return }
         if let server = standaloneServer {
             if let address = server.address {
+                standaloneServer?.page = page
                 if let destination = debug.standaloneBrowserDestination(page, server: address, version: server.version) {
                     presentBrowser(page, destination: destination)
                 }
-            } else if standaloneStartupTimeout != nil {
-                standaloneServer?.pendingPage = page
+            } else if standaloneStartupTimeout != nil, server.page != page {
+                standaloneServer?.page = page
+                showStandaloneDevToolsStarting(for: page)
             }
             return
         }
         guard let sdk = StandaloneDevToolsSDK(directory: URL(fileURLWithPath: path)) else {
             standaloneDevToolsVersion = nil
             standaloneDevToolsIssue = Self.invalidStandaloneDevTools
-            showStandaloneDevToolsFailure()
+            showStandaloneDevToolsFailure(for: page)
             return
         }
         standaloneDevToolsVersion = sdk.version
@@ -1510,18 +1529,17 @@ final class SessionController {
         let lines = SessionLineStream { [weak self, weak debug] line, isError, _ in
             guard let self, let debug, self.debug === debug, self.standaloneServer?.id == id,
                   self.standaloneStartupTimeout != nil, !isError,
-                  let page = self.standaloneServer?.pendingPage,
+                  let page = self.standaloneServer?.page,
                   let address = StandaloneDevToolsSDK.serverAddress(from: line) else { return }
             self.standaloneStartupTimeout?.cancel()
             self.standaloneStartupTimeout = nil
             self.standaloneServer?.address = address
-            self.standaloneServer?.pendingPage = nil
             if let destination = debug.standaloneBrowserDestination(page, server: address, version: sdk.version) {
                 self.presentBrowser(page, destination: destination)
             } else {
-                self.feedback = SessionFeedback(title: "Standalone DevTools is ready",
-                                                detail: "Open Inspector or DevTools again after the debug session reconnects.",
-                                                clearsOnDevToolsOpen: true)
+                self.showBrowserFeedback("Standalone DevTools is ready",
+                                         detail: "Open Inspector or DevTools again after the debug session reconnects.",
+                                         for: page)
             }
         }
         let command = SessionCommand(executable: sdk.dart.path,
@@ -1531,15 +1549,15 @@ final class SessionController {
             let process = try runner.start(command, lease: lease, output: { data, isError, generation in
                 lines.receive(data, isError: isError, generation: generation)
             })
-            standaloneServer = StandaloneServer(id: id, process: process, version: sdk.version, pendingPage: page)
-            feedback = SessionFeedback(title: "Starting standalone DevTools…", detail: nil, clearsOnDevToolsOpen: true)
+            standaloneServer = StandaloneServer(id: id, process: process, version: sdk.version, page: page)
+            showStandaloneDevToolsStarting(for: page)
             standaloneStartupTimeout = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(15)) }
                 catch { return }
-                guard let self, self.standaloneServer?.id == id else { return }
+                guard let self, let server = self.standaloneServer, server.id == id else { return }
                 self.standaloneStartupTimeout = nil
                 process.stop()
-                self.showStandaloneDevToolsFailure()
+                self.showStandaloneDevToolsFailure(for: server.page)
             }
             Task { [weak self, weak debug] in
                 let result = await process.wait()
@@ -1556,23 +1574,39 @@ final class SessionController {
                 }
                 if self.canStop, debug?.hasActiveVMService == true {
                     if awaitingStartup {
-                        self.showStandaloneDevToolsFailure()
+                        self.showStandaloneDevToolsFailure(for: server.page)
                     } else if server.address != nil {
-                        self.feedback = SessionFeedback(title: "Standalone DevTools stopped",
-                                                        detail: "Open Inspector or DevTools to start it again.",
-                                                        clearsOnDevToolsOpen: true)
+                        self.showBrowserFeedback("Standalone DevTools stopped",
+                                                 detail: "Open Inspector or DevTools to start it again.",
+                                                 for: server.page)
                     }
                 }
             }
         } catch {
-            showStandaloneDevToolsFailure()
+            showStandaloneDevToolsFailure(for: page)
         }
     }
 
-    private func showStandaloneDevToolsFailure() {
-        feedback = SessionFeedback(title: "Could not start standalone DevTools",
-                                   detail: "Check the Dart SDK in DevTools settings and try again.",
-                                   clearsOnDevToolsOpen: true)
+    private func showStandaloneDevToolsStarting(for page: FlutterBrowserPage) {
+        showBrowserFeedback("Starting standalone DevTools…", for: page)
+    }
+
+    private func showStandaloneDevToolsFailure(for page: FlutterBrowserPage) {
+        showBrowserFeedback("Could not start standalone DevTools",
+                            detail: "Check the Dart SDK in DevTools settings and try again.",
+                            for: page)
+    }
+
+    private func showBrowserFeedback(_ title: LocalizedStringResource, detail: LocalizedStringResource? = nil,
+                                     for page: FlutterBrowserPage) {
+        if page == .inspector {
+            guard status == .running else { return }
+            feedback = nil
+            actionStatus = .inspector(SessionFeedback(title: title, detail: detail))
+        } else {
+            if case .inspector = actionStatus { actionStatus = nil }
+            feedback = SessionFeedback(title: title, detail: detail, clearsOnDevToolsOpen: true)
+        }
     }
 
     private func cancelBrowserFocus() {
@@ -1600,18 +1634,21 @@ final class SessionController {
     private func finishPresentingBrowser(_ page: FlutterBrowserPage,
                                          destination: (url: URL, inspectorFallback: Bool), reused: Bool) {
         guard reused || openURL(destination.url) else {
-            feedback = SessionFeedback(title: "Could not open \(page.title)",
-                                       detail: "The system could not open this address. Check the default browser and current connection, then try again.",
-                                       clearsOnDevToolsOpen: page == .devTools)
+            showBrowserFeedback("Could not open \(page.title)",
+                                detail: "The system could not open this address. Check the default browser and current connection, then try again.",
+                                for: page)
             return
         }
         debug?.openedBrowserURLs.insert(destination.url)
         if destination.inspectorFallback {
-            feedback = SessionFeedback(title: "Opened DevTools for the current session. Select Inspector.", detail: nil)
+            showBrowserFeedback("Select Inspector",
+                                detail: "DevTools is open for the current session.",
+                                for: page)
         } else if page == .inspector {
-            feedback = SessionFeedback(title: "Opened \(page.title)", detail: nil)
-        } else if feedback?.clearsOnDevToolsOpen == true {
-            feedback = nil
+            showBrowserFeedback("Opened \(page.title)", for: page)
+        } else {
+            if case .inspector = actionStatus { actionStatus = nil }
+            if feedback?.clearsOnDevToolsOpen == true { feedback = nil }
         }
     }
 
@@ -1704,7 +1741,7 @@ final class SessionController {
                         self.debugStatusMessage = nil
                     } else {
                         self.cancelBrowserFocus()
-                        self.hotRestartStatusMessage = nil
+                        self.actionStatus = nil
                         self.status = .connectionInterrupted
                         self.debugStatusMessage = "The VM Service connection was interrupted. Reconnecting. You can stop the current session."
                     }
@@ -1813,7 +1850,7 @@ final class SessionController {
                 debugLease = nil
                 hasCurrentDevToolsAddress = false
                 debugStatusMessage = nil
-                hotRestartStatusMessage = nil
+                actionStatus = nil
                 feedback = nil
                 isHotOperationPending = false
                 vmWaitTimeout?.cancel()

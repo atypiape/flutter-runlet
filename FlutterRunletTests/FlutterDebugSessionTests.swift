@@ -539,7 +539,20 @@ final class FlutterDebugSessionTests: XCTestCase {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
         let isolates = OSAllocatedUnfairLock(initialState: ["view-1": "isolate-before", "view-2": "other-before"])
-        let service = try await ToolEventServer.start(file: fixture.project) { isolates.withLock { $0 } }
+        let pollsUntilReplacement = OSAllocatedUnfairLock(initialState: 0)
+        let service = try await ToolEventServer.start(file: fixture.project) {
+            let publishesNewIsolates = pollsUntilReplacement.withLock { remaining in
+                guard remaining > 0 else { return false }
+                remaining -= 1
+                return remaining == 0
+            }
+            return isolates.withLock { current in
+                if publishesNewIsolates {
+                    current = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
+                }
+                return current
+            }
+        }
         defer { service.listener.cancel() }
         let store = try ProjectRecoveryStore(directory: fixture.storage)
         let ready = Self.machineReady.replacingOccurrences(of: "8181/private=", with: "\(service.port)/private=")
@@ -567,7 +580,9 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(restart.fullRestart, true)
             isolates.withLock { $0["unrelated-view"] = "unrelated-isolate" }
             try reply(fixture, to: restart.id, number: 1, code: 0)
-            try await eventually { session.feedback.map { self.chinese.appString($0.title) } == "热重启未完成" }
+            try await eventually(timeout: .seconds(7)) {
+                session.feedback.map { self.chinese.appString($0.title) } == "热重启未完成"
+            }
             let failure = try XCTUnwrap(session.feedback?.detail)
             XCTAssertEqual(chinese.appString(failure), "无法确认 Flutter 应用已重启。如需停止并重新启动调试会话，请选择「运行」并确认。")
             XCTAssertTrue(session.canStop)
@@ -576,20 +591,19 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertTrue(session.performDebugAction(.restart))
             try await fixture.waitFor("command-2")
             let next = try request(fixture, number: 2)
-            isolates.withLock {
-                $0 = ["view-1": "isolate-after", "view-2": "other-after", "unrelated-view": "unrelated-after"]
-            }
+            pollsUntilReplacement.withLock { $0 = 4 }
             try reply(fixture, to: next.id, number: 2, code: 0)
             let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
-            let menuStatus = SessionStatusLabel(session: session, hasDemo: false, showsHotRestart: true)
-            try await eventually { self.chinese.appString(mainWindow.statusMessage) == "已热重启" }
-            XCTAssertEqual(menuStatus.hotRestartTitle.map { chinese.appString($0) }, "已热重启")
-            XCTAssertEqual(menuStatus.hotRestartTitle.map { Locale(identifier: "en").appString($0) }, "Hot Restart Completed")
+            let menuStatus = SessionStatusLabel(session: session, hasDemo: false, showsActionStatus: true)
+            try await eventually { !session.isHotOperationPending }
+            XCTAssertEqual(chinese.appString(mainWindow.statusMessage), "已热重启")
+            XCTAssertEqual(menuStatus.actionStatusTitle.map { chinese.appString($0) }, "已热重启")
+            XCTAssertEqual(menuStatus.actionStatusTitle.map { Locale(identifier: "en").appString($0) }, "Hot Restart Completed")
             XCTAssertNil(session.feedback)
             XCTAssertTrue(session.canHotOperate)
 
             XCTAssertTrue(session.performDebugAction(.reload))
-            XCTAssertNil(menuStatus.hotRestartTitle)
+            XCTAssertNil(menuStatus.actionStatusTitle)
             XCTAssertEqual(mainWindow.statusMessage, SessionStatus.running.title)
             try await fixture.waitFor("command-3")
             let reload = try request(fixture, number: 3)
@@ -598,7 +612,7 @@ final class FlutterDebugSessionTests: XCTestCase {
 
             XCTAssertTrue(session.performDebugAction(.stop))
             await session.waitUntilIdle()
-            XCTAssertNil(menuStatus.hotRestartTitle)
+            XCTAssertNil(menuStatus.actionStatusTitle)
         } catch {
             session.stop()
             await session.waitUntilIdle()
@@ -818,8 +832,11 @@ final class FlutterDebugSessionTests: XCTestCase {
             try await eventually { session.canOpenBrowser }
             XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.state("devtools-args").path))
             session.openBrowser(.devTools)
+            XCTAssertEqual(session.feedback?.title.key, "Starting standalone DevTools…")
             session.openBrowser(.inspector)
             session.openBrowser(.inspector)
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus?.title.key, "Starting standalone DevTools…")
             try await fixture.waitFor("devtools-pid")
             XCTAssertTrue(opened.isEmpty)
             try Data().write(to: fixture.state("devtools-ready"))
@@ -867,7 +884,7 @@ final class FlutterDebugSessionTests: XCTestCase {
         let fixture = try SessionFixture()
         defer { fixture.remove() }
         let executable = try makeFlutter(in: fixture, script: Self.machineReady + "\nIFS= read -r command")
-        let directory = try makeStandaloneDevTools(in: fixture)
+        let directory = try makeStandaloneDevTools(in: fixture, version: "2.62.0")
         var opened: [URL] = []
         var finishFocus: CheckedContinuation<Bool, Never>?
         let store = try ProjectRecoveryStore(directory: fixture.storage)
@@ -882,12 +899,23 @@ final class FlutterDebugSessionTests: XCTestCase {
         do {
             try await eventually { session.canOpenBrowser }
             session.openBrowser(.inspector)
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus?.title.key, "Starting standalone DevTools…")
             try Data().write(to: fixture.state("devtools-ready"))
             try await eventually { opened.count == 1 }
+            XCTAssertEqual(opened.first?.path, "/")
+            let mainWindow = MainWindowView(presentation: .empty, session: session, run: {}, openSettings: nil)
+            let menuStatus = SessionStatusLabel(session: session, hasDemo: false, showsActionStatus: true)
+            XCTAssertEqual(chinese.appString(mainWindow.statusMessage), "请选择 Inspector")
+            XCTAssertEqual(menuStatus.actionStatusTitle.map { Locale(identifier: "en").appString($0) },
+                           "Select Inspector")
+            XCTAssertEqual(session.runningActionStatus?.detail.map { chinese.appString($0) }, "已打开当前会话的 DevTools。")
+            XCTAssertNil(session.feedback)
             session.openBrowser(.inspector)
             try await eventually { finishFocus != nil }
             try Data().write(to: fixture.state("devtools-exit"))
-            try await eventually { session.feedback?.title.key == "Standalone DevTools stopped" }
+            try await eventually { session.runningActionStatus?.title.key == "Standalone DevTools stopped" }
+            XCTAssertNil(session.feedback)
             finishFocus?.resume(returning: false)
             finishFocus = nil
             try FileManager.default.removeItem(at: fixture.state("devtools-exit"))
@@ -998,15 +1026,16 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "无法打开 DevTools")
             canLaunchBrowser = true
             session.openBrowser(.inspector)
-            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开 Inspector")
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus.map { chinese.appString($0.title) }, "已打开 Inspector")
             let inspector = try XCTUnwrap(opened.last)
             XCTAssertTrue(inspector.path.hasSuffix("/devtools/inspector"))
             XCTAssertEqual(URLComponents(url: inspector, resolvingAgainstBaseURL: false)?
                 .queryItems?.first?.value, "ws://127.0.0.1:8181/private=/ws")
             XCTAssertFalse(session.logs.contains("private="))
             session.openBrowser(.devTools)
-            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开 Inspector")
-            session.dismissFeedback()
+            XCTAssertNil(session.feedback)
+            XCTAssertNil(session.runningActionStatus)
             let devTools = try XCTUnwrap(opened.last)
             session.openBrowser(.devTools)
             session.openBrowser(.devTools)
@@ -1014,18 +1043,22 @@ final class FlutterDebugSessionTests: XCTestCase {
             XCTAssertEqual(focused, [devTools])
             XCTAssertEqual(opened.count, 3)
             XCTAssertNil(session.feedback)
+            session.openBrowser(.inspector)
+            try await eventually { session.runningActionStatus.map { self.chinese.appString($0.title) } == "已打开 Inspector" }
 
             vmOnline = false
             try await eventually { clock.hasSleeper(.seconds(2)) }
             clock.advance(by: .seconds(2))
             try await eventually { !session.vmConnected }
             XCTAssertFalse(session.canOpenBrowser)
+            XCTAssertNil(session.runningActionStatus)
             session.openBrowser(.devTools)
             XCTAssertEqual(opened.count, 3)
             vmOnline = true
             try await eventually { clock.hasSleeper(.milliseconds(500)) }
             clock.advance(by: .milliseconds(500))
             try await eventually { session.canOpenBrowser }
+            XCTAssertNil(session.runningActionStatus)
 
             session.stop()
             await session.waitUntilIdle()
@@ -1122,7 +1155,8 @@ final class FlutterDebugSessionTests: XCTestCase {
             session.openBrowser(.inspector)
             try await eventually { opened.count == 2 }
             XCTAssertEqual(opened.map(\.port), [8181, 8181])
-            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开当前会话的 DevTools，请选择 Inspector。")
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus.map { chinese.appString($0.title) }, "请选择 Inspector")
             session.stop()
             await session.waitUntilIdle()
             XCTAssertNil(session.activeLaunch)
@@ -1165,17 +1199,25 @@ final class FlutterDebugSessionTests: XCTestCase {
             IFS= read -r command
             """#)
         var opened: URL?
+        var browserAvailable = false
         let session = controller(fixture, store: store, executable: executable,
                                  flutterVersion: "3.47.4", devToolsVersion: "2.61.0",
-                                 openURL: { opened = $0; return true }) { _ in true }
+                                 openURL: { opened = $0; return browserAvailable }) { _ in true }
         try fixture.select("prod", in: session)
         try await eventually { session.canRun }
         session.run()
         do {
             try await eventually { session.canOpenBrowser }
             session.openBrowser(.inspector)
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus.map { chinese.appString($0.title) }, "无法打开 Inspector")
+            XCTAssertNotNil(session.runningActionStatus?.detail)
+
+            browserAvailable = true
+            session.openBrowser(.inspector)
             XCTAssertTrue(opened?.path.hasSuffix("/devtools") == true)
-            XCTAssertEqual(session.feedback.map { chinese.appString($0.title) }, "已打开当前会话的 DevTools，请选择 Inspector。")
+            XCTAssertNil(session.feedback)
+            XCTAssertEqual(session.runningActionStatus.map { chinese.appString($0.title) }, "请选择 Inspector")
             session.stop()
             await session.waitUntilIdle()
         } catch {
@@ -1243,11 +1285,11 @@ final class FlutterDebugSessionTests: XCTestCase {
         return executable
     }
 
-    private func makeStandaloneDevTools(in fixture: SessionFixture) throws -> URL {
+    private func makeStandaloneDevTools(in fixture: SessionFixture, version: String = "2.61.0") throws -> URL {
         let directory = fixture.base.appending(path: "DevTools SDK")
         let manifest = directory.appending(path: "bin/resources/devtools")
         try FileManager.default.createDirectory(at: manifest, withIntermediateDirectories: true)
-        try #"{"app_name":"devtools_app","version":"2.61.0"}"#
+        try #"{"app_name":"devtools_app","version":"\#(version)"}"#
             .write(to: manifest.appending(path: "version.json"), atomically: true, encoding: .utf8)
         let dart = directory.appending(path: "bin/dart")
         try #"""
@@ -1264,8 +1306,8 @@ final class FlutterDebugSessionTests: XCTestCase {
         return directory
     }
 
-    private func eventually(_ condition: () -> Bool) async throws {
-        let deadline = ContinuousClock.now + .seconds(5)
+    private func eventually(timeout: Duration = .seconds(5), _ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
         while !condition() {
             guard .now < deadline else { throw SessionIssue("等待调试状态超时") }
             try await Task.sleep(for: .milliseconds(20))

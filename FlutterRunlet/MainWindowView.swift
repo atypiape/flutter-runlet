@@ -106,6 +106,7 @@ struct MainWindowView: View {
             .foregroundStyle(statusIsError ? palette.error : (message == Self.projectPrompt ? palette.accent : palette.secondary))
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityValue(Text(verbatim: session?.runningActionStatus?.detail.map { locale.appString($0) } ?? ""))
             .help(statusHelp(latest))
     }
 
@@ -119,7 +120,7 @@ struct MainWindowView: View {
         }
         if session.status.showsLaunchProgress || session.status == .running ||
             session.status == .connectionInterrupted || session.status == .stopping {
-            return session.debugStatusMessage ?? session.hotRestartStatusMessage ?? session.status.title
+            return session.debugStatusMessage ?? session.runningActionStatus?.title ?? session.status.title
         }
         if let failure = session.recoveryFailure { return failure.message }
         if let issue = session.displayMessage, issue != LocalizedStringResource("Select a debug device") {
@@ -133,6 +134,7 @@ struct MainWindowView: View {
     private func statusHelp(_ latest: String) -> String {
         guard let session else { return latest }
         var messages = [latest]
+        if let detail = session.runningActionStatus?.detail { messages.append(locale.appString(detail)) }
         if let record = session.recovery, session.status != .restoringEnvironment {
             messages.append("\(record.projectPath) · \(record.taskLabel)")
         }
@@ -846,12 +848,18 @@ struct SessionStatusLabel: View {
 
     let session: SessionController?
     let hasDemo: Bool
-    var showsHotRestart = false
+    var showsActionStatus = false
 
     private var status: SessionStatus { session?.status ?? (hasDemo ? .ready : .idle) }
 
-    var hotRestartTitle: LocalizedStringResource? {
-        showsHotRestart && status == .running ? session?.hotRestartStatusMessage : nil
+    private var actionStatus: SessionFeedback? { showsActionStatus ? session?.runningActionStatus : nil }
+
+    var actionStatusTitle: LocalizedStringResource? { actionStatus?.title }
+
+    private var helpText: String {
+        if let recovery = session?.recoveryMessage { return locale.appString(recovery) }
+        let title = locale.appString(actionStatusTitle ?? status.title)
+        return actionStatus?.detail.map { title + "\n" + locale.appString($0) } ?? title
     }
 
     var body: some View {
@@ -864,18 +872,18 @@ struct SessionStatusLabel: View {
         }
         HStack(spacing: 6) {
             Circle().fill(colors.foreground).frame(width: 6, height: 6).accessibilityHidden(true)
-            Text(hotRestartTitle ?? shortTitle(status)).font(RunletType.localized(locale, size: 11, medium: true))
+            Text(actionStatusTitle ?? shortTitle(status)).font(RunletType.localized(locale, size: 11, medium: true))
                 .lineLimit(1)
-                .fixedSize()
+                .fixedSize(horizontal: actionStatusTitle == nil, vertical: true)
         }
         .foregroundStyle(colors.foreground)
         .padding(.horizontal, 8)
         .frame(height: 22)
         .background(colors.surface, in: Capsule())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(hotRestartTitle ?? status.title))
-        .accessibilityValue(Text(session?.recoveryMessage.map { locale.appString($0) } ?? ""))
-        .help(Text(session?.recoveryMessage ?? hotRestartTitle ?? status.title))
+        .accessibilityLabel(Text(actionStatusTitle ?? status.title))
+        .accessibilityValue(Text((session?.recoveryMessage ?? actionStatus?.detail).map { locale.appString($0) } ?? ""))
+        .help(Text(verbatim: helpText))
     }
 
     private func shortTitle(_ status: SessionStatus) -> LocalizedStringResource {
