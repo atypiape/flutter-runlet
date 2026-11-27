@@ -259,11 +259,16 @@ final class FlutterDebugSession {
             completeHot(.failure(SessionIssue(localized: "Could not send the command to the current Flutter process")))
             return
         }
+        scheduleHotTimeout(id: id, after: .seconds(30), issue: SessionIssue(localized: "Timed out waiting for Flutter to respond"))
+    }
+
+    private func scheduleHotTimeout(id: Int, after duration: Duration, issue: SessionIssue) {
+        hotTimeout?.cancel()
         hotTimeout = Task { [weak self, timing] in
-            do { try await timing.sleep(.seconds(30)) }
+            do { try await timing.sleep(duration) }
             catch { return }
             guard let self, !Task.isCancelled, self.hotRequest?.id == id else { return }
-            self.completeHot(.failure(SessionIssue(localized: "Timed out waiting for Flutter to respond")))
+            self.completeHot(.failure(issue))
         }
     }
 
@@ -474,17 +479,12 @@ final class FlutterDebugSession {
             completeHot(.failure(unconfirmed))
             return
         }
-        hotTimeout?.cancel()
-        hotTimeout = nil
+        scheduleHotTimeout(id: id, after: .seconds(5), issue: unconfirmed)
         hotWork = Task { [weak self, timing] in
             let probe = VMServiceProbe(url: baseline.endpoint)
             defer { probe.close() }
-            // The machine response can precede publication of the new UI isolate.
-            for attempt in 0..<3 {
-                if attempt > 0 {
-                    do { try await timing.sleep(.milliseconds(250)) }
-                    catch { return }
-                }
+            // Wait for the VM Service to publish the new UI isolates after Flutter responds.
+            while true {
                 guard !Task.isCancelled, self?.hotRequest?.id == id else { return }
                 guard self?.endpoint == baseline.endpoint else { break }
                 let current = await probe.viewIsolates()
@@ -496,6 +496,8 @@ final class FlutterDebugSession {
                     self?.completeHot(.success(()))
                     return
                 }
+                do { try await timing.sleep(.milliseconds(250)) }
+                catch { return }
             }
             self?.completeHot(.failure(unconfirmed))
         }
