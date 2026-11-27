@@ -1,5 +1,13 @@
 # FlutterRunlet 版本说明
 
+## v0.5.1 · 热重启与状态反馈
+
+- 热重启会等到 Flutter 视图切换到新的 Dart isolate，再报告结果。
+- 主窗口和菜单栏的状态栏显示 Inspector 操作反馈。配置变更等提示显示在菜单栏面板底部。
+- 已验证过 SDK 时，Flutter 启动期间也可在 Flutter 设置中检查环境。
+
+Universal DMG 支持 Apple Silicon 和 Intel，最低部署目标为 macOS 15.0。预发布包使用临时签名，未经 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.5.1)
+
 ## v0.5.0 · 自动发现 Flutter SDK
 
 - 启动时自动查找独立安装的 Flutter SDK。从 Finder 启动时也可使用登录 shell 的 PATH。设置显示实际 SDK 路径，调试使用同一 SDK。
