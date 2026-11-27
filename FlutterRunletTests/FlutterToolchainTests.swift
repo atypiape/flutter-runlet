@@ -251,7 +251,6 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(fvm.executable.path, fvmExecutable.path)
         XCTAssertEqual(fvm.flutterVersion, "3.43.0")
         XCTAssertEqual(fvm.dartVersion, "3.12.0")
-        XCTAssertEqual(fvm.projectFVMVersion, "3.43.0")
 
         let overridden = try await toolchain.resolve(
             fixture.project, environment, .init(preferProjectFVM: false, manualPath: manual.path)
@@ -259,10 +258,11 @@ final class FlutterToolchainTests: XCTestCase {
         XCTAssertEqual(overridden.source, .manual)
         XCTAssertEqual(overridden.executable.path, manualExecutable.path)
         XCTAssertEqual(overridden.flutterVersion, "3.42.0")
-        XCTAssertEqual(overridden.projectFVMVersion, "3.43.0")
         let system = try await toolchain.resolve(fixture.project, environment, .init(preferProjectFVM: false))
         XCTAssertEqual(system.source, .system)
         XCTAssertEqual(system.flutterVersion, "3.41.0")
+        let probedVersions = try probeLog(fixture).split(separator: "\n").map { $0.prefix(while: { $0 != ":" }) }
+        XCTAssertEqual(probedVersions, ["3.43.0", "3.42.0", "3.41.0"])
 
         try FileManager.default.removeItem(at: manual)
         await expectIssue("手动", from: {
@@ -271,12 +271,117 @@ final class FlutterToolchainTests: XCTestCase {
         try FileManager.default.removeItem(at: link)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: fixture.base.appending(path: "missing"))
         let before = try probeLog(fixture)
-        for preferFVM in [true, false] {
-            await expectIssue("FVM", from: {
-                try await toolchain.resolve(fixture.project, environment, .init(preferProjectFVM: preferFVM))
-            })
-        }
+        await expectIssue("FVM", from: {
+            try await toolchain.resolve(fixture.project, environment, .init())
+        })
         XCTAssertEqual(try probeLog(fixture), before)
+    }
+
+    func testDisablingProjectFVMUnblocksPATHAndManualSDK() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let environment = try sdkEnvironment(fixture)
+        let cacheSDK = fixture.base.appending(path: "cache/3.43.0")
+        let link = try pinFVM("3.43.0", to: cacheSDK, in: fixture)
+        try FileManager.default.removeItem(at: link)
+        let manual = fixture.base.appending(path: "Manual SDK")
+        let executable = try makeSDK(manual, version: "3.42.0")
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: environment, toolchain: .production)
+
+        try fixture.select("dev", in: session)
+        try await eventually { session.sdkIssue != nil }
+        XCTAssertFalse(session.canRun)
+
+        session.setPreferProjectFVM(false)
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertEqual(session.sdk?.source, .system)
+        XCTAssertNil(session.sdkIssue)
+        XCTAssertTrue(session.canRun)
+
+        session.selectFlutterSDK(manual)
+        try await eventually { !session.isCheckingSDKSelection && !session.isRefreshingDevices }
+        XCTAssertEqual(session.manualSDKPath, manual.path)
+        XCTAssertEqual(session.sdk?.source, .manual)
+        XCTAssertEqual(session.sdk?.executable.path, executable.path)
+        XCTAssertNil(session.sdkIssue)
+        XCTAssertTrue(session.canRun)
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try String(contentsOf: fixture.state("sdk-used"), encoding: .utf8), executable.path)
+
+        session.setPreferProjectFVM(true)
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertNil(session.sdk)
+        XCTAssertNotNil(session.sdkIssue)
+        XCTAssertFalse(session.canRun)
+    }
+
+    func testAutomaticallyFindsStandaloneSDKThroughLoginShellPATH() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        let directory = fixture.base.appending(path: "Standalone SDK")
+        let executable = try makeSDK(directory, version: "3.42.0")
+        let terminalBin = fixture.base.appending(path: "Terminal Bin")
+        try FileManager.default.createDirectory(at: terminalBin, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: terminalBin.appending(path: "flutter"), withDestinationURL: executable)
+        let projectBin = fixture.project.appending(path: "bin")
+        try """
+        printf 'terminal startup output\\n'
+        export PATH="\(projectBin.path):\(terminalBin.path):$PATH"
+        """.write(to: fixture.base.appending(path: ".zprofile"), atomically: true, encoding: .utf8)
+
+        let environment = ["PATH": "/usr/bin:/bin", "SHELL": "/bin/zsh", "ZDOTDIR": fixture.base.path,
+                           "RUNLET_PROBE_LOG": fixture.base.appending(path: "probes").path]
+        let store = try ProjectRecoveryStore(directory: fixture.storage)
+        let session = SessionController(store: store, runner: .bundled, environment: environment, toolchain: .production)
+
+        try await eventually { !session.isCheckingSDK }
+        XCTAssertNil(session.project)
+        XCTAssertNil(session.manualSDKPath)
+        XCTAssertTrue(session.preferProjectFVM)
+        XCTAssertEqual(session.sdk?.source, .system)
+        XCTAssertEqual(session.sdk?.directory.path, directory.path)
+        XCTAssertTrue(session.devices.isEmpty)
+
+        _ = try makeSDK(fixture.project, version: "project-script")
+        try fixture.select("dev", in: session)
+        try await eventually { !session.isRefreshingDevices }
+        XCTAssertTrue(session.canRun)
+        XCTAssertNil(session.manualSDKPath)
+        XCTAssertNil(session.sdkIssue)
+        XCTAssertEqual(session.sdk?.source, .system)
+        XCTAssertEqual(session.sdk?.directory.path, directory.path)
+        XCTAssertEqual(session.sdk?.executable.path, executable.path)
+        XCTAssertFalse(try probeLog(fixture).contains("project-script"))
+
+        session.run()
+        await session.waitUntilIdle()
+        XCTAssertEqual(try String(contentsOf: fixture.state("sdk-used"), encoding: .utf8), executable.path)
+    }
+
+    func testPATHLauncherUsesTheVerifiedSDKReportedByFlutter() async throws {
+        let fixture = try SessionFixture()
+        defer { fixture.remove() }
+        var environment = try sdkEnvironment(fixture)
+        let directory = fixture.base.appending(path: "Standalone SDK")
+        let executable = try makeSDK(directory, version: "3.42.0")
+        let launcher = fixture.base.appending(path: "Launcher")
+        _ = try makeSDK(launcher, version: "launcher", reportedRoot: directory.path, withStartupMessages: true)
+        environment["PATH"] = launcher.appending(path: "bin").path + ":/usr/bin:/bin"
+        let toolchain = FlutterToolchain.production
+
+        let sdk = try await toolchain.resolve(fixture.project, environment, .init())
+        XCTAssertEqual(sdk.directory.path, directory.path)
+        XCTAssertEqual(sdk.executable.path, executable.path)
+        XCTAssertEqual(sdk.flutterVersion, "3.42.0")
+
+        _ = try makeSDK(fixture.project, version: "project-script")
+        _ = try makeSDK(launcher, version: "launcher", reportedRoot: fixture.project.path)
+        await expectIssue("位于当前项目内", from: {
+            try await toolchain.resolve(fixture.project, environment, .init())
+        })
+        XCTAssertFalse(try probeLog(fixture).contains("project-script"))
     }
 
     func testProjectScriptsAndSDKLinksOutsideTrustedRootsAreNeverProbed() async throws {
@@ -939,16 +1044,22 @@ final class FlutterToolchainTests: XCTestCase {
     }
 
     private func makeSDK(_ directory: URL, version: String, devices: String =
-        #"[{"id":"iOS","name":"iPhone","targetPlatform":"ios","emulator":true,"isSupported":true}]"#) throws -> URL {
+        #"[{"id":"iOS","name":"iPhone","targetPlatform":"ios","emulator":true,"isSupported":true}]"#,
+                         reportedRoot: String? = nil, withStartupMessages: Bool = false) throws -> URL {
         let bin = directory.appending(path: "bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         let executable = bin.appending(path: "flutter")
+        var versionFields = ["flutterVersion": version, "dartSdkVersion": "3.12.0"]
+        versionFields["flutterRoot"] = reportedRoot
+        let versionJSON = String(decoding: try JSONSerialization.data(withJSONObject: versionFields, options: .prettyPrinted),
+                                 as: UTF8.self)
+        let versionOutput = withStartupMessages ? "Preparing Flutter CLI\n\(versionJSON)\nFlutter first-run notice" : versionJSON
         try """
         #!/bin/sh
         case "$1" in
           --version)
             printf '%s\\n' "\(version):$PWD" >> "$RUNLET_PROBE_LOG"
-            printf '%s\\n' '{"flutterVersion":"\(version)","dartSdkVersion":"3.12.0"}'
+            printf '%s\\n' '\(versionOutput)'
             ;;
           devices)
             printf '%s\\n' '\(devices)'

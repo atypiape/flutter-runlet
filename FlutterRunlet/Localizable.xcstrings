@@ -2417,6 +2417,38 @@
         }
       }
     },
+    "Flutter reported an invalid SDK directory": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter reported an invalid SDK directory"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter 返回的 SDK 目录无效"
+          }
+        }
+      }
+    },
+    "Flutter reported an SDK directory inside the project": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter reported an SDK directory inside the project"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutter 返回的 SDK 目录位于当前项目内"
+          }
+        }
+      }
+    },
     "Flutter returned error code %@": {
       "localizations": {
         "en": {
