@@ -14,18 +14,15 @@ struct FlutterSDK: Equatable, Sendable {
     let devToolsVersion: String?
     let source: Source
     let directory: URL
-    let projectFVMVersion: String?
 
     init(executable: URL, flutterVersion: String, dartVersion: String,
-         devToolsVersion: String? = nil, source: Source = .system, directory: URL? = nil,
-         projectFVMVersion: String? = nil) {
+         devToolsVersion: String? = nil, source: Source = .system, directory: URL? = nil) {
         self.executable = executable
         self.flutterVersion = flutterVersion
         self.dartVersion = dartVersion
         self.devToolsVersion = devToolsVersion
         self.source = source
         self.directory = directory ?? executable.deletingLastPathComponent().deletingLastPathComponent()
-        self.projectFVMVersion = source == .projectFVM ? flutterVersion : projectFVMVersion
     }
 }
 
@@ -339,13 +336,10 @@ struct FlutterToolchain {
     private static func resolveSDK(project: URL?, environment: [String: String],
                                    options: FlutterSDKOptions) async throws -> FlutterSDK {
         let environment = probeEnvironment(environment, project)
-        var projectFVMVersion: String?
-        if let project {
+        if options.preferProjectFVM, let project {
             do {
                 if let directory = try projectFVMSDK(project, environment: environment) {
-                    let fvm = try await verifySDK(in: directory, source: .projectFVM, environment: environment)
-                    if options.preferProjectFVM { return fvm }
-                    projectFVMVersion = fvm.flutterVersion
+                    return try await verifySDK(in: directory, source: .projectFVM, environment: environment)
                 }
             } catch {
                 throw SessionIssue(localized: "The FVM SDK required by the project is unavailable: \(LocalizedStringResource.appIssue(error)). Fix the SDK specified by the project.")
@@ -355,24 +349,66 @@ struct FlutterToolchain {
             do {
                 guard manual.hasPrefix("/") else { throw SessionIssue(localized: "The path is not an absolute directory") }
                 return try await verifySDK(in: URL(fileURLWithPath: manual, isDirectory: true),
-                                           source: .manual, environment: environment, projectFVMVersion: projectFVMVersion)
+                                           source: .manual, environment: environment)
             } catch {
                 throw SessionIssue(localized: "The current Flutter SDK is unavailable: manual path \(manual) — \(LocalizedStringResource.appIssue(error)). Check the SDK path.")
             }
         }
 
-        let executable = (environment["PATH"] ?? "").split(separator: ":").lazy
-            .map { URL(fileURLWithPath: String($0), isDirectory: true).appending(path: "flutter").resolvingSymlinksInPath() }
-            .first { !isInside($0, project) && FileManager.default.isExecutableFile(atPath: $0.path) }
+        var sdkEnvironment = environment
+        var executable = flutterOnPATH(environment, project: project)
+        if executable == nil, let path = await loginShellPATH(environment, project: project) {
+            sdkEnvironment["PATH"] = path
+            sdkEnvironment = probeEnvironment(sdkEnvironment, project)
+            executable = flutterOnPATH(sdkEnvironment, project: project)
+        }
         guard let executable else {
             throw SessionIssue(localized: "The current Flutter SDK is unavailable: Flutter was not found on PATH. Check the SDK path.")
         }
         do {
-            return try await probeSDK(executable, source: .system, environment: environment,
-                                      projectFVMVersion: projectFVMVersion)
+            return try await resolvePATHSDK(executable, project: project, environment: sdkEnvironment)
         } catch {
             throw SessionIssue(localized: "The current Flutter SDK is unavailable: \(LocalizedStringResource.appIssue(error)). Check the SDK path.")
         }
+    }
+
+    private static func flutterOnPATH(_ environment: [String: String], project: URL?) -> URL? {
+        (environment["PATH"] ?? "").split(separator: ":").lazy
+            .map { URL(fileURLWithPath: String($0), isDirectory: true).appending(path: "flutter").resolvingSymlinksInPath() }
+            .first { !isInside($0, project) && FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
+    private static func loginShellPATH(_ environment: [String: String], project: URL?) async -> String? {
+        let accountShell = getpwuid(getuid())?.pointee.pw_shell.map { String(cString: $0) }
+        let path = environment["SHELL"] ?? accountShell ?? "/bin/zsh"
+        guard path.hasPrefix("/") else { return nil }
+        let shell = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+        guard !isInside(shell, project), FileManager.default.isExecutableFile(atPath: shell.path) else { return nil }
+
+        // Frame PATH separately from messages printed by shell startup files.
+        let printPATH = #"/usr/bin/printf '\000'; /usr/bin/printenv PATH; /usr/bin/printf '\000'"#
+        guard let output = try? await query(shell, ["-l", "-i", "-c", printPATH],
+                                            environment: environment, timeout: .seconds(5)) else { return nil }
+        let fields = output.split(separator: 0, maxSplits: 2, omittingEmptySubsequences: false)
+        guard fields.count == 3, fields[1].last == 10 else { return nil }
+        return String(bytes: fields[1].dropLast(), encoding: .utf8)
+    }
+
+    private static func resolvePATHSDK(_ executable: URL, project: URL?,
+                                       environment: [String: String]) async throws -> FlutterSDK {
+        let version = try await probeSDKVersion(executable, environment: environment)
+        guard let root = version.flutterRoot else { return version.sdk(executable, source: .system) }
+        guard root.hasPrefix("/"), !root.utf8.contains(0) else {
+            throw SessionIssue(localized: "Flutter reported an invalid SDK directory")
+        }
+        let directory = URL(fileURLWithPath: root, isDirectory: true).resolvingSymlinksInPath()
+        let sdkExecutable = try verifiedSDKExecutable(in: directory)
+        guard !isInside(directory, project), !isInside(sdkExecutable, project) else {
+            throw SessionIssue(localized: "Flutter reported an SDK directory inside the project")
+        }
+        let sdkVersion = sdkExecutable.path == executable.path
+            ? version : try await probeSDKVersion(sdkExecutable, environment: environment)
+        return sdkVersion.sdk(sdkExecutable, source: .system, directory: directory)
     }
 
     private static func projectFVMSDK(_ project: URL, environment: [String: String]) throws -> URL? {
@@ -446,26 +482,34 @@ struct FlutterToolchain {
     }
 
     private static func verifySDK(in directory: URL, source: FlutterSDK.Source,
-                                  environment: [String: String], projectFVMVersion: String? = nil) async throws -> FlutterSDK {
+                                  environment: [String: String]) async throws -> FlutterSDK {
         let directory = directory.resolvingSymlinksInPath()
+        let executable = try verifiedSDKExecutable(in: directory)
+        let version = try await probeSDKVersion(executable, environment: environment)
+        return version.sdk(executable, source: source, directory: directory)
+    }
+
+    private static func verifiedSDKExecutable(in directory: URL) throws -> URL {
         let executable = directory.appending(path: "bin/flutter").resolvingSymlinksInPath()
         guard isInside(executable, directory), FileManager.default.isExecutableFile(atPath: executable.path) else {
             throw SessionIssue(localized: "bin/flutter is not executable or points outside the SDK directory")
         }
-        return try await probeSDK(executable, source: source, directory: directory, environment: environment,
-                                  projectFVMVersion: projectFVMVersion)
+        return executable
     }
 
-    private static func probeSDK(_ executable: URL, source: FlutterSDK.Source, directory: URL? = nil,
-                                 environment: [String: String], projectFVMVersion: String? = nil) async throws -> FlutterSDK {
+    private static func probeSDKVersion(_ executable: URL, environment: [String: String]) async throws -> Version {
         let data = try await query(executable, ["--version", "--machine"], environment: environment)
-        guard let version = try? JSONDecoder().decode(Version.self, from: data),
-              !version.flutterVersion.isEmpty, !version.dartSdkVersion.isEmpty else {
+        let decoder = JSONDecoder()
+        var version = try? decoder.decode(Version.self, from: data)
+        // Flutter may print startup or first-run notices around the machine-readable version object.
+        if version == nil,
+           let json = String(decoding: data, as: UTF8.self).firstMatch(of: /(?m)^\{(?:[^\n]*\}|(?s:.*?)^\})$/) {
+            version = try? decoder.decode(Version.self, from: Data(json.output.utf8))
+        }
+        guard let version, !version.flutterVersion.isEmpty, !version.dartSdkVersion.isEmpty else {
             throw SessionIssue(localized: "Could not verify the Flutter/Dart version")
         }
-        return FlutterSDK(executable: executable, flutterVersion: version.flutterVersion,
-                          dartVersion: version.dartSdkVersion, devToolsVersion: version.devToolsVersion,
-                          source: source, directory: directory, projectFVMVersion: projectFVMVersion)
+        return version
     }
 
     static func command(sdk: FlutterSDK, device: FlutterDevice, launch: PreparedLaunch) throws -> SessionCommand {
@@ -495,6 +539,13 @@ struct FlutterToolchain {
         let flutterVersion: String
         let dartSdkVersion: String
         let devToolsVersion: String?
+        let flutterRoot: String?
+
+        func sdk(_ executable: URL, source: FlutterSDK.Source, directory: URL? = nil) -> FlutterSDK {
+            FlutterSDK(executable: executable, flutterVersion: flutterVersion,
+                       dartVersion: dartSdkVersion, devToolsVersion: devToolsVersion,
+                       source: source, directory: directory)
+        }
     }
 
     static func doctor(using sdk: FlutterSDK, environment: [String: String], project: URL?,
@@ -620,18 +671,19 @@ struct FlutterToolchain {
     }
 
     private static func query(_ executable: URL, _ arguments: [String],
-                              environment: [String: String]) async throws -> Data {
+                              environment: [String: String], timeout: Duration = .seconds(25)) async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
                 continuation.resume(with: Result {
-                    try readQuery(executable, arguments, environment: environment)
+                    try readQuery(executable, arguments, environment: environment, timeout: timeout)
                 })
             }
         }
     }
 
     private static func readQuery(_ executable: URL, _ arguments: [String],
-                                  environment: [String: String], daemonMethods: [String]? = nil) throws -> Data {
+                                  environment: [String: String], daemonMethods: [String]? = nil,
+                                  timeout: Duration = .seconds(25)) throws -> Data {
         let process = Process()
         let input = daemonMethods == nil ? nil : Pipe()
         let pipe = Pipe()
@@ -661,7 +713,7 @@ struct FlutterToolchain {
             try? input?.fileHandleForWriting.close()
             try? input?.fileHandleForReading.close()
         }
-        let deadline = ContinuousClock.now + .seconds(25)
+        let deadline = ContinuousClock.now + timeout
         var data = Data()
         var pending = Data()
         var replies: [String: Any] = [:]
