@@ -1,5 +1,12 @@
 # FlutterRunlet 版本说明
 
+## v0.5.0 · 自动发现 Flutter SDK
+
+- 启动时自动查找独立安装的 Flutter SDK。从 Finder 启动时也可使用登录 shell 的 PATH。设置显示实际 SDK 路径，调试使用同一 SDK。
+- 关闭「优先使用项目 FVM」后，可使用手动指定或自动发现的 SDK。
+
+Universal DMG 支持 Apple Silicon 和 Intel，最低部署目标为 macOS 15.0。预发布包使用临时签名，未经 Apple 公证，需手动安装。[下载与中英文更新日志](https://github.com/atypiape/flutter-runlet/releases/tag/v0.5.0)
+
 ## v0.4.2 · DevTools 标签与热重启
 
 - 再次打开当前调试会话的 DevTools 时，优先切回已打开的浏览器标签页。
